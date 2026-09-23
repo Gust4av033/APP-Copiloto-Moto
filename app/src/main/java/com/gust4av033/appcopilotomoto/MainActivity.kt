@@ -2,8 +2,6 @@ package com.gust4av033.appcopilotomoto
 
 import android.Manifest
 import android.content.pm.PackageManager
-import android.media.AudioManager
-import android.media.ToneGenerator
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -44,6 +42,7 @@ class MainActivity : ComponentActivity() {
     private val media by lazy { MediaActionAdapter(applicationContext) }
     private var wakeProvider: WakeWordProvider? = null
     private var wakeResumeTask: Runnable? = null
+    private var pendingSpeechStart: Runnable? = null
     private var wakeCycle = 0
     private var consecutiveEmptyCommands = 0
     private val recentWakeDetections = ArrayDeque<Long>()
@@ -98,14 +97,14 @@ class MainActivity : ComponentActivity() {
                             measurement.warning?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp)) }
                         }
                         Text("Fase 0.1 · Orden corta", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Pulsá Escuchar y decí ‘siguiente canción’. También podés probar ‘cancelar’ o ‘cállate’.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Pulsá Escuchar, esperá a que diga ‘Reconocedor listo’ y decí ‘siguiente canción’. También podés probar ‘cancelar’ o ‘cállate’.", modifier = Modifier.padding(top = 8.dp))
                         Text("Durante la orden APP pide pausar la música; al terminar solicita reanudarla.", style = MaterialTheme.typography.bodySmall)
                         Button(onClick = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) }, enabled = !running && !wakeEnabled && !wakeTransition, modifier = Modifier.padding(top = 12.dp)) {
                             Text(if (listening) "Cancelar escucha" else "Escuchar orden")
                         }
                         Text(voiceMessage, modifier = Modifier.padding(top = 12.dp))
                         Text("Fase 0.2 · Activación local", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Iniciá la sesión y decí ‘${wakePhrase.label}’. Cuando escuches el tono breve, decí ‘siguiente canción’. El detector se pausa mientras escucha la orden.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Iniciá la sesión, esperá a que diga ‘Esperando’ y decí ‘${wakePhrase.label}’. Cuando aparezca ‘Reconocedor listo’, decí ‘siguiente canción’. El detector se pausa mientras escucha la orden.", modifier = Modifier.padding(top = 8.dp))
                         Text("Frase de activación de prueba", modifier = Modifier.padding(top = 12.dp))
                         Column(modifier = Modifier.selectableGroup()) {
                             WakePhrase.entries.forEach { option ->
@@ -187,66 +186,63 @@ class MainActivity : ComponentActivity() {
     private fun startVoiceCommand(fromWake: Boolean) {
         if (listening || running) return
         listening = true
-        voiceMessage = "Preparando el micrófono para la orden…"
+        voiceMessage = "Esperando un momento antes de abrir el micrófono…"
         val start = SystemClock.elapsedRealtime()
-        speech.listenOnce(onState = { state ->
-            if (listening) when (state) {
-                SpeechCaptureState.READY -> {
-                    voiceMessage = "Reconocedor listo. Decí ‘siguiente canción’ ahora."
-                    if (fromWake) {
-                        wakeMessage = "Escuchando la orden: hablá después del tono."
-                        playReadyTone()
+        val task = Runnable {
+            pendingSpeechStart = null
+            if (!listening || (fromWake && !wakeEnabled)) return@Runnable
+            speech.listenOnce(onState = { state ->
+                if (listening) when (state) {
+                    SpeechCaptureState.READY -> {
+                        voiceMessage = "Reconocedor listo. Decí ‘siguiente canción’ ahora."
+                        if (fromWake) wakeMessage = "Reconocedor listo: decí la orden ahora."
                     }
+                    // El motor puede confundir música o ruido con voz: no es una orden reconocida.
+                    SpeechCaptureState.SPEECH_ONSET -> Unit
                 }
-                SpeechCaptureState.SPEECH_ONSET -> voiceMessage = "El reconocedor marcó inicio de voz (también puede ser música). Procesando…"
-            }
-        }) { outcome ->
-            if (!listening) return@listenOnce
-            listening = false
-            val elapsed = SystemClock.elapsedRealtime() - start
-            val commandRecognized = outcome.getOrNull()?.let {
-                MinimalIntentRouter.resolve(it) != TestIntent.UNKNOWN
-            } ?: false
-            voiceMessage = outcome.fold(
-                onSuccess = { heard ->
-                    when (MinimalIntentRouter.resolve(heard)) {
-                        TestIntent.MEDIA_NEXT -> {
-                            val dispatched = media.nextTrack()
-                            if (dispatched.isSuccess) "Escuché: ‘$heard’. Envié Siguiente canción en $elapsed ms. Comprobá si cambió la pista."
-                            else "Escuché: ‘$heard’, pero falló el envío: ${dispatched.exceptionOrNull()?.message}"
+            }) { outcome ->
+                if (!listening) return@listenOnce
+                listening = false
+                val elapsed = SystemClock.elapsedRealtime() - start
+                val commandRecognized = outcome.getOrNull()?.let {
+                    MinimalIntentRouter.resolve(it) != TestIntent.UNKNOWN
+                } ?: false
+                voiceMessage = outcome.fold(
+                    onSuccess = { heard ->
+                        when (MinimalIntentRouter.resolve(heard)) {
+                            TestIntent.MEDIA_NEXT -> {
+                                val dispatched = media.nextTrack()
+                                if (dispatched.isSuccess) "Escuché: ‘$heard’. Envié Siguiente canción en $elapsed ms. Comprobá si cambió la pista."
+                                else "Escuché: ‘$heard’, pero falló el envío: ${dispatched.exceptionOrNull()?.message}"
+                            }
+                            TestIntent.STOP_TTS -> "Escuché: ‘$heard’. Orden Silencio reconocida; aún no hay voz sintetizada para interrumpir."
+                            TestIntent.CANCEL -> "Escuché: ‘$heard’. Orden Cancelar reconocida; no se ejecutó ninguna acción."
+                            TestIntent.UNKNOWN -> "Escuché: ‘$heard’. No coincide con las órdenes de esta prueba; no se ejecutó nada."
                         }
-                        TestIntent.STOP_TTS -> "Escuché: ‘$heard’. Orden Silencio reconocida; aún no hay voz sintetizada para interrumpir."
-                        TestIntent.CANCEL -> "Escuché: ‘$heard’. Orden Cancelar reconocida; no se ejecutó ninguna acción."
-                        TestIntent.UNKNOWN -> "Escuché: ‘$heard’. No coincide con las órdenes de esta prueba; no se ejecutó nada."
+                    },
+                    onFailure = { "No se reconoció la orden: ${it.message ?: "error desconocido"}. Tiempo: $elapsed ms." }
+                )
+                if (fromWake && wakeEnabled) {
+                    consecutiveEmptyCommands = if (commandRecognized) 0 else consecutiveEmptyCommands + 1
+                    if (consecutiveEmptyCommands >= 2) {
+                        endWakeTest("Sesión detenida: dos activaciones seguidas sin una orden reconocida. Revisá el resultado de voz y reiniciá la prueba; si se activó sola, bajá la sensibilidad.")
+                    } else {
+                        scheduleWakeResume(if (commandRecognized) 2_000L else 3_500L)
                     }
-                },
-                onFailure = { "No se reconoció la orden: ${it.message ?: "error desconocido"}. Tiempo: $elapsed ms." }
-            )
-            if (fromWake && wakeEnabled) {
-                consecutiveEmptyCommands = if (commandRecognized) 0 else consecutiveEmptyCommands + 1
-                if (consecutiveEmptyCommands >= 2) {
-                    endWakeTest("Sesión detenida: dos activaciones seguidas sin una orden reconocida. Revisá el resultado de voz y reiniciá la prueba; si se activó sola, bajá la sensibilidad.")
-                } else {
-                    scheduleWakeResume(if (commandRecognized) 2_000L else 3_500L)
                 }
             }
         }
+        pendingSpeechStart = task
+        mainHandler.postDelayed(task, 700L)
     }
 
     private fun cancelVoiceTest() {
+        pendingSpeechStart?.let(mainHandler::removeCallbacks)
+        pendingSpeechStart = null
         speech.cancel()
         listening = false
         voiceMessage = "Escucha cancelada; no se ejecutó ninguna acción."
         if (wakeEnabled) scheduleWakeResume(2_000L)
-    }
-
-    private fun playReadyTone() {
-        runCatching {
-            val tone = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 65)
-            if (tone.startTone(ToneGenerator.TONE_PROP_BEEP, 100)) {
-                mainHandler.postDelayed({ tone.release() }, 250L)
-            } else tone.release()
-        }
     }
 
     private fun startWakeTest() {
@@ -264,9 +260,11 @@ class MainActivity : ComponentActivity() {
             val outcome = provider.start { score -> onWakeDetected(score, cycle) }
             runOnUiThread {
                 if (wakeEnabled && wakeProvider === provider) {
-                    wakeTransition = false
-                    wakeMessage = if (outcome.isSuccess) "Esperando ‘${provider.phrase}’…" else "Falló el detector: ${outcome.exceptionOrNull()?.message}"
-                    if (outcome.isFailure) endWakeTest()
+                    if (outcome.isSuccess) armWakeDetector(provider, cycle)
+                    else {
+                        wakeMessage = "Falló el detector: ${outcome.exceptionOrNull()?.message}"
+                        endWakeTest()
+                    }
                 }
             }
         }
@@ -310,6 +308,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun armWakeDetector(provider: WakeWordProvider, cycle: Int) {
+        wakeTransition = true
+        wakeMessage = "Estabilizando audio; esperá antes de decir ‘${provider.phrase}’…"
+        mainHandler.postDelayed({
+            if (wakeEnabled && wakeProvider === provider && wakeCycle == cycle && !listening) {
+                wakeTransition = false
+                wakeMessage = "Esperando ‘${provider.phrase}’…"
+            }
+        }, 1_500L)
+    }
+
     private fun scheduleWakeResume(delayMs: Long) {
         val provider = wakeProvider ?: return
         wakeResumeTask?.let(mainHandler::removeCallbacks)
@@ -332,9 +341,11 @@ class MainActivity : ComponentActivity() {
             val outcome = provider.start { score -> onWakeDetected(score, cycle) }
             runOnUiThread {
                 if (wakeEnabled && wakeProvider === provider) {
-                    wakeTransition = false
-                    wakeMessage = if (outcome.isSuccess) "Esperando ‘${provider.phrase}’ de nuevo…" else "No se reanudó el detector: ${outcome.exceptionOrNull()?.message}"
-                    if (outcome.isFailure) endWakeTest()
+                    if (outcome.isSuccess) armWakeDetector(provider, cycle)
+                    else {
+                        wakeMessage = "No se reanudó el detector: ${outcome.exceptionOrNull()?.message}"
+                        endWakeTest()
+                    }
                 }
             }
         }
@@ -346,6 +357,8 @@ class MainActivity : ComponentActivity() {
         wakeCycle++
         wakeEnabled = false
         wakeTransition = true
+        pendingSpeechStart?.let(mainHandler::removeCallbacks)
+        pendingSpeechStart = null
         if (listening) {
             speech.cancel()
             listening = false
@@ -367,6 +380,8 @@ class MainActivity : ComponentActivity() {
         wakeResumeTask?.let(mainHandler::removeCallbacks)
         wakeResumeTask = null
         wakeCycle++
+        pendingSpeechStart?.let(mainHandler::removeCallbacks)
+        pendingSpeechStart = null
         if (listening) speech.cancel()
         wakeEnabled = false
         val provider = wakeProvider
