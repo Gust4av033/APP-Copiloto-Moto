@@ -257,6 +257,10 @@ class TripVoiceService : Service() {
                 consecutiveFailures++
             } else consecutiveFailures = 0
             TripTestState.save(this)
+            if (intent == TestIntent.STOP_SESSION) {
+                stopSession("Sesión detenida por voz: ‘$heard’ en $elapsed ms.")
+                return@listenOnce
+            }
             TripTestState.status = when {
                 outcome.isFailure -> "No se entendió la orden: ${outcome.exceptionOrNull()?.message}."
                 intent == TestIntent.MEDIA_NEXT && succeeded -> "Escuché ‘$heard’; envié Siguiente canción en $elapsed ms."
