@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.media.AudioAttributes
 import android.media.AudioFocusRequest
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.os.Bundle
 import android.os.Build
@@ -19,6 +20,7 @@ enum class SpeechCaptureState { READY, SPEECH_ONSET }
 /** Reconoce una sola orden, en el dispositivo, tras pulsar el botón de prueba. */
 class AndroidSpeechToTextProvider(private val context: Context) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
+    private val media = MediaActionAdapter(context)
     private val mainHandler = Handler(Looper.getMainLooper())
     private val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
         .setAudioAttributes(AudioAttributes.Builder()
@@ -29,6 +31,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
     private var recognizer: SpeechRecognizer? = null
     private var generation = 0
     private var audioFocusGranted = false
+    private var playbackPauseRequested = false
 
     fun listenOnce(
         onState: (SpeechCaptureState) -> Unit = {},
@@ -43,6 +46,9 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         try {
             var ready = false
             var speechOnset = false
+            var activeInputs = "no informadas"
+            playbackPauseRequested = runCatching { media.pauseIfPlaying() }.getOrDefault(false)
+            val pauseRequestedForSession = playbackPauseRequested
             audioFocusGranted = runCatching {
                 audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
             }.getOrDefault(false)
@@ -53,12 +59,14 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                 override fun onReadyForSpeech(params: Bundle?) {
                     if (session == generation) {
                         ready = true
+                        activeInputs = activeInputDevices()
                         onState(SpeechCaptureState.READY)
                     }
                 }
                 override fun onBeginningOfSpeech() {
                     if (session == generation) {
                         speechOnset = true
+                        activeInputs = activeInputDevices().takeUnless { it == "no informadas" } ?: activeInputs
                         onState(SpeechCaptureState.SPEECH_ONSET)
                     }
                 }
@@ -74,7 +82,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                         SpeechRecognizer.ERROR_AUDIO -> "Falló la captura de audio"
                         else -> "Error de reconocimiento local"
                     }
-                    val diagnostic = "$detail (código $error). STT listo: ${if (ready) "sí" else "no"}; el motor marcó inicio de voz: ${if (speechOnset) "sí" else "no"}; foco de audio: ${if (focusGrantedForSession) "concedido" else "no concedido"}."
+                    val diagnostic = "$detail (código $error). STT listo: ${if (ready) "sí" else "no"}; inicio de voz marcado: ${if (speechOnset) "sí" else "no"}; entradas activas: $activeInputs; pausa multimedia: ${if (pauseRequestedForSession) "solicitada" else "no solicitada"}; foco: ${if (focusGrantedForSession) "concedido" else "no concedido"}."
                     finish(Result.failure(IllegalStateException(diagnostic)), session, onResult)
                 }
                 override fun onResults(results: Bundle?) {
@@ -116,6 +124,29 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         recognizer?.destroy()
         recognizer = null
         releaseAudioFocus()
+        resumePlaybackIfNeeded()
+    }
+
+    private fun activeInputDevices(): String = runCatching {
+        audioManager.activeRecordingConfigurations.mapNotNull { configuration ->
+            configuration.audioDevice?.let { device ->
+                val label = when (device.type) {
+                    AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth SCO"
+                    AudioDeviceInfo.TYPE_BLE_HEADSET -> "Bluetooth LE"
+                    AudioDeviceInfo.TYPE_BUILTIN_MIC -> "micrófono del teléfono"
+                    else -> "entrada tipo ${device.type}"
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && configuration.isClientSilenced) "$label (silenciada)" else label
+            }
+        }.distinct().joinToString().ifBlank { "no informadas" }
+    }.getOrDefault("no informadas")
+
+    private fun resumePlaybackIfNeeded() {
+        if (playbackPauseRequested) {
+            playbackPauseRequested = false
+            // PLAY es idempotente; se evita si otra reproducción sigue activa.
+            runCatching { if (!audioManager.isMusicActive) media.resumePlayback() }
+        }
     }
 
     private fun releaseAudioFocus() {
@@ -131,6 +162,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         recognizer?.destroy()
         recognizer = null
         releaseAudioFocus()
+        resumePlaybackIfNeeded()
         callback(result)
     }
 }
