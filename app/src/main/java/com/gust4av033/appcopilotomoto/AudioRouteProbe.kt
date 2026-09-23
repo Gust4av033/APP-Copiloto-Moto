@@ -74,9 +74,6 @@ class AudioRouteProbe(private val context: Context) {
             var peak = 0
             recorder.startRecording()
             val start = SystemClock.elapsedRealtime()
-            val output = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                audioManager.communicationDevice?.label() ?: "Salida predeterminada"
-            } else "Salida predeterminada"
             while (count < target && SystemClock.elapsedRealtime() - start < 7_000) {
                 val read = recorder.read(samples, 0, minOf(samples.size.toLong(), target - count).toInt(), AudioRecord.READ_BLOCKING)
                 if (read < 0) error("Error de captura: $read")
@@ -92,6 +89,9 @@ class AudioRouteProbe(private val context: Context) {
             check(count > 0) { "No llegaron muestras del micrófono." }
             val routedDevice = recorder.routedDevice
             val actual = routedDevice?.label() ?: "Ruta no informada"
+            val output = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                audioManager.communicationDevice?.label() ?: "Salida predeterminada"
+            } else "Salida predeterminada"
             val rms = sqrt(sumSquares / count) / 32768.0
             val warning = when {
                 bluetoothInput == null -> "No se detectó entrada Bluetooth. La prueba utilizó la ruta disponible."
@@ -114,6 +114,7 @@ class AudioRouteProbe(private val context: Context) {
         AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth (casco, SCO; ID $id)"
         AudioDeviceInfo.TYPE_BLE_HEADSET -> "Bluetooth (casco, LE; ID $id)"
         AudioDeviceInfo.TYPE_BUILTIN_MIC -> "Micrófono del teléfono (ID $id)"
+        AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> "Auricular interno del teléfono (ID $id)"
         AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "Altavoz del teléfono (ID $id)"
         else -> "Dispositivo tipo $type (ID $id)"
     }
