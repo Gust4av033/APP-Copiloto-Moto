@@ -7,12 +7,12 @@ import android.os.Build
 import com.openwakeword.OpenWakeWord
 
 /** Prototipo con frase conocida; personalización acústica llegará después. */
-class OpenWakeWordProvider(context: Context) : WakeWordProvider {
+class OpenWakeWordProvider(context: Context, threshold: Float) : WakeWordProvider {
     override val phrase = "Hey Jarvis"
     private val audioManager = context.getSystemService(AudioManager::class.java)
     private val detector = OpenWakeWord.Builder(context.applicationContext)
         .setModel(OpenWakeWord.BuiltInModel.HEY_JARVIS)
-        .setThreshold(0.5f)
+        .setThreshold(threshold)
         .setDebounceMs(2_000)
         .build()
     private var oldMode: Int? = null
