@@ -11,6 +11,12 @@ class MediaActionAdapter(context: Context) {
     /** Confirma envío del evento, no que otra app haya cambiado de pista. */
     fun nextTrack(): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_NEXT) }
 
+    fun previousTrack(): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_PREVIOUS) }
+
+    fun play(): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_PLAY) }
+
+    fun pause(): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_PAUSE) }
+
     /** Solicita una pausa solo si Android informa reproducción activa. */
     fun pauseIfPlaying(): Boolean {
         if (!audioManager.isMusicActive) return false
