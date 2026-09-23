@@ -9,12 +9,17 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import java.util.Locale
 
+enum class SpeechCaptureState { READY, VOICE_STARTED }
+
 /** Reconoce una sola orden, en el dispositivo, tras pulsar el botón de prueba. */
 class AndroidSpeechToTextProvider(private val context: Context) {
     private var recognizer: SpeechRecognizer? = null
     private var generation = 0
 
-    fun listenOnce(onResult: (Result<String>) -> Unit) {
+    fun listenOnce(
+        onState: (SpeechCaptureState) -> Unit = {},
+        onResult: (Result<String>) -> Unit
+    ) {
         cancel()
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !SpeechRecognizer.isOnDeviceRecognitionAvailable(context)) {
             onResult(Result.failure(IllegalStateException("No hay reconocimiento de voz local disponible en este teléfono.")))
@@ -22,18 +27,37 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         }
         val session = generation
         try {
+            var ready = false
+            var voiceStarted = false
             val current = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
             recognizer = current
             current.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) = Unit
-                override fun onBeginningOfSpeech() = Unit
+                override fun onReadyForSpeech(params: Bundle?) {
+                    if (session == generation) {
+                        ready = true
+                        onState(SpeechCaptureState.READY)
+                    }
+                }
+                override fun onBeginningOfSpeech() {
+                    if (session == generation) {
+                        voiceStarted = true
+                        onState(SpeechCaptureState.VOICE_STARTED)
+                    }
+                }
                 override fun onRmsChanged(rmsdB: Float) = Unit
                 override fun onBufferReceived(buffer: ByteArray?) = Unit
                 override fun onEndOfSpeech() = Unit
                 override fun onPartialResults(partialResults: Bundle?) = Unit
                 override fun onEvent(eventType: Int, params: Bundle?) = Unit
                 override fun onError(error: Int) {
-                    finish(Result.failure(IllegalStateException("Error de reconocimiento local: $error")), session, onResult)
+                    val detail = when (error) {
+                        SpeechRecognizer.ERROR_NO_MATCH -> "No se entendieron palabras reconocibles"
+                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No se detectó voz durante la escucha"
+                        SpeechRecognizer.ERROR_AUDIO -> "Falló la captura de audio"
+                        else -> "Error de reconocimiento local"
+                    }
+                    val diagnostic = "$detail (código $error). STT listo: ${if (ready) "sí" else "no"}; inicio de voz detectado: ${if (voiceStarted) "sí" else "no"}."
+                    finish(Result.failure(IllegalStateException(diagnostic)), session, onResult)
                 }
                 override fun onResults(results: Bundle?) {
                     val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
