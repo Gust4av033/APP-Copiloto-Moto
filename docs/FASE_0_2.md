@@ -6,7 +6,7 @@ Este prototipo usa `WakeWordProvider` con una implementación local de openWakeW
 
 1. En la rama `feature/fase-0-audio-bluetooth`, ejecutar `git pull`, sincronizar Gradle (la primera sincronización descarga una biblioteca nueva) e instalar en el S22+.
 2. Emparejar el casco, iniciar música y dejar la app visible. La sensibilidad comienza en **80 %** (umbral interno 0,20) y la frase inicial es **Alexa**, para probar sin pronunciar «Hey». Se puede elegir **Hey Jarvis** para comparar antes de pulsar **Iniciar activación**.
-3. Decir la frase seleccionada por el casco. Esperar el tono breve que indica que el STT está listo y entonces decir **«siguiente canción»**. Si el tono no se oye por el casco, observar si la pantalla muestra **Micrófono listo** antes de hablar. Comprobar que el texto reconocido es correcto y que la música cambió de pista.
+3. Decir la frase seleccionada por el casco. Esperar el tono breve que indica que el STT está listo y entonces decir **«siguiente canción»**. Si el tono no se oye por el casco, observar si la pantalla muestra **Reconocedor listo** antes de hablar. Comprobar que el texto reconocido es correcto y que la música cambió de pista.
 4. Repetir diez intentos a distancias y volúmenes de voz normales, dejando el teléfono lejos del casco. Anotar intentos pronunciados, activaciones detectadas, órdenes reconocidas y cambios efectivos de pista. Observar durante cinco minutos sin decir la frase y anotar activaciones espontáneas. Detener la sesión, elegir la otra frase y repetir con igual sensibilidad y condiciones. Si hay activaciones falsas, bajar la sensibilidad a 75 % o 70 % y repetir. La frase y la sensibilidad se aplican al iniciar una sesión nueva.
 5. Probar **Detener sesión** mientras espera la frase y durante la escucha de la orden. La captura debe terminar y no debe ejecutar ninguna acción pendiente.
 6. Hacer la prueba estacionado, primero con motor apagado. Con motor encendido, mantener la moto estacionada y registrar los resultados por separado.
@@ -17,7 +17,9 @@ Tras una orden se espera 2 segundos antes de volver a abrir el detector; si el r
 
 El control de sensibilidad modifica el umbral del detector (sensibilidad 80 % = umbral 0,20); no es un porcentaje de acierto. El reconocimiento de «siguiente canción» usa otro motor, así que acertar esa orden no garantiza que el modelo de activación reconozca bien la frase por el casco.
 
-Si Android devuelve el **error 7**, el STT no obtuvo palabras reconocibles: la app informa si el servicio llegó a estar listo y si detectó el inicio de la voz. Probar la orden primero con **Escuchar orden** y luego con **Alexa**; si solo falla tras Alexa, investigar el traspaso del micrófono. El detector espera brevemente después de liberar el micrófono antes de abrir el STT. No dar por hecho que el error 7 demuestra cuál de los dos micrófonos se usó.
+Si Android devuelve el **error 7**, el STT no obtuvo palabras reconocibles: la app informa si el servicio llegó a estar listo, si el motor marcó un inicio de voz y si obtuvo foco temporal de audio. La marca de inicio de voz no identifica al hablante: la música puede provocarla. Probar la orden primero con **Escuchar orden** y luego con **Alexa**; si solo falla tras Alexa, investigar el traspaso del micrófono. El detector espera brevemente después de liberar el micrófono antes de abrir el STT. No dar por hecho que el error 7 demuestra cuál de los dos micrófonos se usó.
+
+Al escuchar una orden, APP solicita `AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE` para que el reproductor pause la música temporalmente; libera el foco al obtener el resultado, recibir un error o cancelar. La respuesta del reproductor depende de su implementación. Si el foco no se concede, el diagnóstico lo indica y la prueba continúa. Comprobar que la música se reanuda tras el reconocimiento y que **Siguiente canción** sigue cambiando la pista.
 
 ## Alcance del modelo
 
