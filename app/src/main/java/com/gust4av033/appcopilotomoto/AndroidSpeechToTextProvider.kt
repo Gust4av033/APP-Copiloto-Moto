@@ -35,6 +35,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
 
     fun listenOnce(
         onState: (SpeechCaptureState) -> Unit = {},
+        shouldResumePlayback: (String?) -> Boolean = { true },
         onResult: (Result<String>) -> Unit
     ) {
         cancel()
@@ -83,7 +84,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                         else -> "Error de reconocimiento local"
                     }
                     val diagnostic = "$detail (código $error). STT listo: ${if (ready) "sí" else "no"}; inicio de voz marcado: ${if (speechOnset) "sí" else "no"}; entradas activas: $activeInputs; pausa multimedia: ${if (pauseRequestedForSession) "solicitada" else "no solicitada"}; foco: ${if (focusGrantedForSession) "concedido" else "no concedido"}."
-                    finish(Result.failure(IllegalStateException(diagnostic)), session, onResult)
+                    finish(Result.failure(IllegalStateException(diagnostic)), session, shouldResumePlayback, onResult)
                 }
                 override fun onResults(results: Bundle?) {
                     val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
@@ -91,7 +92,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                     val value = if (heard.isBlank()) {
                         Result.failure(IllegalStateException("No se entendió la orden."))
                     } else Result.success(heard)
-                    finish(value, session, onResult)
+                    finish(value, session, shouldResumePlayback, onResult)
                 }
             })
             val locale = Locale.getDefault().takeIf { it.language == "es" } ?: Locale.forLanguageTag("es-ES")
@@ -156,13 +157,23 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         }
     }
 
-    private fun finish(result: Result<String>, session: Int, callback: (Result<String>) -> Unit) {
+    private fun finish(
+        result: Result<String>,
+        session: Int,
+        shouldResumePlayback: (String?) -> Boolean,
+        callback: (Result<String>) -> Unit
+    ) {
         if (session != generation) return
         generation++
         recognizer?.destroy()
         recognizer = null
         releaseAudioFocus()
-        resumePlaybackIfNeeded()
+        if (runCatching { shouldResumePlayback(result.getOrNull()) }.getOrDefault(true)) {
+            resumePlaybackIfNeeded()
+        } else {
+            // La orden Pausar es la intención final del usuario, aunque esta captura haya pausado música.
+            playbackPauseRequested = false
+        }
         callback(result)
     }
 }
