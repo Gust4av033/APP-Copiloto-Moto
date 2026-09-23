@@ -17,8 +17,10 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -35,6 +37,7 @@ class MainActivity : ComponentActivity() {
     private var wakeEnabled by mutableStateOf(false)
     private var wakeTransition by mutableStateOf(false)
     private var wakeDetections by mutableStateOf(0)
+    private var wakeSensitivity by mutableFloatStateOf(75f)
     private var wakeMessage by mutableStateOf("La frase de prueba es ‘Hey Jarvis’. Iniciá la sesión con la app abierta.")
     private var message by mutableStateOf("Conectá el casco Bluetooth y pulsá Iniciar prueba.")
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
@@ -86,6 +89,15 @@ class MainActivity : ComponentActivity() {
                         Text(voiceMessage, modifier = Modifier.padding(top = 12.dp))
                         Text("Fase 0.2 · Activación local", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
                         Text("Iniciá la sesión, decí ‘Hey Jarvis’, esperá a que se active y luego decí ‘siguiente canción’. El detector se pausa mientras escucha la orden.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Sensibilidad de activación: ${wakeSensitivity.toInt()} %", modifier = Modifier.padding(top = 12.dp))
+                        Slider(
+                            value = wakeSensitivity,
+                            onValueChange = { wakeSensitivity = it },
+                            valueRange = 40f..85f,
+                            steps = 8,
+                            enabled = !wakeEnabled && !wakeTransition && !listening && !running
+                        )
+                        Text("Más sensibilidad puede detectar más veces ‘Hey Jarvis’, pero también activarse por error. Ajustala con la sesión detenida.", style = MaterialTheme.typography.bodySmall)
                         Button(
                             onClick = { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) },
                             enabled = !running && (wakeEnabled || (!listening && !wakeTransition)),
@@ -176,7 +188,7 @@ class MainActivity : ComponentActivity() {
         wakeTransition = true
         wakeDetections = 0
         wakeMessage = "Preparando el detector local…"
-        val provider = OpenWakeWordProvider(applicationContext)
+        val provider = OpenWakeWordProvider(applicationContext, threshold = (100f - wakeSensitivity) / 100f)
         wakeProvider = provider
         worker.execute {
             val outcome = provider.start(::onWakeDetected)
