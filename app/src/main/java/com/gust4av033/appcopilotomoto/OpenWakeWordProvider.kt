@@ -8,8 +8,8 @@ import com.openwakeword.OpenWakeWord
 
 /** Frases con modelos incluidos; una frase nueva requiere un modelo entrenado. */
 enum class WakePhrase(val label: String) {
-    HEY_JARVIS("Hey Jarvis"),
-    ALEXA("Alexa")
+    ALEXA("Alexa"),
+    HEY_JARVIS("Hey Jarvis")
 }
 
 class OpenWakeWordProvider(context: Context, threshold: Float, wakePhrase: WakePhrase) : WakeWordProvider {
