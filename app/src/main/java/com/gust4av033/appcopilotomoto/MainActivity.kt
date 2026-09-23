@@ -2,6 +2,8 @@ package com.gust4av033.appcopilotomoto
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.media.AudioManager
+import android.media.ToneGenerator
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -102,7 +104,7 @@ class MainActivity : ComponentActivity() {
                         }
                         Text(voiceMessage, modifier = Modifier.padding(top = 12.dp))
                         Text("Fase 0.2 · Activación local", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Iniciá la sesión, decí ‘${wakePhrase.label}’, esperá a que se active y luego decí ‘siguiente canción’. El detector se pausa mientras escucha la orden.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Iniciá la sesión y decí ‘${wakePhrase.label}’. Cuando escuches el tono breve, decí ‘siguiente canción’. El detector se pausa mientras escucha la orden.", modifier = Modifier.padding(top = 8.dp))
                         Text("Frase de activación de prueba", modifier = Modifier.padding(top = 12.dp))
                         Column(modifier = Modifier.selectableGroup()) {
                             WakePhrase.entries.forEach { option ->
@@ -184,9 +186,20 @@ class MainActivity : ComponentActivity() {
     private fun startVoiceCommand(fromWake: Boolean) {
         if (listening || running) return
         listening = true
-        voiceMessage = "Escuchando una orden corta…"
+        voiceMessage = "Preparando el micrófono para la orden…"
         val start = SystemClock.elapsedRealtime()
-        speech.listenOnce { outcome ->
+        speech.listenOnce(onState = { state ->
+            if (listening) when (state) {
+                SpeechCaptureState.READY -> {
+                    voiceMessage = "Micrófono listo. Decí ‘siguiente canción’ ahora."
+                    if (fromWake) {
+                        wakeMessage = "Escuchando la orden: hablá después del tono."
+                        playReadyTone()
+                    }
+                }
+                SpeechCaptureState.VOICE_STARTED -> voiceMessage = "Se detectó el inicio de tu voz. Procesando la orden…"
+            }
+        }) { outcome ->
             if (!listening) return@listenOnce
             listening = false
             val elapsed = SystemClock.elapsedRealtime() - start
@@ -224,6 +237,15 @@ class MainActivity : ComponentActivity() {
         listening = false
         voiceMessage = "Escucha cancelada; no se ejecutó ninguna acción."
         if (wakeEnabled) scheduleWakeResume(2_000L)
+    }
+
+    private fun playReadyTone() {
+        runCatching {
+            val tone = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 65)
+            if (tone.startTone(ToneGenerator.TONE_PROP_BEEP, 100)) {
+                mainHandler.postDelayed({ tone.release() }, 250L)
+            } else tone.release()
+        }
     }
 
     private fun startWakeTest() {
@@ -269,9 +291,16 @@ class MainActivity : ComponentActivity() {
             val outcome = runCatching { provider.pause() }
             runOnUiThread {
                 if (wakeEnabled && wakeProvider === provider) {
-                    wakeTransition = false
-                    if (outcome.isSuccess) startVoiceCommand(fromWake = true)
-                    else {
+                    if (outcome.isSuccess) {
+                        wakeMessage = "Micrófono de activación liberado. Preparando reconocimiento…"
+                        val activeCycle = wakeCycle
+                        mainHandler.postDelayed({
+                            if (wakeEnabled && wakeProvider === provider && wakeCycle == activeCycle && !listening) {
+                                wakeTransition = false
+                                startVoiceCommand(fromWake = true)
+                            }
+                        }, 350L)
+                    } else {
                         wakeMessage = "Falló la pausa del detector: ${outcome.exceptionOrNull()?.message}"
                         endWakeTest()
                     }
