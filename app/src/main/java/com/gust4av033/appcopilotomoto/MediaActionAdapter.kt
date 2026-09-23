@@ -9,11 +9,22 @@ class MediaActionAdapter(context: Context) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
 
     /** Confirma envío del evento, no que otra app haya cambiado de pista. */
-    fun nextTrack(): Result<Unit> = runCatching {
+    fun nextTrack(): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_NEXT) }
+
+    /** Solicita una pausa solo si Android informa reproducción activa. */
+    fun pauseIfPlaying(): Boolean {
+        if (!audioManager.isMusicActive) return false
+        dispatch(KeyEvent.KEYCODE_MEDIA_PAUSE)
+        return true
+    }
+
+    fun resumePlayback() = dispatch(KeyEvent.KEYCODE_MEDIA_PLAY)
+
+    private fun dispatch(keyCode: Int) {
         val downTime = SystemClock.uptimeMillis()
         for (action in listOf(KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP)) {
             audioManager.dispatchMediaKeyEvent(
-                KeyEvent(downTime, SystemClock.uptimeMillis(), action, KeyEvent.KEYCODE_MEDIA_NEXT, 0)
+                KeyEvent(downTime, SystemClock.uptimeMillis(), action, keyCode, 0)
             )
         }
     }
