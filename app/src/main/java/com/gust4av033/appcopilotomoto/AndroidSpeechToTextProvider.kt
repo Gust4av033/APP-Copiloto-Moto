@@ -2,19 +2,33 @@ package com.gust4av033.appcopilotomoto
 
 import android.content.Context
 import android.content.Intent
+import android.media.AudioAttributes
+import android.media.AudioFocusRequest
+import android.media.AudioManager
 import android.os.Bundle
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import java.util.Locale
 
-enum class SpeechCaptureState { READY, VOICE_STARTED }
+enum class SpeechCaptureState { READY, SPEECH_ONSET }
 
 /** Reconoce una sola orden, en el dispositivo, tras pulsar el botón de prueba. */
 class AndroidSpeechToTextProvider(private val context: Context) {
+    private val audioManager = context.getSystemService(AudioManager::class.java)
+    private val mainHandler = Handler(Looper.getMainLooper())
+    private val focusRequest = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
+        .setAudioAttributes(AudioAttributes.Builder()
+            .setUsage(AudioAttributes.USAGE_ASSISTANT)
+            .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+            .build())
+        .build()
     private var recognizer: SpeechRecognizer? = null
     private var generation = 0
+    private var audioFocusGranted = false
 
     fun listenOnce(
         onState: (SpeechCaptureState) -> Unit = {},
@@ -28,7 +42,11 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         val session = generation
         try {
             var ready = false
-            var voiceStarted = false
+            var speechOnset = false
+            audioFocusGranted = runCatching {
+                audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+            }.getOrDefault(false)
+            val focusGrantedForSession = audioFocusGranted
             val current = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
             recognizer = current
             current.setRecognitionListener(object : RecognitionListener {
@@ -40,8 +58,8 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                 }
                 override fun onBeginningOfSpeech() {
                     if (session == generation) {
-                        voiceStarted = true
-                        onState(SpeechCaptureState.VOICE_STARTED)
+                        speechOnset = true
+                        onState(SpeechCaptureState.SPEECH_ONSET)
                     }
                 }
                 override fun onRmsChanged(rmsdB: Float) = Unit
@@ -56,7 +74,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                         SpeechRecognizer.ERROR_AUDIO -> "Falló la captura de audio"
                         else -> "Error de reconocimiento local"
                     }
-                    val diagnostic = "$detail (código $error). STT listo: ${if (ready) "sí" else "no"}; inicio de voz detectado: ${if (voiceStarted) "sí" else "no"}."
+                    val diagnostic = "$detail (código $error). STT listo: ${if (ready) "sí" else "no"}; el motor marcó inicio de voz: ${if (speechOnset) "sí" else "no"}; foco de audio: ${if (focusGrantedForSession) "concedido" else "no concedido"}."
                     finish(Result.failure(IllegalStateException(diagnostic)), session, onResult)
                 }
                 override fun onResults(results: Bundle?) {
@@ -75,7 +93,17 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
                 putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
             }
-            current.startListening(intent)
+            // Da un momento al reproductor para responder a la pérdida temporal de foco.
+            mainHandler.postDelayed({
+                if (session == generation) {
+                    try {
+                        current.startListening(intent)
+                    } catch (failure: Exception) {
+                        cancel()
+                        onResult(Result.failure(failure))
+                    }
+                }
+            }, 250L)
         } catch (failure: Exception) {
             cancel()
             onResult(Result.failure(failure))
@@ -87,6 +115,14 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         recognizer?.cancel()
         recognizer?.destroy()
         recognizer = null
+        releaseAudioFocus()
+    }
+
+    private fun releaseAudioFocus() {
+        if (audioFocusGranted) {
+            audioFocusGranted = false
+            runCatching { audioManager.abandonAudioFocusRequest(focusRequest) }
+        }
     }
 
     private fun finish(result: Result<String>, session: Int, callback: (Result<String>) -> Unit) {
@@ -94,6 +130,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         generation++
         recognizer?.destroy()
         recognizer = null
+        releaseAudioFocus()
         callback(result)
     }
 }
