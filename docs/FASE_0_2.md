@@ -13,6 +13,8 @@ Este prototipo usa `WakeWordProvider` con una implementación local de openWakeW
 
 La cifra **Activaciones detectadas** por sí sola no demuestra tasa de acierto: compararla con los intentos pronunciados y con las activaciones falsas. La cifra de la fase 0.1 sigue midiendo desde el inicio del STT hasta el envío de la tecla; aún no mide wake -> acción de forma completa. El servicio de sesión y la notificación persistente llegarán en el siguiente tramo, antes de probar con la pantalla apagada.
 
+Tras una orden se espera 2 segundos antes de volver a abrir el detector; si el reconocimiento de la orden falla, se espera 3,5 segundos. Dos activaciones seguidas sin orden reconocida, o cuatro activaciones en menos de 12 segundos, detienen la sesión para evitar un bucle: revisar el mensaje de voz, bajar la sensibilidad si fueron falsos positivos y reiniciar manualmente. Los callbacks antiguos de wake word se descartan al reanudar. El porcentaje mostrado junto a una activación es la puntuación de esa detección, **no** un porcentaje de aciertos sobre intentos.
+
 El control de sensibilidad modifica el umbral del detector (sensibilidad 80 % = umbral 0,20); no es un porcentaje de acierto. El reconocimiento de «siguiente canción» usa otro motor, así que acertar esa orden no garantiza que el modelo de activación reconozca bien la frase por el casco.
 
 ## Alcance del modelo
