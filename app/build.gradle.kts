@@ -39,5 +39,6 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.activity.compose)
+    implementation("com.github.msnilsen:openwakeword-android:0.1.2")
     debugImplementation(libs.compose.ui.tooling)
 }
