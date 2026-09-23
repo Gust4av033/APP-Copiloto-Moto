@@ -1,2 +1,38 @@
-# APP-Copiloto-Moto
-Copiloto de voz para motocicleta en Android, desarrollado por fases.
+# APP Copiloto Moto
+
+Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Este repositorio contiene una base mínima para abrir y sincronizar en Android Studio. La app muestra una pantalla inicial; todavía no implementa escucha, Bluetooth, control multimedia ni navegación.
+
+## Abrir en Android Studio
+
+1. Clonar el repositorio con **File > New > Project from Version Control** e introducir su URL HTTPS de GitHub. También se puede usar `git clone <URL>`.
+2. Abrir la carpeta raíz **APP-Copiloto-Moto**, donde está `settings.gradle.kts`; no abrir solamente `app`.
+3. Dejar que Android Studio use el Gradle Wrapper del proyecto y su JDK 17. Instalar Android SDK Platform 36 si se solicita.
+4. Pulsar **Sync Project with Gradle Files**. Después, seleccionar un teléfono o emulador y ejecutar `app`.
+
+La primera sincronización requiere Internet para descargar Gradle y las dependencias. `local.properties` se genera en cada computadora y no se sube a GitHub.
+
+## Base técnica
+
+- Kotlin, Jetpack Compose y un único módulo Gradle `app`.
+- Android Gradle Plugin 8.13.2, Gradle 8.13, Kotlin/Compose Compiler 2.3.10 y JDK 17.
+- `compileSdk` y `targetSdk` 36; `minSdk` 26.
+- Las versiones de bibliotecas se centralizan en `gradle/libs.versions.toml`.
+- El paquete inicial es `com.gust4av033.appcopilotomoto`; cambiarlo más adelante requiere revisar `namespace` y `applicationId`.
+
+## Alcance inicial
+
+La Fase 0 debe validar en un teléfono real con casco: audio Bluetooth, frase de activación, STT breve, intención determinista, «siguiente canción», cancelar/silencio y métricas de aciertos, fallos y latencia. Los proveedores (wake word, STT, TTS, navegación y demás) se incorporarán tras medir el flujo mínimo. No se solicitan permisos Android antes de implementar las funciones que los necesitan.
+
+La arquitectura prevista conserva límites entre `presentation`, `application`, `domain`, `data`, `integration` y `service` dentro de `app` cuando exista código que corresponda a cada capa. No se crean módulos Gradle vacíos. La navegación seguirá siendo agnóstica; Waze no se fija como dependencia del dominio.
+
+## Documentación y trabajo en Git
+
+- `docs/FASE_0.md`: objetivo, validación y orden de implementación.
+- `docs/referencias/`: documentos originales del proyecto. La especificación V4, los requisitos y la arquitectura son la línea base. El registro de modificaciones aprobadas complementa los documentos base según su regla de precedencia. Las indicaciones iniciales se conservan como antecedente.
+- `main` es la base estable. Para un cambio grande, crear una rama `feature/nombre`; probar en el teléfono y fusionar mediante PR. Borrar la rama temporal tras integrar.
+- No incluir claves, tokens, firmados, `local.properties`, grabaciones personales ni datos de viajes en Git.
+
+### Sincronizar cambios de GitHub
+
+En Android Studio: **Git > Pull** o `git pull origin main` desde la terminal del proyecto. Para subir cambios propios: **Commit** y luego **Push** (o `git add . && git commit -m "..." && git push`).
+

@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">APP Copiloto Moto</string>
+    <string name="welcome_title">APP Copiloto Moto</string>
+    <string name="welcome_subtitle">Proyecto preparado para iniciar Fase 0</string>
+    <string name="welcome_detail">La primera prueba será activar el asistente y cambiar de canción con la voz.</string>
+</resources>
+

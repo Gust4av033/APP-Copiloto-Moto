@@ -1,0 +1,111 @@
+# Asistente de Voz para Moto — Documentación del Proyecto
+
+## 1. Visión general
+
+Asistente de voz personal para Android, pensado para usarse manejando moto. Se activa con una frase de activación totalmente personalizable (no "Hey Google" ni "Hi Gemini"), permite ejecutar acciones del teléfono por voz de forma directa y confiable, y asiste con la navegación leyendo la app Waze en tiempo real y comentándola de forma conversacional. Corre localmente en el teléfono (sin depender de una nube de pago) y usa una laptop con GPU como banco de desarrollo y de mejora periódica del modelo.
+
+Motivación del proyecto: los asistentes genéricos (Gemini, Google Assistant) tienen demasiadas limitaciones manejando moto — activación poco confiable, comandos de música que no reconocen, cero personalización de la frase de activación, y ningún control real sobre apps de navegación de terceros como Waze.
+
+## 2. Alcance de este prototipo
+
+**Incluido ahora:** todo lo detallado en las secciones 4 a 6 de este documento.
+
+**Explícitamente fuera de alcance por el momento (fase de pago futura, se reevalúa si el proyecto genera ingresos):**
+- Alertas de incidentes específicos tipo "hay un choque en tal punto" vía TomTom Traffic Incidents API — requiere suscripción paga a un proveedor externo.
+
+## 3. Hardware
+
+| Elemento | Para qué sirve | Cómo se usa |
+|---|---|---|
+| Samsung Galaxy S22+ | Dispositivo de campo — corre el asistente completo en tiempo real | Montado en el manubrio, ejecuta wake word, STT/TTS, AccessibilityService y el modelo de lenguaje local |
+| Laptop Acer Nitro (GPU, 24GB RAM) | Banco de desarrollo y de mejora del modelo | Compila la app en Android Studio y corre los ciclos de fine-tuning (LoRA) periódicos con los datos personales acumulados |
+| Soporte de celular para manubrio | Sostiene el teléfono de forma segura y visible mientras se maneja | Instalación física en la moto |
+| Auriculares/intercomunicador Bluetooth con micrófono (casco) | Captura la voz limpia sobre el ruido de viento y motor | Emparejado al teléfono antes de cada viaje; su conexión puede disparar el modo manejo automático (ver sección 6) |
+| Cable o power bank de carga en la moto | Evita que la batería se agote en viajes largos | Conectado a la batería de la moto o cargado antes de salir |
+
+## 4. Software / Stack tecnológico
+
+| Pieza | Para qué sirve | Cómo se usa |
+|---|---|---|
+| openWakeWord | Detecta la frase de activación personalizada | Corre en segundo plano en el S22+, on-device, sin internet, gratis |
+| AccessibilityService (Android nativo) | Lee texto en pantalla de otras apps (Waze) y puede pulsar botones (enviar WhatsApp) | Servicio de accesibilidad que el usuario activa una vez en Ajustes |
+| ML Kit Text Recognition | OCR local de respaldo si algún texto de Waze no es accesible directo por nodos | Se dispara solo si el AccessibilityService no encuentra el nodo esperado |
+| SpeechRecognizer nativo / Whisper local (whisper.cpp) | Convierte la voz del usuario en texto | Nativo por defecto; Whisper local como opción si se necesita más precisión con ruido de carretera |
+| TextToSpeech nativo de Android | Voz de salida del asistente | Lee las respuestas y las indicaciones de Waze en voz alta |
+| Gemma 4 E2B / Qwen 3 (vía MLC Chat o similar) | El "cerebro" conversacional, corre en el teléfono | Interpreta comandos, decide qué acción tomar, mantiene la conversación |
+| Unsloth / PEFT (en la laptop) | Fine-tuning (LoRA) del modelo con datos personales del usuario | Corre en la GPU de la laptop; el resultado (adapter) se transfiere al teléfono |
+| VoiceInteractionService / rol de asistente digital predeterminado | Da ganchos de sistema que una app normal no tiene | Se activa en Ajustes > Apps predeterminadas > Asistente digital |
+| AudioManager.dispatchMediaKeyEvent (nativo) | Control de música (siguiente, anterior, play/pause) confiable con cualquier app activa | Se dispara al reconocer el comando de voz correspondiente, igual que un botón de audífonos |
+| Overpass API / Nominatim (OpenStreetMap) | Contexto de lugares alrededor de la ubicación GPS actual | Consulta gratuita, sin API key |
+| Open-Meteo | Clima de la ruta/zona | Consulta gratuita, sin API key, para alertas proactivas |
+| Google Maps Routes API | Rutas alternativas y tiempo estimado con tráfico, antes de salir | Consulta paga por uso (tier gratis mensual) — análisis pre-viaje, no lectura en vivo |
+| SensorManager (acelerómetro nativo) | Detecta impactos fuertes para el SOS automático | Corre en segundo plano de forma continua durante el viaje |
+
+## 5. Arquitectura general (flujo de una interacción)
+
+1. El usuario dice su frase de activación → openWakeWord la detecta localmente.
+2. El STT convierte lo que sigue en texto.
+3. El modelo de lenguaje local interpreta la intención: ¿es un comando de acción, una pregunta sobre la ruta, o charla libre?
+4. Según el caso:
+   - **Comando de acción** (mensaje, llamada, música) → se ejecuta vía AccessibilityService / dispatchMediaKeyEvent / intents nativos, con confirmación hablada si la acción es irreversible.
+   - **Pregunta sobre ruta** → se lee Waze vía AccessibilityService + contexto de Overpass/clima → el modelo arma la respuesta.
+   - **Charla libre** → el modelo responde directamente.
+5. TextToSpeech lee la respuesta en voz alta.
+
+## 6. Funcionalidades del prototipo
+
+1. Activación por frase 100% personalizable, definida por el usuario en configuración.
+2. Ejecución directa de acciones por voz (mensajes de WhatsApp, llamadas, apps) sin pasos manuales extra.
+3. Confirmación hablada breve antes de ejecutar acciones irreversibles.
+4. Narración conversacional de Waze (próxima indicación, ETA) con tono propio, no la voz plana de Waze.
+5. Conocimiento contextual del área (qué hay cerca) vía OpenStreetMap.
+6. Alertas de clima en el tramo que sigue.
+7. Detección de caída/impacto fuerte + SOS automático a un contacto de emergencia.
+8. Bitácora automática de viajes (km, tiempo) + recordatorio de mantenimiento por kilometraje.
+9. Modo "check-in" en viajes largos para detectar fatiga.
+10. Control de música robusto (siguiente, anterior, play/pause) vía evento de sistema, no vía IA adivinando.
+11. Análisis de ruta antes de salir con Google Maps Routes API (alternativas + tráfico, sin detalle de incidentes puntuales).
+12. **Modo manejo automático**: activa el asistente al conectar el Bluetooth del casco o detectar movimiento tipo moto. Con interruptor en configuración para elegir entre automático o manual — nunca forzado, el usuario decide.
+13. Modo sin señal: el wake word y el modelo local siguen funcionando sin datos móviles; la lectura de Waze depende de que Waze tenga el mapa descargado.
+14. Comando de interrupción inmediata ("cállate"/silencio) que corta cualquier acción o habla del asistente al instante.
+15. Adaptación personal progresiva al usuario — ver sección 7.
+
+**Fuera de alcance por ahora (fase de pago futura):**
+
+16. Alertas de incidentes específicos (choques, controles) vía TomTom Traffic Incidents API.
+
+## 7. Adaptación personal al usuario (dialecto y estilo)
+
+Es factible, pero no como aprendizaje en tiempo real dentro de la app — eso sería pesado para el teléfono y arriesgado (el modelo podría degradarse sin que el usuario se dé cuenta). La forma realista, en dos niveles:
+
+**Nivel simple (para el prototipo, sin tocar el modelo):** un perfil de texto local que acumula vocabulario, expresiones y correcciones frecuentes del usuario, y que se le pasa como contexto al modelo en cada conversación. No requiere entrenamiento, es automático, privado (nunca sale del teléfono) y ya da bastante sensación de personalización.
+
+**Nivel avanzado (fase futura, usa la laptop):** el teléfono guarda localmente los pares audio + corrección cuando el reconocimiento falla. Periódicamente (por ejemplo, al conectar el teléfono a la laptop), esos ejemplos alimentan un ciclo de fine-tuning (LoRA) sobre el modelo de voz o de lenguaje, corriendo en la GPU de la laptop. El resultado se vuelve a cargar al teléfono. Es individual, no colectivo — nunca se comparte ni se mezcla con datos de otros usuarios, porque de entrada es una app de un solo usuario.
+
+Recomendación: arrancar con el nivel simple; dejar el fine-tuning periódico para cuando el resto de la app ya esté estable.
+
+## 8. Limitaciones y riesgos conocidos (leer antes de empezar)
+
+- Waze no tiene API pública para terceros: la lectura se hace vía AccessibilityService, que se puede romper si Waze cambia su interfaz.
+- El envío automático de WhatsApp vía AccessibilityService no es un mecanismo oficial de WhatsApp; para uso personal normal el riesgo de restricción de cuenta es bajo, pero no es cero.
+- El Galaxy S22+ no soporta Gemini Nano/AICore (arranca desde el S24 en Samsung); el modelo local (Gemma/Qwen chico) tiene menos profundidad de razonamiento que un modelo en la nube.
+- La latencia esperada del ciclo completo (wake word → STT → modelo → TTS) es de aproximadamente 1 a 3 segundos, corriendo todo local.
+- El uso continuo de GPS, micrófono y modelo local va a consumir batería notablemente más rápido que el uso normal del teléfono.
+- El stack técnico no distingue moto de carro — es portable a carro más adelante si se quisiera — pero la razón de ser del proyecto es que para carro ya existe Gemini + Android Auto con integración nativa que un desarrollador independiente no puede igualar; para moto no existe nada equivalente.
+
+## 9. Orden de desarrollo sugerido
+
+1. Wake word personalizado (pieza aislada y medible).
+2. AccessibilityService leyendo Waze + TextToSpeech narrándolo (ya ahí hay valor usable).
+3. Control de música vía dispatchMediaKeyEvent.
+4. Integración del modelo de lenguaje local para interpretar comandos y conversar.
+5. Ejecución de acciones (mensajes, llamadas) con confirmación hablada.
+6. Modo manejo automático (Bluetooth/movimiento) con el interruptor automático/manual.
+7. Contexto geográfico (Overpass) y clima (Open-Meteo).
+8. Detección de caída + SOS, bitácora de viajes, modo check-in.
+9. Análisis de ruta pre-viaje con Google Maps Routes API.
+10. Perfil de adaptación personal (nivel simple) y, más adelante, fine-tuning periódico (nivel avanzado).
+
+---
+
+*Documento de referencia para arrancar el desarrollo. Pensado para usarse con cualquier asistente de IA como apoyo técnico.*
