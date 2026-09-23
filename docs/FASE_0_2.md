@@ -5,7 +5,7 @@ Este prototipo usa `WakeWordProvider` con una implementación local de openWakeW
 ## Prueba controlada
 
 1. En la rama `feature/fase-0-audio-bluetooth`, ejecutar `git pull`, sincronizar Gradle (la primera sincronización descarga una biblioteca nueva) e instalar en el S22+.
-2. Emparejar el casco, iniciar música y dejar la app visible. La sensibilidad comienza en **80 %** (umbral interno 0,20). Elegir **Hey Jarvis** o **Alexa** antes de pulsar **Iniciar activación**.
+2. Emparejar el casco, iniciar música y dejar la app visible. La sensibilidad comienza en **80 %** (umbral interno 0,20) y la frase inicial es **Alexa**, para probar sin pronunciar «Hey». Se puede elegir **Hey Jarvis** para comparar antes de pulsar **Iniciar activación**.
 3. Decir la frase seleccionada por el casco. Esperar a que el estado diga **Preparando reconocimiento**, y luego decir **«siguiente canción»**. Comprobar que el texto reconocido es correcto y que la música cambió de pista.
 4. Repetir diez intentos a distancias y volúmenes de voz normales, dejando el teléfono lejos del casco. Anotar intentos pronunciados, activaciones detectadas, órdenes reconocidas y cambios efectivos de pista. Observar durante cinco minutos sin decir la frase y anotar activaciones espontáneas. Detener la sesión, elegir la otra frase y repetir con igual sensibilidad y condiciones. Si hay activaciones falsas, bajar la sensibilidad a 75 % o 70 % y repetir. La frase y la sensibilidad se aplican al iniciar una sesión nueva.
 5. Probar **Detener sesión** mientras espera la frase y durante la escucha de la orden. La captura debe terminar y no debe ejecutar ninguna acción pendiente.
