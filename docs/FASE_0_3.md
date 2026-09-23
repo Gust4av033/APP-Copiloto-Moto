@@ -13,7 +13,21 @@ En la fase 0.2 el usuario comprobó en el S22+ que «Escuchar orden» pausa la m
 
 ## Implementación para probar
 
-La pantalla añade **Iniciar sesión de viaje** y **Detener sesión de viaje**. El nuevo `TripVoiceService` abre el detector una vez iniciada la notificación de tipo `microphone`; el botón y la acción **Detener** de la notificación lo cierran. También se puede decir **«Alexa»**, esperar la señal y decir **«detener sesión»**; esta orden detiene el servicio y libera el micrófono. «Cancelar» termina ese intento sin ejecutar multimedia y mantiene la sesión; «cállate» reconoce la petición de silencio, pero aún no hay TTS que interrumpir. «Detener» solo se interpreta después de la frase de activación, nunca mientras el detector espera. La frase y sensibilidad elegidas en la pantalla se aplican al iniciar la sesión. Se conserva la prueba 0.2 con la app visible para comparar. El servicio descarta detecciones durante 1,5 segundos al abrir o reanudar la captura y detiene la sesión después de dos órdenes fallidas o cuatro detecciones en 12 segundos. La señal sonora se emite antes de abrir el reconocedor, con el detector pausado.
+La pantalla añade **Iniciar sesión de viaje** y **Detener sesión de viaje**. El nuevo `TripVoiceService` abre el detector una vez iniciada la notificación de tipo `microphone`; el botón y la acción **Detener** de la notificación lo cierran. También se puede decir **«Alexa»**, esperar la señal y decir **«detener sesión»**; esta frase completa detiene el servicio y libera el micrófono. «Cancelar» termina ese intento sin ejecutar multimedia y mantiene la sesión; «cállate» reconoce la petición de silencio, pero aún no hay TTS que interrumpir. La frase y sensibilidad elegidas en la pantalla se aplican al iniciar la sesión. Se conserva la prueba 0.2 con la app visible para comparar. El servicio descarta detecciones durante 1,5 segundos al abrir o reanudar la captura y detiene la sesión después de dos órdenes fallidas o cuatro detecciones en 12 segundos. La señal sonora se emite antes de abrir el reconocedor, con el detector pausado.
+
+### Órdenes de música de esta prueba
+
+| Tras «Alexa» y la señal, decir | Evento enviado |
+| --- | --- |
+| «reanudar», «reproducir», «play» | Reproducir (`MEDIA_PLAY`) |
+| «pausa», «pausar», «detener» | Pausar música (`MEDIA_PAUSE`) |
+| «anterior canción», «anterior» | Pista anterior (`MEDIA_PREVIOUS`) |
+| «siguiente canción», «siguiente» | Pista siguiente (`MEDIA_NEXT`) |
+| «detener sesión» | Cerrar detector, servicio y notificación |
+
+Las frases se comparan de forma local y exacta después de normalizar mayúsculas y acentos; otras palabras pueden devolver «orden desconocida». «Detener» **sin** «sesión» pausa la música y deja el asistente esperando otra «Alexa». Reproducir y pausar envían teclas separadas, no un botón alternante. Al pedir pausa, APP no vuelve a reproducir automáticamente la música que detuvo para escuchar esa orden. El envío de la tecla no demuestra por sí solo que la aplicación de música obedeció.
+
+Mientras la sesión espera «Alexa», el detector *sí* graba audio localmente con el micrófono Bluetooth; solo el reconocimiento de órdenes (STT) se abre después de la frase. La grabación de Bluetooth clásico puede cambiar la calidad de la música por el perfil de comunicación del casco. No se puede detectar «Alexa» sin algún micrófono activo. Para conservar el audio de música de alta calidad habría que probar el micrófono del teléfono para la frase de activación o un dispositivo LE Audio compatible; esa ruta aún no se ha validado en el casco y no se cambia automáticamente durante este viaje.
 
 En Android 13 o posterior, la pantalla solicita permiso para notificaciones antes de iniciar esta prueba: si se deniega, no se abre la sesión porque no habría un botón **Detener** visible en el panel de notificaciones. El servicio no se reinicia tras una interrupción del proceso; hay que volver a abrir APP y activarlo explícitamente. Los contadores de la última sesión se guardan localmente sin conservar audio ni texto de órdenes; `Transcripciones` indica texto devuelto por STT, aunque no coincida con la orden de prueba. `Acciones` cuenta envíos del evento multimedia, no garantiza que otra app haya cambiado de pista. `Último tiempo` mide desde la detección de la frase hasta el resultado de STT y el envío de la acción, no es una tasa de aciertos.
 
@@ -22,6 +36,7 @@ Si desconectás el casco, detén la sesión desde la notificación. En la siguie
 ## Criterios de aceptación en el S22+
 
 - Iniciar sesión con la app abierta y el casco conectado; apagar la pantalla o abrir otra app; decir «Alexa» y, tras la señal, «siguiente canción». Verificar cambio de pista y continuidad de escucha para otra orden.
+- Con la sesión aún activa, probar **«Alexa» → «pausa»**, confirmar que la música queda detenida y luego **«Alexa» → «reanudar»**. Probar «anterior canción» y «siguiente canción» en intentos independientes. Si se dijo «detener» a secas, comprobar que solo se pausó la música.
 - Detenerla desde la notificación y comprobar que el micrófono queda libre, deja de reaccionar a «Alexa» y la notificación desaparece. Repetir el cierre con **«Alexa» → «detener sesión»**, verificando el mismo resultado. Repetir con Bluetooth desconectado y registrar un error claro sin bucle.
 - Comparar diez intentos con el teléfono a distancia y cinco minutos de silencio, registrar por separado aciertos y falsos positivos; repetir con música y, estando la moto inmóvil, con motor apagado y encendido. Comprobar consumo y estabilidad de la sesión antes de considerarla apta para pruebas de ruta.
 - Mantener el STT por orden corta; no dejar `SpeechRecognizer` continuamente activo.
