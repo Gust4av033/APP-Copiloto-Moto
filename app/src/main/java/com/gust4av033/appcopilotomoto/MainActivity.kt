@@ -10,12 +10,16 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -24,6 +28,8 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import java.util.concurrent.Executors
 
@@ -37,8 +43,9 @@ class MainActivity : ComponentActivity() {
     private var wakeEnabled by mutableStateOf(false)
     private var wakeTransition by mutableStateOf(false)
     private var wakeDetections by mutableStateOf(0)
-    private var wakeSensitivity by mutableFloatStateOf(75f)
-    private var wakeMessage by mutableStateOf("La frase de prueba es ‘Hey Jarvis’. Iniciá la sesión con la app abierta.")
+    private var wakeSensitivity by mutableFloatStateOf(80f)
+    private var wakePhrase by mutableStateOf(WakePhrase.HEY_JARVIS)
+    private var wakeMessage by mutableStateOf("Elegí una frase e iniciá la sesión con la app abierta.")
     private var message by mutableStateOf("Conectá el casco Bluetooth y pulsá Iniciar prueba.")
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
     private var result by mutableStateOf<AudioProbeResult?>(null)
@@ -88,7 +95,26 @@ class MainActivity : ComponentActivity() {
                         }
                         Text(voiceMessage, modifier = Modifier.padding(top = 12.dp))
                         Text("Fase 0.2 · Activación local", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Iniciá la sesión, decí ‘Hey Jarvis’, esperá a que se active y luego decí ‘siguiente canción’. El detector se pausa mientras escucha la orden.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Iniciá la sesión, decí ‘${wakePhrase.label}’, esperá a que se active y luego decí ‘siguiente canción’. El detector se pausa mientras escucha la orden.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Frase de activación de prueba", modifier = Modifier.padding(top = 12.dp))
+                        Column(modifier = Modifier.selectableGroup()) {
+                            WakePhrase.entries.forEach { option ->
+                                val canChange = !wakeEnabled && !wakeTransition && !listening && !running
+                                Row(
+                                    modifier = Modifier.selectable(
+                                        selected = wakePhrase == option,
+                                        enabled = canChange,
+                                        role = Role.RadioButton,
+                                        onClick = { wakePhrase = option }
+                                    ),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(selected = wakePhrase == option, onClick = null, enabled = canChange)
+                                    Text(option.label, modifier = Modifier.padding(start = 8.dp))
+                                }
+                            }
+                        }
+                        Text("«Hola amigo» requiere entrenar un modelo propio; elegir un nombre aquí no cambia lo que escucha el detector.", style = MaterialTheme.typography.bodySmall)
                         Text("Sensibilidad de activación: ${wakeSensitivity.toInt()} %", modifier = Modifier.padding(top = 12.dp))
                         Slider(
                             value = wakeSensitivity,
@@ -97,7 +123,7 @@ class MainActivity : ComponentActivity() {
                             steps = 8,
                             enabled = !wakeEnabled && !wakeTransition && !listening && !running
                         )
-                        Text("Más sensibilidad puede detectar más veces ‘Hey Jarvis’, pero también activarse por error. Ajustala con la sesión detenida.", style = MaterialTheme.typography.bodySmall)
+                        Text("Más sensibilidad puede detectar más veces la frase elegida, pero también activarse por error. Ajustala con la sesión detenida.", style = MaterialTheme.typography.bodySmall)
                         Button(
                             onClick = { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) },
                             enabled = !running && (wakeEnabled || (!listening && !wakeTransition)),
@@ -188,7 +214,7 @@ class MainActivity : ComponentActivity() {
         wakeTransition = true
         wakeDetections = 0
         wakeMessage = "Preparando el detector local…"
-        val provider = OpenWakeWordProvider(applicationContext, threshold = (100f - wakeSensitivity) / 100f)
+        val provider = OpenWakeWordProvider(applicationContext, threshold = (100f - wakeSensitivity) / 100f, wakePhrase = wakePhrase)
         wakeProvider = provider
         worker.execute {
             val outcome = provider.start(::onWakeDetected)
