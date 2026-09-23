@@ -1,6 +1,7 @@
 package com.gust4av033.appcopilotomoto
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -68,11 +69,13 @@ class MainActivity : ComponentActivity() {
         else {
             message = "Se necesita permiso de micrófono y, en Android 12 o posterior, de Bluetooth para esta prueba."
             voiceMessage = message
+            TripTestState.status = "Se necesitan los permisos solicitados para mostrar la notificación y usar el micrófono del casco."
         }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        TripTestState.restore(this)
         setContent {
             MaterialTheme {
                 Scaffold { padding ->
@@ -83,7 +86,7 @@ class MainActivity : ComponentActivity() {
                         Text("APP · Fase 0.0", style = MaterialTheme.typography.headlineMedium)
                         Text("Diagnóstico de micrófono Bluetooth", modifier = Modifier.padding(top = 12.dp), style = MaterialTheme.typography.titleMedium)
                         Text("La prueba escucha cinco segundos. Hablá por el casco; el audio se descarta y solo se muestran medidas.", modifier = Modifier.padding(top = 12.dp))
-                        Button(onClick = { requestProbe() }, enabled = !running && !listening && !wakeEnabled && !wakeTransition, modifier = Modifier.padding(top = 20.dp)) {
+                        Button(onClick = { requestProbe() }, enabled = !running && !listening && !wakeEnabled && !wakeTransition && !TripTestState.running, modifier = Modifier.padding(top = 20.dp)) {
                             Text(if (running) "Midiendo…" else "Iniciar prueba")
                         }
                         Text(message, modifier = Modifier.padding(top = 16.dp))
@@ -99,7 +102,7 @@ class MainActivity : ComponentActivity() {
                         Text("Fase 0.1 · Orden corta", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
                         Text("Pulsá Escuchar, esperá a que diga ‘Reconocedor listo’ y decí ‘siguiente canción’. También podés probar ‘cancelar’ o ‘cállate’.", modifier = Modifier.padding(top = 8.dp))
                         Text("Durante la orden APP pide pausar la música; al terminar solicita reanudarla.", style = MaterialTheme.typography.bodySmall)
-                        Button(onClick = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) }, enabled = !running && !wakeEnabled && !wakeTransition, modifier = Modifier.padding(top = 12.dp)) {
+                        Button(onClick = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) }, enabled = !running && !wakeEnabled && !wakeTransition && !TripTestState.running, modifier = Modifier.padding(top = 12.dp)) {
                             Text(if (listening) "Cancelar escucha" else "Escuchar orden")
                         }
                         Text(voiceMessage, modifier = Modifier.padding(top = 12.dp))
@@ -108,7 +111,7 @@ class MainActivity : ComponentActivity() {
                         Text("Frase de activación de prueba", modifier = Modifier.padding(top = 12.dp))
                         Column(modifier = Modifier.selectableGroup()) {
                             WakePhrase.entries.forEach { option ->
-                                val canChange = !wakeEnabled && !wakeTransition && !listening && !running
+                                val canChange = !wakeEnabled && !wakeTransition && !listening && !running && !TripTestState.running
                                 Row(
                                     modifier = Modifier.selectable(
                                         selected = wakePhrase == option,
@@ -130,12 +133,12 @@ class MainActivity : ComponentActivity() {
                             onValueChange = { wakeSensitivity = it },
                             valueRange = 40f..85f,
                             steps = 8,
-                            enabled = !wakeEnabled && !wakeTransition && !listening && !running
+                            enabled = !wakeEnabled && !wakeTransition && !listening && !running && !TripTestState.running
                         )
                         Text("Más sensibilidad puede detectar más veces la frase elegida, pero también activarse por error. Ajustala con la sesión detenida.", style = MaterialTheme.typography.bodySmall)
                         Button(
                             onClick = { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) },
-                            enabled = !running && (wakeEnabled || (!listening && !wakeTransition)),
+                            enabled = !TripTestState.running && !running && (wakeEnabled || (!listening && !wakeTransition)),
                             modifier = Modifier.padding(top = 12.dp)
                         ) {
                             Text(if (wakeEnabled) "Detener sesión" else "Iniciar activación")
@@ -143,7 +146,20 @@ class MainActivity : ComponentActivity() {
                         Text(wakeMessage, modifier = Modifier.padding(top = 12.dp))
                         Text("Activaciones detectadas: $wakeDetections")
                         Text("El porcentaje entre paréntesis es la puntuación de una detección, no la tasa de aciertos.", style = MaterialTheme.typography.bodySmall)
-                        Text("Prueba con la app visible. La escucha con pantalla apagada llegará con el servicio de viaje.", style = MaterialTheme.typography.bodySmall)
+                        Text("Esta prueba 0.2 usa la app visible; la sesión 0.3 se controla abajo.", style = MaterialTheme.typography.bodySmall)
+                        Text("Fase 0.3 · Sesión con pantalla apagada", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
+                        Text("Iniciá la sesión con la app abierta y el casco conectado. Apagá la pantalla, decí ‘${wakePhrase.label}’ y, tras el tono, esperá un instante antes de decir ‘siguiente canción’.", modifier = Modifier.padding(top = 8.dp))
+                        Button(
+                            onClick = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
+                            enabled = TripTestState.running || (!running && !listening && !wakeEnabled && !wakeTransition),
+                            modifier = Modifier.padding(top = 12.dp)
+                        ) {
+                            Text(if (TripTestState.running) "Detener sesión de viaje" else "Iniciar sesión de viaje")
+                        }
+                        Text(TripTestState.status, modifier = Modifier.padding(top = 12.dp))
+                        Text("Detecciones: ${TripTestState.detections} · Transcripciones: ${TripTestState.recognized} · Acciones: ${TripTestState.actions} · Fallos: ${TripTestState.failures}")
+                        Text("Último tiempo activación → STT listo: ${TripTestState.lastWakeToSttMs} ms · activación → resultado: ${TripTestState.lastLatencyMs} ms", style = MaterialTheme.typography.bodySmall)
+                        Text("Para medir aciertos y falsas alarmas, anotá por separado cuántas veces dijiste la frase y si hubo alguna activación sin hablar. Podés detener la sesión desde la notificación.", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -161,6 +177,34 @@ class MainActivity : ComponentActivity() {
         if (missing.isEmpty()) onGranted() else {
             pendingAction = onGranted
             permissionRequest.launch(missing.toTypedArray())
+        }
+    }
+
+    private fun requestTripPermissions() {
+        val required = mutableListOf(Manifest.permission.RECORD_AUDIO)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) required += Manifest.permission.BLUETOOTH_CONNECT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) required += Manifest.permission.POST_NOTIFICATIONS
+        val missing = required.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (missing.isEmpty()) startTripTest() else {
+            pendingAction = ::startTripTest
+            permissionRequest.launch(missing.toTypedArray())
+        }
+    }
+
+    private fun startTripTest() {
+        val intent = Intent(this, TripVoiceService::class.java).setAction(TripVoiceService.ACTION_START)
+            .putExtra(TripVoiceService.EXTRA_PHRASE, wakePhrase.name)
+            .putExtra(TripVoiceService.EXTRA_SENSITIVITY, wakeSensitivity)
+        runCatching { startForegroundService(intent) }.onFailure {
+            TripTestState.status = "No se pudo iniciar la sesión: ${it.message ?: it.javaClass.simpleName}"
+        }
+    }
+
+    private fun stopTripTest() {
+        runCatching {
+            startService(Intent(this, TripVoiceService::class.java).setAction(TripVoiceService.ACTION_STOP))
+        }.onFailure {
+            TripTestState.status = "No se pudo detener la sesión: ${it.message ?: it.javaClass.simpleName}"
         }
     }
 
