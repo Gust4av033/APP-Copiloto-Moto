@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -34,10 +36,15 @@ import androidx.compose.ui.unit.dp
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
+    private val mainHandler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     private val speech by lazy { AndroidSpeechToTextProvider(applicationContext) }
     private val media by lazy { MediaActionAdapter(applicationContext) }
     private var wakeProvider: WakeWordProvider? = null
+    private var wakeResumeTask: Runnable? = null
+    private var wakeCycle = 0
+    private var consecutiveEmptyCommands = 0
+    private val recentWakeDetections = ArrayDeque<Long>()
     private var running by mutableStateOf(false)
     private var listening by mutableStateOf(false)
     private var wakeEnabled by mutableStateOf(false)
@@ -133,6 +140,7 @@ class MainActivity : ComponentActivity() {
                         }
                         Text(wakeMessage, modifier = Modifier.padding(top = 12.dp))
                         Text("Activaciones detectadas: $wakeDetections")
+                        Text("El porcentaje entre paréntesis es la puntuación de una detección, no la tasa de aciertos.", style = MaterialTheme.typography.bodySmall)
                         Text("Prueba con la app visible. La escucha con pantalla apagada llegará con el servicio de viaje.", style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -182,6 +190,9 @@ class MainActivity : ComponentActivity() {
             if (!listening) return@listenOnce
             listening = false
             val elapsed = SystemClock.elapsedRealtime() - start
+            val commandRecognized = outcome.getOrNull()?.let {
+                MinimalIntentRouter.resolve(it) != TestIntent.UNKNOWN
+            } ?: false
             voiceMessage = outcome.fold(
                 onSuccess = { heard ->
                     when (MinimalIntentRouter.resolve(heard)) {
@@ -197,7 +208,14 @@ class MainActivity : ComponentActivity() {
                 },
                 onFailure = { "No se reconoció la orden: ${it.message ?: "error desconocido"}. Tiempo: $elapsed ms." }
             )
-            if (fromWake && wakeEnabled) resumeWakeTest()
+            if (fromWake && wakeEnabled) {
+                consecutiveEmptyCommands = if (commandRecognized) 0 else consecutiveEmptyCommands + 1
+                if (consecutiveEmptyCommands >= 2) {
+                    endWakeTest("Sesión detenida: dos activaciones seguidas sin una orden reconocida. Revisá el resultado de voz y reiniciá la prueba; si se activó sola, bajá la sensibilidad.")
+                } else {
+                    scheduleWakeResume(if (commandRecognized) 2_000L else 3_500L)
+                }
+            }
         }
     }
 
@@ -205,7 +223,7 @@ class MainActivity : ComponentActivity() {
         speech.cancel()
         listening = false
         voiceMessage = "Escucha cancelada; no se ejecutó ninguna acción."
-        if (wakeEnabled) resumeWakeTest()
+        if (wakeEnabled) scheduleWakeResume(2_000L)
     }
 
     private fun startWakeTest() {
@@ -213,11 +231,14 @@ class MainActivity : ComponentActivity() {
         wakeEnabled = true
         wakeTransition = true
         wakeDetections = 0
+        consecutiveEmptyCommands = 0
+        recentWakeDetections.clear()
         wakeMessage = "Preparando el detector local…"
         val provider = OpenWakeWordProvider(applicationContext, threshold = (100f - wakeSensitivity) / 100f, wakePhrase = wakePhrase)
         wakeProvider = provider
+        val cycle = ++wakeCycle
         worker.execute {
-            val outcome = provider.start(::onWakeDetected)
+            val outcome = provider.start { score -> onWakeDetected(score, cycle) }
             runOnUiThread {
                 if (wakeEnabled && wakeProvider === provider) {
                     wakeTransition = false
@@ -228,8 +249,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun onWakeDetected(score: Float) {
-        if (!wakeEnabled || wakeTransition || listening) return
+    private fun onWakeDetected(score: Float, cycle: Int) {
+        if (!wakeEnabled || wakeTransition || listening || cycle != wakeCycle) return
+        val now = SystemClock.elapsedRealtime()
+        while (recentWakeDetections.isNotEmpty() && now - recentWakeDetections.first() > 12_000L) {
+            recentWakeDetections.removeFirst()
+        }
+        if (recentWakeDetections.size >= 3) {
+            endWakeTest("Sesión detenida: varias activaciones en pocos segundos. Si ocurrieron sin decir la frase, bajá la sensibilidad antes de reiniciar.")
+            return
+        }
+        recentWakeDetections.addLast(now)
+        wakeCycle++ // Invalida detecciones del micrófono anterior que llegaron tarde.
         wakeTransition = true
         wakeDetections++
         wakeMessage = "Activación #$wakeDetections (${(score * 100).toInt()} %). Preparando reconocimiento…"
@@ -249,11 +280,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun scheduleWakeResume(delayMs: Long) {
+        val provider = wakeProvider ?: return
+        wakeResumeTask?.let(mainHandler::removeCallbacks)
+        wakeTransition = true
+        val waitLabel = if (delayMs == 2_000L) "2" else "3,5"
+        wakeMessage = "Esperando $waitLabel segundos antes de volver a escuchar ‘${provider.phrase}’…"
+        val task = Runnable {
+            wakeResumeTask = null
+            if (wakeEnabled && wakeProvider === provider && !listening) resumeWakeTest()
+        }
+        wakeResumeTask = task
+        mainHandler.postDelayed(task, delayMs)
+    }
+
     private fun resumeWakeTest() {
         val provider = wakeProvider ?: return
         wakeTransition = true
+        val cycle = ++wakeCycle
         worker.execute {
-            val outcome = provider.start(::onWakeDetected)
+            val outcome = provider.start { score -> onWakeDetected(score, cycle) }
             runOnUiThread {
                 if (wakeEnabled && wakeProvider === provider) {
                     wakeTransition = false
@@ -264,7 +310,10 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun endWakeTest() {
+    private fun endWakeTest(reason: String? = null) {
+        wakeResumeTask?.let(mainHandler::removeCallbacks)
+        wakeResumeTask = null
+        wakeCycle++
         wakeEnabled = false
         wakeTransition = true
         if (listening) {
@@ -278,13 +327,16 @@ class MainActivity : ComponentActivity() {
             val outcome = runCatching { provider?.close() }
             runOnUiThread {
                 wakeTransition = false
-                wakeMessage = if (outcome.isSuccess) "Sesión detenida. Activaciones: $wakeDetections."
+                wakeMessage = if (outcome.isSuccess) reason ?: "Sesión detenida. Activaciones: $wakeDetections."
                 else "La sesión terminó con error: ${outcome.exceptionOrNull()?.message}"
             }
         }
     }
 
     override fun onDestroy() {
+        wakeResumeTask?.let(mainHandler::removeCallbacks)
+        wakeResumeTask = null
+        wakeCycle++
         if (listening) speech.cancel()
         wakeEnabled = false
         val provider = wakeProvider
