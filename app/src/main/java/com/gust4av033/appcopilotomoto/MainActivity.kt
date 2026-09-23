@@ -100,14 +100,14 @@ class MainActivity : ComponentActivity() {
                             measurement.warning?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp)) }
                         }
                         Text("Fase 0.1 · Orden corta", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Pulsá Escuchar, esperá a que diga ‘Reconocedor listo’ y decí ‘siguiente canción’. También podés probar ‘cancelar’ o ‘cállate’.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Pulsá Escuchar, esperá a que diga ‘Reconocedor listo’ y probá ‘siguiente canción’, ‘anterior canción’, ‘reanudar’, ‘pausa’ o ‘detener’.", modifier = Modifier.padding(top = 8.dp))
                         Text("Durante la orden APP pide pausar la música; al terminar solicita reanudarla.", style = MaterialTheme.typography.bodySmall)
                         Button(onClick = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) }, enabled = !running && !wakeEnabled && !wakeTransition && !TripTestState.running, modifier = Modifier.padding(top = 12.dp)) {
                             Text(if (listening) "Cancelar escucha" else "Escuchar orden")
                         }
                         Text(voiceMessage, modifier = Modifier.padding(top = 12.dp))
                         Text("Fase 0.2 · Activación local", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Iniciá la sesión, esperá a que diga ‘Esperando’ y decí ‘${wakePhrase.label}’. Cuando aparezca ‘Reconocedor listo’, decí ‘siguiente canción’ o ‘detener sesión’. El detector se pausa mientras escucha la orden.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Iniciá la sesión, esperá a que diga ‘Esperando’ y decí ‘${wakePhrase.label}’. Cuando aparezca ‘Reconocedor listo’, decí una orden de música; ‘detener sesión’ cierra esta prueba.", modifier = Modifier.padding(top = 8.dp))
                         Text("Frase de activación de prueba", modifier = Modifier.padding(top = 12.dp))
                         Column(modifier = Modifier.selectableGroup()) {
                             WakePhrase.entries.forEach { option ->
@@ -148,7 +148,7 @@ class MainActivity : ComponentActivity() {
                         Text("El porcentaje entre paréntesis es la puntuación de una detección, no la tasa de aciertos.", style = MaterialTheme.typography.bodySmall)
                         Text("Esta prueba 0.2 usa la app visible; la sesión 0.3 se controla abajo.", style = MaterialTheme.typography.bodySmall)
                         Text("Fase 0.3 · Sesión con pantalla apagada", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Iniciá la sesión con la app abierta y el casco conectado. Apagá la pantalla, decí ‘${wakePhrase.label}’ y, tras el tono, esperá un instante antes de decir ‘siguiente canción’ o ‘detener sesión’.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Iniciá la sesión con el casco conectado. Para cada orden decí ‘${wakePhrase.label}’, esperá el tono y luego pedí ‘reanudar’, ‘pausa’, ‘detener’, ‘anterior canción’ o ‘siguiente canción’. Solo ‘detener sesión’ termina la escucha.", modifier = Modifier.padding(top = 8.dp))
                         Button(
                             onClick = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
                             enabled = TripTestState.running || (!running && !listening && !wakeEnabled && !wakeTransition),
@@ -159,7 +159,8 @@ class MainActivity : ComponentActivity() {
                         Text(TripTestState.status, modifier = Modifier.padding(top = 12.dp))
                         Text("Detecciones: ${TripTestState.detections} · Transcripciones: ${TripTestState.recognized} · Acciones: ${TripTestState.actions} · Fallos: ${TripTestState.failures}")
                         Text("Último tiempo activación → STT listo: ${TripTestState.lastWakeToSttMs} ms · activación → resultado: ${TripTestState.lastLatencyMs} ms", style = MaterialTheme.typography.bodySmall)
-                        Text("Para medir aciertos y falsas alarmas, anotá por separado cuántas veces dijiste la frase y si hubo alguna activación sin hablar. Podés detener la sesión desde la notificación.", style = MaterialTheme.typography.bodySmall)
+                        Text("Mientras espera ‘${wakePhrase.label}’, el detector escucha la frase. Cada orden abre el reconocedor solo unos segundos. El micrófono Bluetooth puede cambiar el sonido de la música durante la sesión. Podés cerrarla por voz, desde la app o desde la notificación.", style = MaterialTheme.typography.bodySmall)
+                        Text("Para medir aciertos y falsas alarmas, anotá por separado cuántas veces dijiste la frase y si hubo alguna activación sin hablar.", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -238,12 +239,14 @@ class MainActivity : ComponentActivity() {
             speech.listenOnce(onState = { state ->
                 if (listening) when (state) {
                     SpeechCaptureState.READY -> {
-                        voiceMessage = "Reconocedor listo. Decí ‘siguiente canción’ ahora."
+                        voiceMessage = "Reconocedor listo. Decí una orden de música ahora."
                         if (fromWake) wakeMessage = "Reconocedor listo: decí la orden ahora."
                     }
                     // El motor puede confundir música o ruido con voz: no es una orden reconocida.
                     SpeechCaptureState.SPEECH_ONSET -> Unit
                 }
+            }, shouldResumePlayback = { heard ->
+                heard?.let(MinimalIntentRouter::resolve) != TestIntent.MEDIA_PAUSE
             }) { outcome ->
                 if (!listening) return@listenOnce
                 listening = false
@@ -254,10 +257,22 @@ class MainActivity : ComponentActivity() {
                 voiceMessage = outcome.fold(
                     onSuccess = { heard ->
                         when (MinimalIntentRouter.resolve(heard)) {
-                            TestIntent.MEDIA_NEXT -> {
-                                val dispatched = media.nextTrack()
-                                if (dispatched.isSuccess) "Escuché: ‘$heard’. Envié Siguiente canción en $elapsed ms. Comprobá si cambió la pista."
-                                else "Escuché: ‘$heard’, pero falló el envío: ${dispatched.exceptionOrNull()?.message}"
+                            TestIntent.MEDIA_NEXT, TestIntent.MEDIA_PREVIOUS,
+                            TestIntent.MEDIA_PLAY, TestIntent.MEDIA_PAUSE -> {
+                                val action = when (MinimalIntentRouter.resolve(heard)) {
+                                    TestIntent.MEDIA_NEXT -> media.nextTrack()
+                                    TestIntent.MEDIA_PREVIOUS -> media.previousTrack()
+                                    TestIntent.MEDIA_PLAY -> media.play()
+                                    else -> media.pause()
+                                }
+                                val command = when (MinimalIntentRouter.resolve(heard)) {
+                                    TestIntent.MEDIA_NEXT -> "Siguiente canción"
+                                    TestIntent.MEDIA_PREVIOUS -> "Anterior canción"
+                                    TestIntent.MEDIA_PLAY -> "Reproducir"
+                                    else -> "Pausar"
+                                }
+                                if (action.isSuccess) "Escuché: ‘$heard’. Envié $command en $elapsed ms. Comprobá el resultado en la música."
+                                else "Escuché: ‘$heard’, pero falló el envío de $command: ${action.exceptionOrNull()?.message}"
                             }
                             TestIntent.STOP_TTS -> "Escuché: ‘$heard’. Orden Silencio reconocida; aún no hay voz sintetizada para interrumpir."
                             TestIntent.CANCEL -> "Escuché: ‘$heard’. Orden Cancelar reconocida; no se ejecutó ninguna acción."
@@ -267,12 +282,12 @@ class MainActivity : ComponentActivity() {
                     },
                     onFailure = { "No se reconoció la orden: ${it.message ?: "error desconocido"}. Tiempo: $elapsed ms." }
                 )
-            if (fromWake && wakeEnabled) {
-                if (outcome.getOrNull()?.let(MinimalIntentRouter::resolve) == TestIntent.STOP_SESSION) {
-                    endWakeTest("Sesión detenida por voz: ‘${outcome.getOrNull()}’.")
-                    return@listenOnce
-                }
-                consecutiveEmptyCommands = if (commandRecognized) 0 else consecutiveEmptyCommands + 1
+                if (fromWake && wakeEnabled) {
+                    if (outcome.getOrNull()?.let(MinimalIntentRouter::resolve) == TestIntent.STOP_SESSION) {
+                        endWakeTest("Sesión detenida por voz: ‘${outcome.getOrNull()}’.")
+                        return@listenOnce
+                    }
+                    consecutiveEmptyCommands = if (commandRecognized) 0 else consecutiveEmptyCommands + 1
                     if (consecutiveEmptyCommands >= 2) {
                         endWakeTest("Sesión detenida: dos activaciones seguidas sin una orden reconocida. Revisá el resultado de voz y reiniciá la prueba; si se activó sola, bajá la sensibilidad.")
                     } else {
