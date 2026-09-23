@@ -5,7 +5,7 @@ Esta primera entrega valida la ruta de entrada del micrófono. Es una prueba de 
 ## Qué mide
 
 - Entrada Bluetooth solicitada y dispositivo que `AudioRecord.getRoutedDevice()` reporta mientras graba.
-- Dispositivo de comunicación seleccionado por Android (no garantiza por sí solo dónde se oyó el audio).
+- Dispositivo de comunicación seleccionado por Android al finalizar la captura (no garantiza por sí solo dónde se oyó el audio ni indica la ruta de reproducción de música).
 - Muestras recibidas, duración, nivel medio y pico de la señal. El audio se descarta inmediatamente y no se sube al repositorio.
 - Aviso cuando Android no confirma el micrófono del casco o la señal es muy baja.
 
