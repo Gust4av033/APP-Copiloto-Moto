@@ -241,18 +241,26 @@ class TripVoiceService : Service() {
             if (active && cycle == generation && state == SpeechCaptureState.READY) {
                 TripTestState.lastWakeToSttMs = SystemClock.elapsedRealtime() - wakeAt
                 TripTestState.save(this)
-                TripTestState.status = "Reconocedor listo; decí ‘siguiente canción’."
+                TripTestState.status = "Reconocedor listo; decí la orden de música."
             }
+        }, shouldResumePlayback = { heard ->
+            heard?.let(MinimalIntentRouter::resolve) != TestIntent.MEDIA_PAUSE
         }) { outcome ->
             if (!active || cycle != generation) return@listenOnce
             val heard = outcome.getOrNull()
             val intent = heard?.let(MinimalIntentRouter::resolve) ?: TestIntent.UNKNOWN
-            val succeeded = if (intent == TestIntent.MEDIA_NEXT) media.nextTrack().isSuccess else false
+            val mediaAction = when (intent) {
+                TestIntent.MEDIA_NEXT -> media.nextTrack()
+                TestIntent.MEDIA_PREVIOUS -> media.previousTrack()
+                TestIntent.MEDIA_PLAY -> media.play()
+                TestIntent.MEDIA_PAUSE -> media.pause()
+                else -> null
+            }
             val elapsed = SystemClock.elapsedRealtime() - wakeAt
             TripTestState.lastLatencyMs = elapsed
             if (heard != null) TripTestState.recognized++
-            if (succeeded) TripTestState.actions++
-            if (outcome.isFailure || intent == TestIntent.UNKNOWN || (intent == TestIntent.MEDIA_NEXT && !succeeded)) {
+            if (mediaAction?.isSuccess == true) TripTestState.actions++
+            if (outcome.isFailure || intent == TestIntent.UNKNOWN || mediaAction?.isFailure == true) {
                 TripTestState.failures++
                 consecutiveFailures++
             } else consecutiveFailures = 0
@@ -263,8 +271,16 @@ class TripVoiceService : Service() {
             }
             TripTestState.status = when {
                 outcome.isFailure -> "No se entendió la orden: ${outcome.exceptionOrNull()?.message}."
-                intent == TestIntent.MEDIA_NEXT && succeeded -> "Escuché ‘$heard’; envié Siguiente canción en $elapsed ms."
-                intent == TestIntent.MEDIA_NEXT -> "Escuché ‘$heard’, pero falló el control multimedia."
+                mediaAction != null -> {
+                    val command = when (intent) {
+                        TestIntent.MEDIA_NEXT -> "Siguiente canción"
+                        TestIntent.MEDIA_PREVIOUS -> "Anterior canción"
+                        TestIntent.MEDIA_PLAY -> "Reproducir"
+                        else -> "Pausar"
+                    }
+                    if (mediaAction.isSuccess) "Escuché ‘$heard’; envié $command en $elapsed ms."
+                    else "Escuché ‘$heard’, pero falló el envío de $command."
+                }
                 intent == TestIntent.CANCEL -> "Escuché ‘$heard’; orden cancelada."
                 intent == TestIntent.STOP_TTS -> "Escuché ‘$heard’; Silencio reconocido (sin TTS activo)."
                 else -> "Escuché ‘$heard’; no coincide con las órdenes de prueba."
