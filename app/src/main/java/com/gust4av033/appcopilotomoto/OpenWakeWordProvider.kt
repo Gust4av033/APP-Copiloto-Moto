@@ -6,12 +6,20 @@ import android.media.AudioManager
 import android.os.Build
 import com.openwakeword.OpenWakeWord
 
-/** Prototipo con frase conocida; personalización acústica llegará después. */
-class OpenWakeWordProvider(context: Context, threshold: Float) : WakeWordProvider {
-    override val phrase = "Hey Jarvis"
+/** Frases con modelos incluidos; una frase nueva requiere un modelo entrenado. */
+enum class WakePhrase(val label: String) {
+    HEY_JARVIS("Hey Jarvis"),
+    ALEXA("Alexa")
+}
+
+class OpenWakeWordProvider(context: Context, threshold: Float, wakePhrase: WakePhrase) : WakeWordProvider {
+    override val phrase = wakePhrase.label
     private val audioManager = context.getSystemService(AudioManager::class.java)
     private val detector = OpenWakeWord.Builder(context.applicationContext)
-        .setModel(OpenWakeWord.BuiltInModel.HEY_JARVIS)
+        .setModel(when (wakePhrase) {
+            WakePhrase.HEY_JARVIS -> OpenWakeWord.BuiltInModel.HEY_JARVIS
+            WakePhrase.ALEXA -> OpenWakeWord.BuiltInModel.ALEXA
+        })
         .setThreshold(threshold)
         .setDebounceMs(2_000)
         .build()
