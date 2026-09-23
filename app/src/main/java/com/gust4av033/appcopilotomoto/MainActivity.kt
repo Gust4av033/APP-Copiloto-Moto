@@ -29,8 +29,13 @@ class MainActivity : ComponentActivity() {
     private val worker = Executors.newSingleThreadExecutor()
     private val speech by lazy { AndroidSpeechToTextProvider(applicationContext) }
     private val media by lazy { MediaActionAdapter(applicationContext) }
+    private var wakeProvider: WakeWordProvider? = null
     private var running by mutableStateOf(false)
     private var listening by mutableStateOf(false)
+    private var wakeEnabled by mutableStateOf(false)
+    private var wakeTransition by mutableStateOf(false)
+    private var wakeDetections by mutableStateOf(0)
+    private var wakeMessage by mutableStateOf("La frase de prueba es ‘Hey Jarvis’. Iniciá la sesión con la app abierta.")
     private var message by mutableStateOf("Conectá el casco Bluetooth y pulsá Iniciar prueba.")
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
     private var result by mutableStateOf<AudioProbeResult?>(null)
@@ -60,7 +65,7 @@ class MainActivity : ComponentActivity() {
                         Text("APP · Fase 0.0", style = MaterialTheme.typography.headlineMedium)
                         Text("Diagnóstico de micrófono Bluetooth", modifier = Modifier.padding(top = 12.dp), style = MaterialTheme.typography.titleMedium)
                         Text("La prueba escucha cinco segundos. Hablá por el casco; el audio se descarta y solo se muestran medidas.", modifier = Modifier.padding(top = 12.dp))
-                        Button(onClick = { requestProbe() }, enabled = !running && !listening, modifier = Modifier.padding(top = 20.dp)) {
+                        Button(onClick = { requestProbe() }, enabled = !running && !listening && !wakeEnabled && !wakeTransition, modifier = Modifier.padding(top = 20.dp)) {
                             Text(if (running) "Midiendo…" else "Iniciar prueba")
                         }
                         Text(message, modifier = Modifier.padding(top = 16.dp))
@@ -75,10 +80,22 @@ class MainActivity : ComponentActivity() {
                         }
                         Text("Fase 0.1 · Orden corta", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
                         Text("Pulsá Escuchar y decí ‘siguiente canción’. También podés probar ‘cancelar’ o ‘cállate’.", modifier = Modifier.padding(top = 8.dp))
-                        Button(onClick = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) }, enabled = !running, modifier = Modifier.padding(top = 12.dp)) {
+                        Button(onClick = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) }, enabled = !running && !wakeEnabled && !wakeTransition, modifier = Modifier.padding(top = 12.dp)) {
                             Text(if (listening) "Cancelar escucha" else "Escuchar orden")
                         }
                         Text(voiceMessage, modifier = Modifier.padding(top = 12.dp))
+                        Text("Fase 0.2 · Activación local", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
+                        Text("Iniciá la sesión, decí ‘Hey Jarvis’, esperá a que se active y luego decí ‘siguiente canción’. El detector se pausa mientras escucha la orden.", modifier = Modifier.padding(top = 8.dp))
+                        Button(
+                            onClick = { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) },
+                            enabled = !running && (wakeEnabled || (!listening && !wakeTransition)),
+                            modifier = Modifier.padding(top = 12.dp)
+                        ) {
+                            Text(if (wakeEnabled) "Detener sesión" else "Iniciar activación")
+                        }
+                        Text(wakeMessage, modifier = Modifier.padding(top = 12.dp))
+                        Text("Activaciones detectadas: $wakeDetections")
+                        Text("Prueba con la app visible. La escucha con pantalla apagada llegará con el servicio de viaje.", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
@@ -115,6 +132,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startVoiceTest() {
+        startVoiceCommand(fromWake = false)
+    }
+
+    private fun startVoiceCommand(fromWake: Boolean) {
         if (listening || running) return
         listening = true
         voiceMessage = "Escuchando una orden corta…"
@@ -138,6 +159,7 @@ class MainActivity : ComponentActivity() {
                 },
                 onFailure = { "No se reconoció la orden: ${it.message ?: "error desconocido"}. Tiempo: $elapsed ms." }
             )
+            if (fromWake && wakeEnabled) resumeWakeTest()
         }
     }
 
@@ -145,10 +167,91 @@ class MainActivity : ComponentActivity() {
         speech.cancel()
         listening = false
         voiceMessage = "Escucha cancelada; no se ejecutó ninguna acción."
+        if (wakeEnabled) resumeWakeTest()
+    }
+
+    private fun startWakeTest() {
+        if (wakeEnabled || wakeTransition || listening || running) return
+        wakeEnabled = true
+        wakeTransition = true
+        wakeDetections = 0
+        wakeMessage = "Preparando el detector local…"
+        val provider = OpenWakeWordProvider(applicationContext)
+        wakeProvider = provider
+        worker.execute {
+            val outcome = provider.start(::onWakeDetected)
+            runOnUiThread {
+                if (wakeEnabled && wakeProvider === provider) {
+                    wakeTransition = false
+                    wakeMessage = if (outcome.isSuccess) "Esperando ‘${provider.phrase}’…" else "Falló el detector: ${outcome.exceptionOrNull()?.message}"
+                    if (outcome.isFailure) endWakeTest()
+                }
+            }
+        }
+    }
+
+    private fun onWakeDetected(score: Float) {
+        if (!wakeEnabled || wakeTransition || listening) return
+        wakeTransition = true
+        wakeDetections++
+        wakeMessage = "Activación #$wakeDetections (${(score * 100).toInt()} %). Preparando reconocimiento…"
+        val provider = wakeProvider ?: return
+        worker.execute {
+            val outcome = runCatching { provider.pause() }
+            runOnUiThread {
+                if (wakeEnabled && wakeProvider === provider) {
+                    wakeTransition = false
+                    if (outcome.isSuccess) startVoiceCommand(fromWake = true)
+                    else {
+                        wakeMessage = "Falló la pausa del detector: ${outcome.exceptionOrNull()?.message}"
+                        endWakeTest()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun resumeWakeTest() {
+        val provider = wakeProvider ?: return
+        wakeTransition = true
+        worker.execute {
+            val outcome = provider.start(::onWakeDetected)
+            runOnUiThread {
+                if (wakeEnabled && wakeProvider === provider) {
+                    wakeTransition = false
+                    wakeMessage = if (outcome.isSuccess) "Esperando ‘${provider.phrase}’ de nuevo…" else "No se reanudó el detector: ${outcome.exceptionOrNull()?.message}"
+                    if (outcome.isFailure) endWakeTest()
+                }
+            }
+        }
+    }
+
+    private fun endWakeTest() {
+        wakeEnabled = false
+        wakeTransition = true
+        if (listening) {
+            speech.cancel()
+            listening = false
+        }
+        val provider = wakeProvider
+        wakeProvider = null
+        wakeMessage = "Deteniendo sesión…"
+        worker.execute {
+            val outcome = runCatching { provider?.close() }
+            runOnUiThread {
+                wakeTransition = false
+                wakeMessage = if (outcome.isSuccess) "Sesión detenida. Activaciones: $wakeDetections."
+                else "La sesión terminó con error: ${outcome.exceptionOrNull()?.message}"
+            }
+        }
     }
 
     override fun onDestroy() {
         if (listening) speech.cancel()
+        wakeEnabled = false
+        val provider = wakeProvider
+        wakeProvider = null
+        if (provider != null) worker.execute { runCatching { provider.close() } }
         worker.shutdown()
         super.onDestroy()
     }
