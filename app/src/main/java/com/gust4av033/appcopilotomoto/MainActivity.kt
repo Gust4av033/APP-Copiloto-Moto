@@ -57,6 +57,7 @@ class MainActivity : ComponentActivity() {
                             Text("Entrada solicitada: ${measurement.requestedInput}", modifier = Modifier.padding(top = 16.dp))
                             Text("Entrada real: ${measurement.actualInput}")
                             Text("Salida de comunicación seleccionada: ${measurement.selectedOutput}")
+                            Text("La salida de comunicación no verifica dónde se reproduce la música.", style = MaterialTheme.typography.bodySmall)
                             Text("Duración: ${measurement.durationMs} ms · Muestras: ${measurement.sampleCount}")
                             Text("Nivel medio: ${measurement.rmsDbfs} dBFS · Pico: ${measurement.peakDbfs} dBFS")
                             measurement.warning?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp)) }
