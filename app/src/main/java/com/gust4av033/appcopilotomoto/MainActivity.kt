@@ -44,7 +44,7 @@ class MainActivity : ComponentActivity() {
     private var wakeTransition by mutableStateOf(false)
     private var wakeDetections by mutableStateOf(0)
     private var wakeSensitivity by mutableFloatStateOf(80f)
-    private var wakePhrase by mutableStateOf(WakePhrase.HEY_JARVIS)
+    private var wakePhrase by mutableStateOf(WakePhrase.ALEXA)
     private var wakeMessage by mutableStateOf("Elegí una frase e iniciá la sesión con la app abierta.")
     private var message by mutableStateOf("Conectá el casco Bluetooth y pulsá Iniciar prueba.")
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
