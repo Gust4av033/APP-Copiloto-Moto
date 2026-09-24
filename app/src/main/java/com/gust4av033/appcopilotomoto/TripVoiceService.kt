@@ -96,6 +96,8 @@ class TripVoiceService : Service() {
     private val worker = Executors.newSingleThreadExecutor()
     private val speechLazy = lazy { AndroidSpeechToTextProvider(applicationContext) }
     private val speech by speechLazy
+    private val callPromptLazy = lazy { TripCallPrompt(applicationContext) }
+    private val callPrompt by callPromptLazy
     private val media by lazy { MediaActionAdapter(applicationContext) }
     private var detector: WakeWordProvider? = null
     private var generation = 0
@@ -261,7 +263,7 @@ class TripVoiceService : Service() {
             if (active && cycle == generation && state == SpeechCaptureState.READY) {
                 TripTestState.lastWakeToSttMs = SystemClock.elapsedRealtime() - wakeAt
                 TripTestState.save(this)
-                TripTestState.status = "Reconocedor listo; decí la orden de música o volumen."
+                TripTestState.status = "Reconocedor listo; decí música, volumen o ‘llama a [nombre]’."
             }
         }, shouldResumePlayback = { heard ->
             heard?.let(MinimalIntentRouter::resolve) != TestIntent.MEDIA_PAUSE
@@ -302,6 +304,35 @@ class TripVoiceService : Service() {
                 } else requestCallConfirmation(provider, cycle, contact)
                 return@listenOnce
             }
+            if (intent == TestIntent.CALL_NAMED) {
+                val name = MinimalIntentRouter.requestedContact(heard.orEmpty()) ?: return@listenOnce
+                if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED ||
+                    checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+                    TripTestState.failures++
+                    TripTestState.save(this)
+                    TripTestState.status = "Habilitá llamadas por nombre desde APP: requiere contactos y teléfono."
+                    updateNotification("Llamada por nombre sin permisos")
+                    schedule(3_500L) { if (active && detector === provider && cycle == generation) startDetector(provider) }
+                } else {
+                    TripTestState.status = "Buscando ‘$name’ en contactos…"
+                    worker.execute {
+                        val found = VoiceContactResolver(this).findUnique(name)
+                        mainHandler.post {
+                            if (!active || detector !== provider || generation != cycle) return@post
+                            if (found.isSuccess) {
+                                requestCallConfirmation(provider, cycle, found.getOrThrow())
+                            } else {
+                                TripTestState.failures++
+                                TripTestState.save(this)
+                                TripTestState.status = found.exceptionOrNull()?.message ?: "No se encontró el contacto."
+                                updateNotification("No se pudo resolver el contacto")
+                                schedule(3_500L) { if (active && detector === provider && cycle == generation) startDetector(provider) }
+                            }
+                        }
+                    }
+                }
+                return@listenOnce
+            }
             TripTestState.status = when {
                 outcome.isFailure -> "No se entendió la orden: ${outcome.exceptionOrNull()?.message}."
                 mediaAction != null -> {
@@ -333,10 +364,20 @@ class TripVoiceService : Service() {
 
     private fun requestCallConfirmation(provider: WakeWordProvider, cycle: Int, contact: TripCallContact) {
         if (!active || detector !== provider || generation != cycle) return
-        TripTestState.status = "Llamar a ${contact.display}: después del segundo tono decí ‘confirmar llamada’ o ‘cancelar’."
-        updateNotification("Confirmar llamada a ${contact.name}")
-        schedule(450L) {
-            if (!active || detector !== provider || generation != cycle) return@schedule
+        TripTestState.status = "Anunciando destinatario: ${contact.display}…"
+        updateNotification("Anunciando a ${contact.name}")
+        runCatching { callPrompt.announce(contact.name) { announced ->
+            if (!active || detector !== provider || generation != cycle) return@announce
+            if (!announced) {
+                TripTestState.failures++
+                TripTestState.save(this)
+                TripTestState.status = "No se pudo anunciar a ${contact.name}; no se hará la llamada."
+                updateNotification("Llamada cancelada: fallo de voz")
+                schedule(2_000L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+                return@announce
+            }
+            TripTestState.status = "Llamar a ${contact.display}: después del segundo tono decí ‘confirmar llamada’ o ‘cancelar’."
+            updateNotification("Confirmar llamada a ${contact.name}")
             playHandoffTone()
             schedule(400L) {
                 if (!active || detector !== provider || generation != cycle) return@schedule
@@ -366,6 +407,11 @@ class TripVoiceService : Service() {
                     }
                 }
             }
+        } }.onFailure {
+            TripTestState.failures++
+            TripTestState.save(this)
+            TripTestState.status = "No se pudo anunciar el contacto; no se hará la llamada."
+            schedule(2_000L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
         }
     }
 
@@ -415,6 +461,7 @@ class TripVoiceService : Service() {
         callPending = false
         armed = false
         generation++
+        if (callPromptLazy.isInitialized()) callPrompt.cancel()
         pendingTask?.let(mainHandler::removeCallbacks)
         pendingTask = null
         if (speechLazy.isInitialized()) speech.cancel()
