@@ -17,6 +17,17 @@ class MediaActionAdapter(context: Context) {
 
     fun pause(): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_PAUSE) }
 
+    /** Un paso del volumen multimedia, sin modificar el volumen de llamadas. */
+    fun volumeUp(): Result<Unit> = runCatching {
+        audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0)
+    }
+
+    fun volumeDown(): Result<Unit> = runCatching {
+        audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0)
+    }
+
+    fun musicVolume(): String = "${audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)}"
+
     /** Solicita una pausa solo si Android informa reproducción activa. */
     fun pauseIfPlaying(): Boolean {
         if (!audioManager.isMusicActive) return false
