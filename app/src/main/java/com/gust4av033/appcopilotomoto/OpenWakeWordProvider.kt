@@ -3,6 +3,7 @@ package com.gust4av033.appcopilotomoto
 import android.content.Context
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
+import android.media.MediaRecorder
 import android.os.Build
 import com.openwakeword.OpenWakeWord
 
@@ -12,7 +13,17 @@ enum class WakePhrase(val label: String) {
     HEY_JARVIS("Hey Jarvis")
 }
 
-class OpenWakeWordProvider(context: Context, threshold: Float, wakePhrase: WakePhrase) : WakeWordProvider {
+enum class WakeAudioMode(val label: String) {
+    BLUETOOTH("Casco: activación y orden"),
+    PHONE_WAKE("Prueba: teléfono para Alexa, casco para la orden")
+}
+
+class OpenWakeWordProvider(
+    context: Context,
+    threshold: Float,
+    wakePhrase: WakePhrase,
+    private val audioMode: WakeAudioMode = WakeAudioMode.BLUETOOTH
+) : WakeWordProvider {
     override val phrase = wakePhrase.label
     private val audioManager = context.getSystemService(AudioManager::class.java)
     private val detector = OpenWakeWord.Builder(context.applicationContext)
@@ -29,20 +40,51 @@ class OpenWakeWordProvider(context: Context, threshold: Float, wakePhrase: WakeP
 
     override fun start(onDetected: (Float) -> Unit): Result<Unit> = runCatching {
         check(!closed) { "La sesión de wake word ya terminó." }
-        if (oldMode == null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            oldMode = audioManager.mode
-            audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-            val headset = audioManager.availableCommunicationDevices.firstOrNull {
-                it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            if (oldMode == null) oldMode = audioManager.mode
+            if (audioMode == WakeAudioMode.PHONE_WAKE) {
+                // Sin ruta de llamada: el detector usa la entrada normal de Android.
+                if (ownsRoute) audioManager.clearCommunicationDevice()
+                ownsRoute = false
+                audioManager.mode = oldMode ?: AudioManager.MODE_NORMAL
+            } else {
+                selectHeadset()
             }
-            if (headset != null) ownsRoute = audioManager.setCommunicationDevice(headset)
         }
         detector.start { score -> onDetected(score) }
     }
 
-    /** Detiene el micrófono del detector antes de cederlo al STT. Conserva la ruta Bluetooth. */
+    /** Libera la grabación wake antes de abrir STT; la orden usa el casco en ambos modos. */
     override fun pause() {
         detector.stop()
+        if (audioMode == WakeAudioMode.PHONE_WAKE && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            selectHeadset()
+        }
+    }
+
+    /** La librería no expone selección de entrada; verificamos la entrada real antes de armar. */
+    fun wakeInputStatus(): String? {
+        if (audioMode != WakeAudioMode.PHONE_WAKE) return null
+        val inputs = audioManager.activeRecordingConfigurations
+            .filter { it.clientAudioSource == MediaRecorder.AudioSource.VOICE_RECOGNITION }
+            .mapNotNull { it.audioDevice }
+        check(inputs.isNotEmpty()) { "No se pudo verificar la entrada de Alexa; probá el modo casco." }
+        check(inputs.all { it.type == AudioDeviceInfo.TYPE_BUILTIN_MIC }) {
+            "Alexa está usando Bluetooth u otra entrada; probá el modo casco."
+        }
+        return "Alexa: micrófono del teléfono; órdenes: casco Bluetooth."
+    }
+
+    private fun selectHeadset() {
+        val headset = audioManager.availableCommunicationDevices.firstOrNull {
+            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
+        } ?: error("No se detecta el micrófono Bluetooth del casco.")
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        if (!audioManager.setCommunicationDevice(headset)) {
+            audioManager.mode = oldMode ?: AudioManager.MODE_NORMAL
+            error("Android no pudo seleccionar el casco para la orden.")
+        }
+        ownsRoute = true
     }
 
     override fun close() {
