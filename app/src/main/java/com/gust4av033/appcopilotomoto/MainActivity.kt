@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
     private var wakeDetections by mutableStateOf(0)
     private var wakeSensitivity by mutableFloatStateOf(80f)
     private var wakePhrase by mutableStateOf(WakePhrase.ALEXA)
+    private var tripAudioMode by mutableStateOf(WakeAudioMode.BLUETOOTH)
     private var wakeMessage by mutableStateOf("Elegí una frase e iniciá la sesión con la app abierta.")
     private var message by mutableStateOf("Conectá el casco Bluetooth y pulsá Iniciar prueba.")
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
@@ -149,6 +150,25 @@ class MainActivity : ComponentActivity() {
                         Text("Esta prueba 0.2 usa la app visible; la sesión 0.3 se controla abajo.", style = MaterialTheme.typography.bodySmall)
                         Text("Fase 0.3 · Sesión con pantalla apagada", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
                         Text("Iniciá la sesión con el casco conectado. Para cada orden decí ‘${wakePhrase.label}’, esperá el tono y luego pedí ‘reanudar’, ‘pausa’, ‘detener’, ‘anterior canción’ o ‘siguiente canción’. Solo ‘detener sesión’ termina la escucha.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Micrófono mientras espera Alexa", modifier = Modifier.padding(top = 12.dp))
+                        Column(modifier = Modifier.selectableGroup()) {
+                            WakeAudioMode.entries.forEach { option ->
+                                val canChange = !TripTestState.running && !running && !listening && !wakeEnabled && !wakeTransition
+                                Row(
+                                    modifier = Modifier.selectable(
+                                        selected = tripAudioMode == option,
+                                        enabled = canChange,
+                                        role = Role.RadioButton,
+                                        onClick = { tripAudioMode = option }
+                                    ),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    RadioButton(selected = tripAudioMode == option, onClick = null, enabled = canChange)
+                                    Text(option.label, modifier = Modifier.padding(start = 8.dp))
+                                }
+                            }
+                        }
+                        Text("En la prueba con teléfono, Alexa debe llegar al micrófono del celular aunque hablés desde el casco. Si va guardado o hay viento, puede no oírte. Solo la orden usa el casco; probalo con la moto detenida.", style = MaterialTheme.typography.bodySmall)
                         Button(
                             onClick = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
                             enabled = TripTestState.running || (!running && !listening && !wakeEnabled && !wakeTransition),
@@ -159,7 +179,7 @@ class MainActivity : ComponentActivity() {
                         Text(TripTestState.status, modifier = Modifier.padding(top = 12.dp))
                         Text("Detecciones: ${TripTestState.detections} · Transcripciones: ${TripTestState.recognized} · Acciones: ${TripTestState.actions} · Fallos: ${TripTestState.failures}")
                         Text("Último tiempo activación → STT listo: ${TripTestState.lastWakeToSttMs} ms · activación → resultado: ${TripTestState.lastLatencyMs} ms", style = MaterialTheme.typography.bodySmall)
-                        Text("Mientras espera ‘${wakePhrase.label}’, el detector escucha la frase. Cada orden abre el reconocedor solo unos segundos. El micrófono Bluetooth puede cambiar el sonido de la música durante la sesión. Podés cerrarla por voz, desde la app o desde la notificación.", style = MaterialTheme.typography.bodySmall)
+                        Text("Mientras espera ‘${wakePhrase.label}’, el detector escucha la frase. Cada orden abre el reconocedor solo unos segundos. El modo casco puede cambiar el sonido de la música durante toda la sesión; el experimental puede hacerlo durante la orden. Podés cerrarla por voz, desde la app o desde la notificación.", style = MaterialTheme.typography.bodySmall)
                         Text("Para medir aciertos y falsas alarmas, anotá por separado cuántas veces dijiste la frase y si hubo alguna activación sin hablar.", style = MaterialTheme.typography.bodySmall)
                     }
                 }
@@ -196,6 +216,7 @@ class MainActivity : ComponentActivity() {
         val intent = Intent(this, TripVoiceService::class.java).setAction(TripVoiceService.ACTION_START)
             .putExtra(TripVoiceService.EXTRA_PHRASE, wakePhrase.name)
             .putExtra(TripVoiceService.EXTRA_SENSITIVITY, wakeSensitivity)
+            .putExtra(TripVoiceService.EXTRA_AUDIO_MODE, tripAudioMode.name)
         runCatching { startForegroundService(intent) }.onFailure {
             TripTestState.status = "No se pudo iniciar la sesión: ${it.message ?: it.javaClass.simpleName}"
         }
