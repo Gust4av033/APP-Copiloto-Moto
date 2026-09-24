@@ -3,7 +3,7 @@ package com.gust4av033.appcopilotomoto
 import java.text.Normalizer
 import java.util.Locale
 
-enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, VOLUME_UP, VOLUME_DOWN, STOP_TTS, CANCEL, STOP_SESSION, UNKNOWN }
+enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, VOLUME_UP, VOLUME_DOWN, CALL_SELECTED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, UNKNOWN }
 
 /** Las órdenes claras pasan por reglas locales; una frase desconocida no ejecuta nada. */
 object MinimalIntentRouter {
@@ -16,6 +16,8 @@ object MinimalIntentRouter {
             normalized in setOf("detener sesion", "terminar sesion", "finalizar sesion") -> TestIntent.STOP_SESSION
             normalized in setOf("callate", "silencio", "deja de hablar", "para de hablar") -> TestIntent.STOP_TTS
             normalized in setOf("cancelar", "cancela", "olvidalo") -> TestIntent.CANCEL
+            normalized in setOf("confirmar llamada", "confirma llamada", "llamar ahora") -> TestIntent.CONFIRM_CALL
+            normalized in setOf("llamar", "hacer llamada", "llamar al contacto", "llama al contacto") -> TestIntent.CALL_SELECTED
             normalized in setOf("subir volumen", "sube volumen", "sube el volumen", "subir el volumen", "mas volumen", "volumen mas alto") -> TestIntent.VOLUME_UP
             normalized in setOf("bajar volumen", "baja volumen", "baja el volumen", "bajar el volumen", "menos volumen", "volumen mas bajo") -> TestIntent.VOLUME_DOWN
             normalized in setOf("siguiente cancion", "siguiente pista", "pon la siguiente", "pasa a la siguiente", "salta la cancion", "siguiente", "next") -> TestIntent.MEDIA_NEXT
