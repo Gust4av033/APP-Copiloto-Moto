@@ -101,7 +101,7 @@ class MainActivity : ComponentActivity() {
                             measurement.warning?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp)) }
                         }
                         Text("Fase 0.1 · Orden corta", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Pulsá Escuchar, esperá a que diga ‘Reconocedor listo’ y probá ‘siguiente canción’, ‘anterior canción’, ‘reanudar’, ‘pausa’ o ‘detener’.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Pulsá Escuchar, esperá a que diga ‘Reconocedor listo’ y probá ‘siguiente canción’, ‘anterior canción’, ‘reanudar’, ‘pausa’, ‘subir volumen’ o ‘bajar volumen’.", modifier = Modifier.padding(top = 8.dp))
                         Text("Durante la orden APP pide pausar la música; al terminar solicita reanudarla.", style = MaterialTheme.typography.bodySmall)
                         Button(onClick = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) }, enabled = !running && !wakeEnabled && !wakeTransition && !TripTestState.running, modifier = Modifier.padding(top = 12.dp)) {
                             Text(if (listening) "Cancelar escucha" else "Escuchar orden")
@@ -149,7 +149,7 @@ class MainActivity : ComponentActivity() {
                         Text("El porcentaje entre paréntesis es la puntuación de una detección, no la tasa de aciertos.", style = MaterialTheme.typography.bodySmall)
                         Text("Esta prueba 0.2 usa la app visible; la sesión 0.3 se controla abajo.", style = MaterialTheme.typography.bodySmall)
                         Text("Fase 0.3 · Sesión con pantalla apagada", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Iniciá la sesión con el casco conectado. Para cada orden decí ‘${wakePhrase.label}’, esperá el tono y luego pedí ‘reanudar’, ‘pausa’, ‘detener’, ‘anterior canción’ o ‘siguiente canción’. Solo ‘detener sesión’ termina la escucha.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Iniciá la sesión con el casco conectado. Para cada orden decí ‘${wakePhrase.label}’, esperá el tono y luego pedí ‘reanudar’, ‘pausa’, ‘anterior canción’, ‘siguiente canción’, ‘subir volumen’ o ‘bajar volumen’. Solo ‘detener sesión’ termina la escucha.", modifier = Modifier.padding(top = 8.dp))
                         Text("Micrófono mientras espera Alexa", modifier = Modifier.padding(top = 12.dp))
                         Column(modifier = Modifier.selectableGroup()) {
                             WakeAudioMode.entries.forEach { option ->
@@ -279,18 +279,25 @@ class MainActivity : ComponentActivity() {
                     onSuccess = { heard ->
                         when (MinimalIntentRouter.resolve(heard)) {
                             TestIntent.MEDIA_NEXT, TestIntent.MEDIA_PREVIOUS,
-                            TestIntent.MEDIA_PLAY, TestIntent.MEDIA_PAUSE -> {
+                            TestIntent.MEDIA_PLAY, TestIntent.MEDIA_PAUSE,
+                            TestIntent.VOLUME_UP, TestIntent.VOLUME_DOWN -> {
                                 val action = when (MinimalIntentRouter.resolve(heard)) {
                                     TestIntent.MEDIA_NEXT -> media.nextTrack()
                                     TestIntent.MEDIA_PREVIOUS -> media.previousTrack()
                                     TestIntent.MEDIA_PLAY -> media.play()
-                                    else -> media.pause()
+                                    TestIntent.MEDIA_PAUSE -> media.pause()
+                                    TestIntent.VOLUME_UP -> media.volumeUp()
+                                    TestIntent.VOLUME_DOWN -> media.volumeDown()
+                                    else -> error("Orden multimedia no soportada")
                                 }
                                 val command = when (MinimalIntentRouter.resolve(heard)) {
                                     TestIntent.MEDIA_NEXT -> "Siguiente canción"
                                     TestIntent.MEDIA_PREVIOUS -> "Anterior canción"
                                     TestIntent.MEDIA_PLAY -> "Reproducir"
-                                    else -> "Pausar"
+                                    TestIntent.MEDIA_PAUSE -> "Pausar"
+                                    TestIntent.VOLUME_UP -> "Subir volumen (${media.musicVolume()})"
+                                    TestIntent.VOLUME_DOWN -> "Bajar volumen (${media.musicVolume()})"
+                                    else -> "Orden"
                                 }
                                 if (action.isSuccess) "Escuché: ‘$heard’. Envié $command en $elapsed ms. Comprobá el resultado en la música."
                                 else "Escuché: ‘$heard’, pero falló el envío de $command: ${action.exceptionOrNull()?.message}"
