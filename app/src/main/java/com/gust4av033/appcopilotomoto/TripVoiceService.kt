@@ -13,11 +13,14 @@ import android.content.pm.ServiceInfo
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.ToneGenerator
+import android.net.Uri
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import android.telecom.TelecomManager
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -100,6 +103,7 @@ class TripVoiceService : Service() {
     private var consecutiveFailures = 0
     private val recentDetections = ArrayDeque<Long>()
     private var active = false
+    private var callPending = false
     private var armed = false
     private var wakeAudioMode = WakeAudioMode.BLUETOOTH
 
@@ -114,7 +118,7 @@ class TripVoiceService : Service() {
             stopSelf(startId)
             return START_NOT_STICKY
         }
-        if (active) return START_NOT_STICKY
+        if (active || callPending) return START_NOT_STICKY
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             TripTestState.status = "Falta permiso de micrófono para iniciar la sesión."
             stopSelf(startId)
@@ -287,6 +291,17 @@ class TripVoiceService : Service() {
                 stopSession("Sesión detenida por voz: ‘$heard’ en $elapsed ms.")
                 return@listenOnce
             }
+            if (intent == TestIntent.CALL_SELECTED) {
+                val contact = TripCallContactStore.load(this)
+                if (contact == null || checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+                    TripTestState.failures++
+                    TripTestState.save(this)
+                    TripTestState.status = "Para llamar, elegí un contacto y concedé el permiso de teléfono desde APP antes del viaje."
+                    updateNotification("Llamada sin configurar")
+                    schedule(3_500L) { if (active && detector === provider && cycle == generation) startDetector(provider) }
+                } else requestCallConfirmation(provider, cycle, contact)
+                return@listenOnce
+            }
             TripTestState.status = when {
                 outcome.isFailure -> "No se entendió la orden: ${outcome.exceptionOrNull()?.message}."
                 mediaAction != null -> {
@@ -316,6 +331,78 @@ class TripVoiceService : Service() {
         }
     }
 
+    private fun requestCallConfirmation(provider: WakeWordProvider, cycle: Int, contact: TripCallContact) {
+        if (!active || detector !== provider || generation != cycle) return
+        TripTestState.status = "Llamar a ${contact.display}: después del segundo tono decí ‘confirmar llamada’ o ‘cancelar’."
+        updateNotification("Confirmar llamada a ${contact.name}")
+        schedule(450L) {
+            if (!active || detector !== provider || generation != cycle) return@schedule
+            playHandoffTone()
+            schedule(400L) {
+                if (!active || detector !== provider || generation != cycle) return@schedule
+                schedule(12_000L) {
+                    if (active && detector === provider && generation == cycle) {
+                        speech.cancel()
+                        TripTestState.status = "No se confirmó la llamada; no se marcó."
+                        startDetector(provider)
+                    }
+                }
+                speech.listenOnce(onState = { state ->
+                    if (active && generation == cycle && state == SpeechCaptureState.READY) {
+                        TripTestState.status = "Confirmación lista: decí ‘confirmar llamada’ o ‘cancelar’."
+                    }
+                }, shouldResumePlayback = { heard ->
+                    MinimalIntentRouter.resolve(heard.orEmpty()) != TestIntent.CONFIRM_CALL
+                }) { answer ->
+                    if (!active || detector !== provider || generation != cycle) return@listenOnce
+                    pendingTask?.let(mainHandler::removeCallbacks)
+                    pendingTask = null
+                    if (answer.getOrNull()?.let(MinimalIntentRouter::resolve) == TestIntent.CONFIRM_CALL) {
+                        finishAndPlaceCall(provider, contact)
+                    } else {
+                        TripTestState.status = "Llamada cancelada; no se marcó a ${contact.name}."
+                        updateNotification("Llamada cancelada; esperando Alexa")
+                        schedule(2_000L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun finishAndPlaceCall(provider: WakeWordProvider, contact: TripCallContact) {
+        active = false
+        callPending = true
+        armed = false
+        val callCycle = ++generation
+        speech.cancel()
+        detector = null
+        TripTestState.status = "Cerrando el micrófono antes de llamar a ${contact.display}…"
+        worker.execute {
+            val released = runCatching { provider.close() }
+            mainHandler.post {
+                if (!callPending || generation != callCycle) return@post
+                callPending = false
+                val placed = runCatching {
+                    released.getOrThrow()
+                    check(checkSelfPermission(Manifest.permission.CALL_PHONE) == PackageManager.PERMISSION_GRANTED) {
+                        "Falta permiso para hacer llamadas."
+                    }
+                    getSystemService(TelecomManager::class.java)
+                        .placeCall(Uri.fromParts("tel", contact.number, null), Bundle.EMPTY)
+                }
+                if (placed.isSuccess) TripTestState.actions++ else TripTestState.failures++
+                TripTestState.save(this)
+                TripTestState.markRunning(this, false)
+                TripTestState.running = false
+                TripTestState.status = if (placed.isSuccess) {
+                    "Solicitud de llamada a ${contact.display} enviada; comprobá si Android marcó. Sesión de viaje cerrada."
+                } else "No se inició la llamada: ${placed.exceptionOrNull()?.message}. Sesión detenida."
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
+        }
+    }
+
     private fun schedule(delayMs: Long, action: () -> Unit) {
         pendingTask?.let(mainHandler::removeCallbacks)
         val task = Runnable { pendingTask = null; action() }
@@ -325,6 +412,7 @@ class TripVoiceService : Service() {
 
     private fun stopSession(reason: String) {
         active = false
+        callPending = false
         armed = false
         generation++
         pendingTask?.let(mainHandler::removeCallbacks)
