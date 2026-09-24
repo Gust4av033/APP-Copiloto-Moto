@@ -257,7 +257,7 @@ class TripVoiceService : Service() {
             if (active && cycle == generation && state == SpeechCaptureState.READY) {
                 TripTestState.lastWakeToSttMs = SystemClock.elapsedRealtime() - wakeAt
                 TripTestState.save(this)
-                TripTestState.status = "Reconocedor listo; decí la orden de música."
+                TripTestState.status = "Reconocedor listo; decí la orden de música o volumen."
             }
         }, shouldResumePlayback = { heard ->
             heard?.let(MinimalIntentRouter::resolve) != TestIntent.MEDIA_PAUSE
@@ -270,6 +270,8 @@ class TripVoiceService : Service() {
                 TestIntent.MEDIA_PREVIOUS -> media.previousTrack()
                 TestIntent.MEDIA_PLAY -> media.play()
                 TestIntent.MEDIA_PAUSE -> media.pause()
+                TestIntent.VOLUME_UP -> media.volumeUp()
+                TestIntent.VOLUME_DOWN -> media.volumeDown()
                 else -> null
             }
             val elapsed = SystemClock.elapsedRealtime() - wakeAt
@@ -292,7 +294,10 @@ class TripVoiceService : Service() {
                         TestIntent.MEDIA_NEXT -> "Siguiente canción"
                         TestIntent.MEDIA_PREVIOUS -> "Anterior canción"
                         TestIntent.MEDIA_PLAY -> "Reproducir"
-                        else -> "Pausar"
+                        TestIntent.MEDIA_PAUSE -> "Pausar"
+                        TestIntent.VOLUME_UP -> "Subir volumen (${media.musicVolume()})"
+                        TestIntent.VOLUME_DOWN -> "Bajar volumen (${media.musicVolume()})"
+                        else -> "Orden"
                     }
                     if (mediaAction.isSuccess) "Escuché ‘$heard’; envié $command en $elapsed ms."
                     else "Escuché ‘$heard’, pero falló el envío de $command."
