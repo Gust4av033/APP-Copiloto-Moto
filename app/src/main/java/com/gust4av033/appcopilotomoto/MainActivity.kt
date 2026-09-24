@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
+import android.provider.ContactsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -55,6 +56,8 @@ class MainActivity : ComponentActivity() {
     private var wakeSensitivity by mutableFloatStateOf(80f)
     private var wakePhrase by mutableStateOf(WakePhrase.ALEXA)
     private var tripAudioMode by mutableStateOf(WakeAudioMode.BLUETOOTH)
+    private var tripCallContact by mutableStateOf<TripCallContact?>(null)
+    private var tripCallMessage by mutableStateOf("Elegí una persona antes de probar llamadas.")
     private var wakeMessage by mutableStateOf("Elegí una frase e iniciá la sesión con la app abierta.")
     private var message by mutableStateOf("Conectá el casco Bluetooth y pulsá Iniciar prueba.")
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
@@ -74,9 +77,46 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val callPermissionRequest = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        tripCallMessage = if (granted) "Llamadas habilitadas para el contacto elegido."
+        else "Sin permiso de teléfono, las órdenes de llamada no marcarán."
+    }
+
+    private val contactPicker = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val uri = result.data?.data ?: return@registerForActivityResult
+        if (result.resultCode != RESULT_OK) return@registerForActivityResult
+        val selected = runCatching {
+            val columns = arrayOf(
+                ContactsContract.CommonDataKinds.Phone.NUMBER,
+                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME
+            )
+            contentResolver.query(uri, columns, null, null, null)?.use { cursor ->
+                if (!cursor.moveToFirst()) null else {
+                    val number = cursor.getString(cursor.getColumnIndexOrThrow(columns[0]))
+                    val name = cursor.getString(cursor.getColumnIndexOrThrow(columns[1]))
+                    TripCallContactStore.save(this, name.orEmpty(), number.orEmpty())
+                }
+            }
+        }.getOrNull()
+        if (selected == null) {
+            tripCallMessage = "No se pudo guardar ese número. Elegí un contacto con teléfono válido."
+        } else {
+            tripCallContact = selected
+            tripCallMessage = "Contacto de prueba: ${selected.display}."
+            if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+                callPermissionRequest.launch(Manifest.permission.CALL_PHONE)
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         TripTestState.restore(this)
+        tripCallContact = TripCallContactStore.load(this)
         setContent {
             MaterialTheme {
                 Scaffold { padding ->
@@ -149,7 +189,7 @@ class MainActivity : ComponentActivity() {
                         Text("El porcentaje entre paréntesis es la puntuación de una detección, no la tasa de aciertos.", style = MaterialTheme.typography.bodySmall)
                         Text("Esta prueba 0.2 usa la app visible; la sesión 0.3 se controla abajo.", style = MaterialTheme.typography.bodySmall)
                         Text("Fase 0.3 · Sesión con pantalla apagada", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Iniciá la sesión con el casco conectado. Para cada orden decí ‘${wakePhrase.label}’, esperá el tono y luego pedí ‘reanudar’, ‘pausa’, ‘anterior canción’, ‘siguiente canción’, ‘subir volumen’ o ‘bajar volumen’. Solo ‘detener sesión’ termina la escucha.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Iniciá la sesión con el casco conectado. Tras ‘${wakePhrase.label}’ y el tono, probá música, volumen o ‘llamar’. ‘Detener sesión’ termina la escucha.", modifier = Modifier.padding(top = 8.dp))
                         Text("Micrófono mientras espera Alexa", modifier = Modifier.padding(top = 12.dp))
                         Column(modifier = Modifier.selectableGroup()) {
                             WakeAudioMode.entries.forEach { option ->
@@ -169,6 +209,25 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                         Text("En la prueba con teléfono, Alexa debe llegar al micrófono del celular aunque hablés desde el casco. Si va guardado o hay viento, puede no oírte. Solo la orden usa el casco; probalo con la moto detenida.", style = MaterialTheme.typography.bodySmall)
+                        Text("Fase 1.0 · Prueba de llamada normal", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp))
+                        Text("Elegí un contacto antes de iniciar. Decí ‘Alexa’ → tono → ‘llamar’ → otro tono → ‘confirmar llamada’. ‘Cancelar’ en el segundo paso evita marcar. La sesión de viaje termina al iniciar la llamada.", style = MaterialTheme.typography.bodySmall)
+                        Button(
+                            onClick = { chooseTripCallContact() },
+                            enabled = !TripTestState.running && !wakeEnabled && !wakeTransition && !listening,
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) { Text(if (tripCallContact == null) "Elegir contacto para llamada" else "Cambiar contacto para llamada") }
+                        tripCallContact?.let { contact ->
+                            Text("Seleccionado: ${contact.display}")
+                            Button(
+                                onClick = {
+                                    TripCallContactStore.clear(this@MainActivity)
+                                    tripCallContact = null
+                                    tripCallMessage = "Contacto quitado."
+                                },
+                                enabled = !TripTestState.running
+                            ) { Text("Quitar contacto") }
+                        }
+                        Text(tripCallMessage, style = MaterialTheme.typography.bodySmall)
                         Button(
                             onClick = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
                             enabled = TripTestState.running || (!running && !listening && !wakeEnabled && !wakeTransition),
@@ -189,6 +248,16 @@ class MainActivity : ComponentActivity() {
 
     private fun requestProbe() {
         requestAudioPermissions(::startProbe)
+    }
+
+    private fun chooseTripCallContact() {
+        runCatching {
+            contactPicker.launch(Intent(Intent.ACTION_PICK).apply {
+                type = ContactsContract.CommonDataKinds.Phone.CONTENT_TYPE
+            })
+        }.onFailure {
+            tripCallMessage = "No se pudo abrir el selector de contactos: ${it.message ?: "sin app disponible"}."
+        }
     }
 
     private fun requestAudioPermissions(onGranted: () -> Unit) {
@@ -304,6 +373,7 @@ class MainActivity : ComponentActivity() {
                             }
                             TestIntent.STOP_TTS -> "Escuché: ‘$heard’. Orden Silencio reconocida; aún no hay voz sintetizada para interrumpir."
                             TestIntent.CANCEL -> "Escuché: ‘$heard’. Orden Cancelar reconocida; no se ejecutó ninguna acción."
+                            TestIntent.CALL_SELECTED, TestIntent.CONFIRM_CALL -> "Escuché: ‘$heard’. Las llamadas se prueban en la sesión de viaje, con un contacto seleccionado."
                             TestIntent.STOP_SESSION -> "Escuché: ‘$heard’. ${if (fromWake) "Deteniendo sesión de activación." else "No hay sesión de activación en esta prueba manual."}"
                             TestIntent.UNKNOWN -> "Escuché: ‘$heard’. No coincide con las órdenes de esta prueba; no se ejecutó nada."
                         }
