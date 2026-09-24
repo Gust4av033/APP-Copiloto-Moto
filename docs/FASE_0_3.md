@@ -23,9 +23,13 @@ La pantalla añade **Iniciar sesión de viaje** y **Detener sesión de viaje**. 
 | «pausa», «pausar», «detener» | Pausar música (`MEDIA_PAUSE`) |
 | «anterior canción», «anterior» | Pista anterior (`MEDIA_PREVIOUS`) |
 | «siguiente canción», «siguiente» | Pista siguiente (`MEDIA_NEXT`) |
+| «subir volumen», «más volumen» | Aumentar un paso el volumen multimedia (`VOLUME_UP`) |
+| «bajar volumen», «menos volumen» | Disminuir un paso el volumen multimedia (`VOLUME_DOWN`) |
 | «detener sesión» | Cerrar detector, servicio y notificación |
 
 Las frases se comparan de forma local y exacta después de normalizar mayúsculas y acentos; otras palabras pueden devolver «orden desconocida». «Detener» **sin** «sesión» pausa la música y deja el asistente esperando otra «Alexa». Reproducir y pausar envían teclas separadas, no un botón alternante. Al pedir pausa, APP no vuelve a reproducir automáticamente la música que detuvo para escuchar esa orden. El envío de la tecla no demuestra por sí solo que la aplicación de música obedeció.
+
+El volumen se ajusta sobre `STREAM_MUSIC`, un paso por orden; la pantalla muestra el valor actual y máximo informado por Android. El audio de llamadas utiliza otro volumen y la app no lo modifica. Para probar las órdenes de volumen sin depender todavía de la ruta experimental, seleccioná la opción de casco ya validada.
 
 Mientras la sesión espera «Alexa», el detector *sí* graba audio localmente con el micrófono Bluetooth; solo el reconocimiento de órdenes (STT) se abre después de la frase. La grabación de Bluetooth clásico puede cambiar la calidad de la música por el perfil de comunicación del casco. No se puede detectar «Alexa» sin algún micrófono activo. Para conservar el audio de música de alta calidad habría que probar el micrófono del teléfono para la frase de activación o un dispositivo LE Audio compatible; esa ruta aún no se ha validado en el casco y no se cambia automáticamente durante este viaje.
 
