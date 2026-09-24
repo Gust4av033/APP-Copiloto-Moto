@@ -84,6 +84,7 @@ class TripVoiceService : Service() {
         const val ACTION_STOP = "com.gust4av033.appcopilotomoto.STOP_TRIP_TEST"
         const val EXTRA_PHRASE = "phrase"
         const val EXTRA_SENSITIVITY = "sensitivity"
+        const val EXTRA_AUDIO_MODE = "audio_mode"
         private const val CHANNEL_ID = "trip_voice_test"
         private const val NOTIFICATION_ID = 103
     }
@@ -100,6 +101,7 @@ class TripVoiceService : Service() {
     private val recentDetections = ArrayDeque<Long>()
     private var active = false
     private var armed = false
+    private var wakeAudioMode = WakeAudioMode.BLUETOOTH
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -139,8 +141,11 @@ class TripVoiceService : Service() {
             WakePhrase.valueOf(intent.getStringExtra(EXTRA_PHRASE) ?: WakePhrase.ALEXA.name)
         }.getOrDefault(WakePhrase.ALEXA)
         val sensitivity = intent.getFloatExtra(EXTRA_SENSITIVITY, 80f).coerceIn(40f, 85f)
+        wakeAudioMode = runCatching {
+            WakeAudioMode.valueOf(intent.getStringExtra(EXTRA_AUDIO_MODE) ?: WakeAudioMode.BLUETOOTH.name)
+        }.getOrDefault(WakeAudioMode.BLUETOOTH)
         val provider = runCatching {
-            OpenWakeWordProvider(applicationContext, (100f - sensitivity) / 100f, phrase)
+            OpenWakeWordProvider(applicationContext, (100f - sensitivity) / 100f, phrase, wakeAudioMode)
         }.getOrElse {
             stopSession("No se pudo cargar el detector: ${it.message}")
             return START_NOT_STICKY
@@ -172,15 +177,26 @@ class TripVoiceService : Service() {
                 } else {
                     TripTestState.status = "Estabilizando audio; esperá un momento…"
                     schedule(1_500L) {
-                        if (active && detector === provider && cycle == generation) {
-                            armed = true
-                            TripTestState.status = "Esperando ‘${provider.phrase}’ con pantalla apagada…"
-                            updateNotification("Esperando ‘${provider.phrase}’")
-                        }
+                        armDetector(provider, cycle, 0)
                     }
                 }
             }
         }
+    }
+
+    private fun armDetector(provider: WakeWordProvider, cycle: Int, retry: Int) {
+        if (!active || detector !== provider || cycle != generation) return
+        val inputCheck = runCatching { (provider as OpenWakeWordProvider).wakeInputStatus() }
+        if (inputCheck.isFailure) {
+            val reason = inputCheck.exceptionOrNull()?.message.orEmpty()
+            if (reason.startsWith("No se pudo verificar") && retry < 4) {
+                schedule(1_000L) { armDetector(provider, cycle, retry + 1) }
+            } else stopSession("Modo experimental: $reason")
+            return
+        }
+        armed = true
+        TripTestState.status = "Esperando ‘${provider.phrase}’ con pantalla apagada… ${inputCheck.getOrNull().orEmpty()}"
+        updateNotification("Esperando ‘${provider.phrase}’")
     }
 
     private fun onDetected(provider: WakeWordProvider, cycle: Int, score: Float) {
