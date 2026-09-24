@@ -57,7 +57,7 @@ class MainActivity : ComponentActivity() {
     private var wakePhrase by mutableStateOf(WakePhrase.ALEXA)
     private var tripAudioMode by mutableStateOf(WakeAudioMode.BLUETOOTH)
     private var tripCallContact by mutableStateOf<TripCallContact?>(null)
-    private var tripCallMessage by mutableStateOf("Elegí una persona antes de probar llamadas.")
+    private var tripCallMessage by mutableStateOf("Para llamar por nombre, habilitá los permisos antes del viaje.")
     private var wakeMessage by mutableStateOf("Elegí una frase e iniciá la sesión con la app abierta.")
     private var message by mutableStateOf("Conectá el casco Bluetooth y pulsá Iniciar prueba.")
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
@@ -82,6 +82,15 @@ class MainActivity : ComponentActivity() {
     ) { granted ->
         tripCallMessage = if (granted) "Llamadas habilitadas para el contacto elegido."
         else "Sin permiso de teléfono, las órdenes de llamada no marcarán."
+    }
+
+    private val namedCallPermissions = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        tripCallMessage = if (listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE)
+                .all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }) {
+            "Listo: podés decir ‘llama a [nombre]’ durante la sesión."
+        } else "Faltan permisos de contactos o llamadas; podés seguir usando música y volumen."
     }
 
     private val contactPicker = registerForActivityResult(
@@ -189,7 +198,7 @@ class MainActivity : ComponentActivity() {
                         Text("El porcentaje entre paréntesis es la puntuación de una detección, no la tasa de aciertos.", style = MaterialTheme.typography.bodySmall)
                         Text("Esta prueba 0.2 usa la app visible; la sesión 0.3 se controla abajo.", style = MaterialTheme.typography.bodySmall)
                         Text("Fase 0.3 · Sesión con pantalla apagada", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Iniciá la sesión con el casco conectado. Tras ‘${wakePhrase.label}’ y el tono, probá música, volumen o ‘llamar’. ‘Detener sesión’ termina la escucha.", modifier = Modifier.padding(top = 8.dp))
+                        Text("Iniciá la sesión con el casco conectado. Tras ‘${wakePhrase.label}’ y el tono, probá música, volumen o ‘llama a [nombre]’. ‘Detener sesión’ termina la escucha.", modifier = Modifier.padding(top = 8.dp))
                         Text("Micrófono mientras espera Alexa", modifier = Modifier.padding(top = 12.dp))
                         Column(modifier = Modifier.selectableGroup()) {
                             WakeAudioMode.entries.forEach { option ->
@@ -210,7 +219,13 @@ class MainActivity : ComponentActivity() {
                         }
                         Text("En la prueba con teléfono, Alexa debe llegar al micrófono del celular aunque hablés desde el casco. Si va guardado o hay viento, puede no oírte. Solo la orden usa el casco; probalo con la moto detenida.", style = MaterialTheme.typography.bodySmall)
                         Text("Fase 1.0 · Prueba de llamada normal", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp))
-                        Text("Elegí un contacto antes de iniciar. Decí ‘Alexa’ → tono → ‘llamar’ → otro tono → ‘confirmar llamada’. ‘Cancelar’ en el segundo paso evita marcar. La sesión de viaje termina al iniciar la llamada.", style = MaterialTheme.typography.bodySmall)
+                        Text("Sin elegir contacto: habilitá permisos y decí ‘Alexa’ → tono → ‘llama a Ana’. APP dirá a quién encontró; tras el segundo tono, decí ‘confirmar llamada’ o ‘cancelar’. Si hay varios contactos o números, no marca.", style = MaterialTheme.typography.bodySmall)
+                        Button(
+                            onClick = { requestNamedCallPermissions() },
+                            enabled = !TripTestState.running && !wakeEnabled && !wakeTransition && !listening,
+                            modifier = Modifier.padding(top = 8.dp)
+                        ) { Text("Habilitar llamadas por nombre") }
+                        Text("Opcional: si un contacto tiene varios números, elegí uno fijo para probar la orden ‘llamar’.", style = MaterialTheme.typography.bodySmall)
                         Button(
                             onClick = { chooseTripCallContact() },
                             enabled = !TripTestState.running && !wakeEnabled && !wakeTransition && !listening,
@@ -258,6 +273,13 @@ class MainActivity : ComponentActivity() {
         }.onFailure {
             tripCallMessage = "No se pudo abrir el selector de contactos: ${it.message ?: "sin app disponible"}."
         }
+    }
+
+    private fun requestNamedCallPermissions() {
+        val needed = listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE)
+            .filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
+        if (needed.isEmpty()) tripCallMessage = "Los permisos ya están concedidos: decí ‘llama a [nombre]’."
+        else namedCallPermissions.launch(needed.toTypedArray())
     }
 
     private fun requestAudioPermissions(onGranted: () -> Unit) {
@@ -373,7 +395,7 @@ class MainActivity : ComponentActivity() {
                             }
                             TestIntent.STOP_TTS -> "Escuché: ‘$heard’. Orden Silencio reconocida; aún no hay voz sintetizada para interrumpir."
                             TestIntent.CANCEL -> "Escuché: ‘$heard’. Orden Cancelar reconocida; no se ejecutó ninguna acción."
-                            TestIntent.CALL_SELECTED, TestIntent.CONFIRM_CALL -> "Escuché: ‘$heard’. Las llamadas se prueban en la sesión de viaje, con un contacto seleccionado."
+                            TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.CONFIRM_CALL -> "Escuché: ‘$heard’. Las llamadas por nombre se prueban en la sesión de viaje."
                             TestIntent.STOP_SESSION -> "Escuché: ‘$heard’. ${if (fromWake) "Deteniendo sesión de activación." else "No hay sesión de activación en esta prueba manual."}"
                             TestIntent.UNKNOWN -> "Escuché: ‘$heard’. No coincide con las órdenes de esta prueba; no se ejecutó nada."
                         }
