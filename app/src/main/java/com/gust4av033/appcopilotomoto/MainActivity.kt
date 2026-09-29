@@ -223,6 +223,7 @@ class MainActivity : ComponentActivity() {
                                 }
                                 SectionCard("Resultados del viaje") {
                                     Text("Alexa: ${TripTestState.detections} · Y12: ${TripTestState.manualCommands} · ${TripTestState.actions} acciones · ${TripTestState.failures} fallos")
+                                     Text("Último resultado: ${TripTestState.lastCommandResult}", style = MaterialTheme.typography.bodySmall)
                                     OutlinedButton(onClick = { detailsVisible = !detailsVisible }) {
                                         Text(if (detailsVisible) "Ocultar detalles" else "Ver detalles")
                                     }
