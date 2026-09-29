@@ -2,6 +2,8 @@ package com.gust4av033.appcopilotomoto
 
 import android.content.Context
 import android.media.AudioManager
+import android.media.AudioDeviceInfo
+import android.os.Build
 import android.os.SystemClock
 import android.view.KeyEvent
 
@@ -27,6 +29,22 @@ class MediaActionAdapter(context: Context) {
     }
 
     fun musicVolume(): String = "${audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)}"
+
+    /** Lectura pasiva para distinguir volumen multimedia del nivel usado por el casco en comunicación. */
+    fun audioRouteDiagnostic(): String {
+        val route = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            when (audioManager.communicationDevice?.type) {
+                AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth SCO"
+                AudioDeviceInfo.TYPE_BLE_HEADSET -> "Bluetooth LE"
+                null -> "sin ruta de comunicación elegida"
+                else -> "otra ruta de comunicación"
+            }
+        } else "ruta no informada"
+        val mode = if (audioManager.mode == AudioManager.MODE_IN_COMMUNICATION) "comunicación" else "normal"
+        val music = musicVolume()
+        val voice = "${audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)}"
+        return "Modo: $mode · Ruta: $route · Música: $music · Comunicación: $voice"
+    }
 
     /** Solicita una pausa solo si Android informa reproducción activa. */
     fun pauseIfPlaying(): Boolean {
