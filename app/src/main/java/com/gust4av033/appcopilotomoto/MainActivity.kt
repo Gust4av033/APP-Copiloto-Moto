@@ -218,7 +218,10 @@ class MainActivity : ComponentActivity() {
                                     Text("Para siguiente y anterior canción, usá los toques cortos que ya trae el Y12. Para otras órdenes, decí ‘${wakePhrase.label}’. La pulsación larga queda como respaldo.", style = MaterialTheme.typography.bodySmall)
                                 }
                                 SectionCard("Audio del casco · diagnóstico") {
-                                    Text(audioDiagnostic, style = MaterialTheme.typography.bodySmall)
+                                    Text("Antes: ${TripTestState.audioBefore}", style = MaterialTheme.typography.bodySmall)
+                                    Text("Esperando Alexa: ${TripTestState.audioDuring}", style = MaterialTheme.typography.bodySmall)
+                                    Text("Después: ${TripTestState.audioAfter}", style = MaterialTheme.typography.bodySmall)
+                                    Text("Lectura actual: $audioDiagnostic", style = MaterialTheme.typography.bodySmall)
                                     OutlinedButton(onClick = { audioDiagnostic = media.audioRouteDiagnostic() }) {
                                         Text("Actualizar niveles")
                                     }
