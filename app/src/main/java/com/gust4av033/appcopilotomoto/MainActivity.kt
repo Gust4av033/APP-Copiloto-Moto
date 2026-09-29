@@ -1,6 +1,7 @@
 package com.gust4av033.appcopilotomoto
 
 import android.Manifest
+import android.app.role.RoleManager
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
@@ -61,6 +62,7 @@ class MainActivity : ComponentActivity() {
     private var wakeMessage by mutableStateOf("Elegí una frase e iniciá la sesión con la app abierta.")
     private var message by mutableStateOf("Conectá el casco Bluetooth y pulsá Iniciar prueba.")
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
+    private var assistantMessage by mutableStateOf("Opcional: probá el botón del Y12 como acceso a una orden corta.")
     private var result by mutableStateOf<AudioProbeResult?>(null)
     private var pendingAction: (() -> Unit)? = null
 
@@ -75,6 +77,14 @@ class MainActivity : ComponentActivity() {
             voiceMessage = message
             TripTestState.status = "Se necesitan los permisos solicitados para mostrar la notificación y usar el micrófono del casco."
         }
+    }
+
+    private val assistantRoleRequest = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        assistantMessage = if (isSelectedAssistant()) {
+            "APP es el asistente elegido. Sin iniciar sesión de viaje, mantené pulsado el botón del Y12 y esperá ‘Reconocedor listo’."
+        } else "APP no quedó como asistente. Gemini sigue disponible; podés volver a probar cuando quieras."
     }
 
     private val callPermissionRequest = registerForActivityResult(
@@ -152,6 +162,12 @@ class MainActivity : ComponentActivity() {
                         Text("Fase 0.1 · Orden corta", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
                         Text("Pulsá Escuchar, esperá a que diga ‘Reconocedor listo’ y probá ‘siguiente canción’, ‘anterior canción’, ‘reanudar’, ‘pausa’, ‘subir volumen’ o ‘bajar volumen’.", modifier = Modifier.padding(top = 8.dp))
                         Text("Durante la orden APP pide pausar la música; al terminar solicita reanudarla.", style = MaterialTheme.typography.bodySmall)
+                        Text("Prueba opcional · botón del Y12", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
+                        Text("Android abre el asistente elegido al mantener pulsado el botón. Si elegís APP, una pulsación abrirá esta pantalla y escuchará una orden corta por el casco. Probalo primero con la moto detenida y sin sesión de viaje; mientras esperás el botón, el micrófono no queda abierto por APP.", style = MaterialTheme.typography.bodySmall)
+                        Button(onClick = { requestAssistantRole() }, enabled = !listening && !running && !TripTestState.running, modifier = Modifier.padding(top = 8.dp)) {
+                            Text("Elegir APP como asistente del botón")
+                        }
+                        Text(assistantMessage, style = MaterialTheme.typography.bodySmall)
                         Button(onClick = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) }, enabled = !running && !wakeEnabled && !wakeTransition && !TripTestState.running, modifier = Modifier.padding(top = 12.dp)) {
                             Text(if (listening) "Cancelar escucha" else "Escuchar orden")
                         }
@@ -258,6 +274,51 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+        }
+        handleAssistantInvocation(intent)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleAssistantInvocation(intent)
+    }
+
+    private fun isSelectedAssistant(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        val roles = getSystemService(RoleManager::class.java)
+        return roles.isRoleAvailable(RoleManager.ROLE_ASSISTANT) &&
+            roles.isRoleHeld(RoleManager.ROLE_ASSISTANT)
+    }
+
+    private fun requestAssistantRole() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            assistantMessage = "Esta prueba necesita Android 10 o posterior."
+            return
+        }
+        val roles = getSystemService(RoleManager::class.java)
+        when {
+            !roles.isRoleAvailable(RoleManager.ROLE_ASSISTANT) ->
+                assistantMessage = "Este teléfono no ofrece la selección de asistente a APP."
+            roles.isRoleHeld(RoleManager.ROLE_ASSISTANT) ->
+                assistantMessage = "APP ya es el asistente elegido. Probá la pulsación larga del Y12."
+            else -> runCatching {
+                assistantRoleRequest.launch(roles.createRequestRoleIntent(RoleManager.ROLE_ASSISTANT))
+            }.onFailure {
+                assistantMessage = "No se pudo abrir la selección de asistente: ${it.message ?: "error de Android"}."
+            }
+        }
+    }
+
+    private fun handleAssistantInvocation(incoming: Intent?) {
+        if (incoming?.action != Intent.ACTION_ASSIST) return
+        if (!isSelectedAssistant()) {
+            assistantMessage = "Elegí APP como asistente antes de probar el botón."
+        } else if (TripTestState.running || wakeEnabled || wakeTransition || running || listening) {
+            assistantMessage = "Terminá la sesión o la prueba activa antes de usar el botón del Y12."
+        } else {
+            assistantMessage = "Botón del casco recibido. Preparando una orden corta por Bluetooth…"
+            requestAudioPermissions(::startVoiceTest)
         }
     }
 
