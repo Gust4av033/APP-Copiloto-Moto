@@ -13,55 +13,18 @@ import android.provider.ContactsContract
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.RadioButton
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Slider
-import androidx.compose.material3.Text
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
+import com.gust4av033.appcopilotomoto.presentation.CopilotActions
+import com.gust4av033.appcopilotomoto.presentation.CopilotApp
+import com.gust4av033.appcopilotomoto.presentation.CopilotScreen
+import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
+import com.gust4av033.appcopilotomoto.presentation.ProbeUi
+import com.gust4av033.appcopilotomoto.presentation.TripMetricsUi
 import java.util.concurrent.Executors
-
-private enum class AppScreen(val label: String) {
-    TRIP("Viaje"), TESTS("Pruebas"), SETTINGS("Ajustes")
-}
-
-@Composable
-private fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            content()
-        }
-    }
-}
 
 class MainActivity : ComponentActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -89,8 +52,7 @@ class MainActivity : ComponentActivity() {
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
     private var assistantMessage by mutableStateOf("Opcional: probá el botón del Y12 como acceso a una orden corta.")
     private var audioDiagnostic by mutableStateOf("Actualizá los niveles con la moto detenida y la sesión activa.")
-    private var selectedScreen by mutableStateOf(AppScreen.TRIP)
-    private var detailsVisible by mutableStateOf(false)
+    private var selectedScreen by mutableStateOf(CopilotScreen.TRIP)
     private var result by mutableStateOf<AudioProbeResult?>(null)
     private var pendingAction: (() -> Unit)? = null
 
@@ -164,206 +126,88 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         TripTestState.restore(this)
         tripCallContact = TripCallContactStore.load(this)
+        savedInstanceState?.let { saved ->
+            selectedScreen = runCatching { CopilotScreen.valueOf(saved.getString("ui_screen").orEmpty()) }
+                .getOrDefault(CopilotScreen.TRIP)
+            wakePhrase = runCatching { WakePhrase.valueOf(saved.getString("ui_phrase").orEmpty()) }
+                .getOrDefault(WakePhrase.ALEXA)
+            tripAudioMode = runCatching { WakeAudioMode.valueOf(saved.getString("ui_input").orEmpty()) }
+                .getOrDefault(WakeAudioMode.BLUETOOTH)
+            wakeSensitivity = saved.getFloat("ui_sensitivity", 80f).coerceIn(40f, 85f)
+        }
         setContent { AppUi() }
         handleAssistantInvocation(intent)
     }
 
+    /** Único puente entre el runtime de fase 0 y las pantallas Compose. */
     @Composable
     private fun AppUi() {
-        val busy = running || listening || wakeEnabled || wakeTransition || TripTestState.running
-        MaterialTheme(
-            colorScheme = lightColorScheme(
-                primary = Color(0xFF5C478F),
-                background = Color(0xFFF7F5FA),
-                surface = Color.White,
-                onSurface = Color(0xFF25212B)
-            )
-        ) {
-            Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
-                Column(modifier = Modifier.fillMaxSize().padding(padding)) {
-                    Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)) {
-                        Text("APP · Copiloto Moto", style = MaterialTheme.typography.headlineSmall)
-                        Text("Validación manos libres", color = MaterialTheme.colorScheme.primary)
-                    }
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        AppScreen.entries.forEach { screen ->
-                            if (selectedScreen == screen) {
-                                Button(onClick = { selectedScreen = screen }, modifier = Modifier.weight(1f)) {
-                                    Text(screen.label)
-                                }
-                            } else {
-                                OutlinedButton(onClick = { selectedScreen = screen }, modifier = Modifier.weight(1f)) {
-                                    Text(screen.label)
-                                }
-                            }
-                        }
-                    }
-                    Column(
-                        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
-                            .padding(horizontal = 18.dp, vertical = 12.dp)
-                    ) {
-                        when (selectedScreen) {
-                            AppScreen.TRIP -> {
-                                SectionCard("Sesión de viaje") {
-                                    Text(if (TripTestState.running) "Activa · esperando ‘${wakePhrase.label}’" else "Detenida · lista para iniciar")
-                                    Text(TripTestState.status, style = MaterialTheme.typography.bodyMedium)
-                                    Button(
-                                        onClick = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
-                                        enabled = TripTestState.running || !busy,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text(if (TripTestState.running) "Detener sesión" else "Iniciar sesión de viaje") }
-                                    Text("Para siguiente y anterior canción, usá los toques cortos que ya trae el Y12. Para otras órdenes, decí ‘${wakePhrase.label}’. La pulsación larga queda como respaldo.", style = MaterialTheme.typography.bodySmall)
-                                }
-                                SectionCard("Audio del casco · diagnóstico") {
-                                    Text(audioDiagnostic, style = MaterialTheme.typography.bodySmall)
-                                    OutlinedButton(onClick = { audioDiagnostic = media.audioRouteDiagnostic() }) {
-                                        Text("Actualizar niveles")
-                                    }
-                                }
-                                SectionCard("Órdenes disponibles") {
-                                    Text("Música: siguiente, anterior, pausa y reanudar. También podés subir o bajar volumen.")
-                                    Text("Llamadas: ‘llama a [nombre]’ o ‘llamar’ al contacto fijo. APP pedirá confirmación hablada antes de marcar.")
-                                    Text("‘Detener sesión’ cierra el micrófono. Ajustá la frase, la sensibilidad y los contactos en Ajustes.", style = MaterialTheme.typography.bodySmall)
-                                }
-                                SectionCard("Resultados del viaje") {
-                                    Text("Alexa: ${TripTestState.detections} · Y12: ${TripTestState.manualCommands} · ${TripTestState.actions} acciones · ${TripTestState.failures} fallos")
-                                    Text("Último resultado: ${TripTestState.lastCommandResult}", style = MaterialTheme.typography.bodySmall)
-                                    OutlinedButton(onClick = { detailsVisible = !detailsVisible }) {
-                                        Text(if (detailsVisible) "Ocultar detalles" else "Ver detalles")
-                                    }
-                                    if (detailsVisible) {
-                                        Text("Transcripciones: ${TripTestState.recognized}")
-                                        Text("Inicio de orden → STT listo: ${TripTestState.lastWakeToSttMs} ms")
-                                        Text("Inicio de orden → resultado: ${TripTestState.lastLatencyMs} ms")
-                                        Text("La puntuación del detector no mide la tasa de aciertos.", style = MaterialTheme.typography.bodySmall)
-                                    }
-                                }
-                            }
-                            AppScreen.TESTS -> {
-                                SectionCard("Botón del casco · sin decir Alexa") {
-                                    Text("Tu Y12 abre el asistente del teléfono al mantener pulsado el botón central. Elegí APP como asistente para probar si Android le entrega esa pulsación.")
-                                    Text("Con la sesión detenida, el botón permite probar música y volumen. Durante una sesión activa, permite también ‘llama a [nombre]’, con confirmación hablada.", style = MaterialTheme.typography.bodySmall)
-                                    Button(
-                                        onClick = { requestAssistantRole() },
-                                        enabled = !busy,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text(if (isSelectedAssistant()) "APP es el asistente elegido" else "Elegir APP como asistente") }
-                                    Text(assistantMessage, style = MaterialTheme.typography.bodySmall)
-                                    Text("Sin sesión de viaje, APP abre el micrófono solo al recibir el botón. Con sesión activa, el detector sigue esperando la frase.", style = MaterialTheme.typography.bodySmall)
-                                }
-                                SectionCard("Orden corta · prueba manual") {
-                                    Text("Escuchá una sola orden por Bluetooth. La música se pausa mientras Android reconoce tu voz.")
-                                    Button(
-                                        onClick = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) },
-                                        enabled = !running && !wakeEnabled && !wakeTransition && !TripTestState.running,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text(if (listening) "Cancelar escucha" else "Escuchar orden") }
-                                    Text(voiceMessage)
-                                }
-                                SectionCard("Micrófono Bluetooth · 5 segundos") {
-                                    Button(
-                                        onClick = { requestProbe() },
-                                        enabled = !busy,
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text(if (running) "Midiendo…" else "Medir micrófono") }
-                                    Text(message)
-                                    result?.let { measurement ->
-                                        Text("Solicitado: ${measurement.requestedInput}")
-                                        Text("Real: ${measurement.actualInput}")
-                                        Text("Ruta de comunicación: ${measurement.selectedOutput}")
-                                        Text("${measurement.durationMs} ms · ${measurement.sampleCount} muestras")
-                                        Text("Medio: ${measurement.rmsDbfs} dBFS · pico: ${measurement.peakDbfs} dBFS")
-                                        measurement.warning?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                                    }
-                                }
-                                SectionCard("Activación local · app visible") {
-                                    Text("Prueba el detector sin iniciar la sesión de viaje. Decí ‘${wakePhrase.label}’ y luego una orden cuando el reconocedor esté listo.")
-                                    Button(
-                                        onClick = { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) },
-                                        enabled = !TripTestState.running && !running && (wakeEnabled || (!listening && !wakeTransition)),
-                                        modifier = Modifier.fillMaxWidth()
-                                    ) { Text(if (wakeEnabled) "Detener activación" else "Iniciar activación") }
-                                    Text(wakeMessage)
-                                    Text("Detecciones: $wakeDetections", style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                            AppScreen.SETTINGS -> {
-                                SectionCard("Frase de activación") {
-                                    Column(modifier = Modifier.selectableGroup()) {
-                                        WakePhrase.entries.forEach { option ->
-                                            val enabled = !busy
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth().selectable(
-                                                    selected = wakePhrase == option,
-                                                    enabled = enabled,
-                                                    role = Role.RadioButton,
-                                                    onClick = { wakePhrase = option }
-                                                ),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                RadioButton(selected = wakePhrase == option, onClick = null, enabled = enabled)
-                                                Text(option.label, modifier = Modifier.padding(start = 8.dp))
-                                            }
-                                        }
-                                    }
-                                    Text("Una frase nueva como ‘Hola amigo’ necesita un modelo entrenado para reconocerla.", style = MaterialTheme.typography.bodySmall)
-                                    Text("Sensibilidad: ${wakeSensitivity.toInt()} %")
-                                    Slider(
-                                        value = wakeSensitivity,
-                                        onValueChange = { wakeSensitivity = it },
-                                        valueRange = 40f..85f,
-                                        steps = 8,
-                                        enabled = !busy
-                                    )
-                                    Text("Más sensibilidad también puede causar activaciones por error.", style = MaterialTheme.typography.bodySmall)
-                                }
-                                SectionCard("Micrófono para la activación") {
-                                    Column(modifier = Modifier.selectableGroup()) {
-                                        WakeAudioMode.entries.forEach { option ->
-                                            Row(
-                                                modifier = Modifier.fillMaxWidth().selectable(
-                                                    selected = tripAudioMode == option,
-                                                    enabled = !busy,
-                                                    role = Role.RadioButton,
-                                                    onClick = { tripAudioMode = option }
-                                                ),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                RadioButton(selected = tripAudioMode == option, onClick = null, enabled = !busy)
-                                                Text(option.label, modifier = Modifier.padding(start = 8.dp))
-                                            }
-                                        }
-                                    }
-                                    Text("El teléfono no resultó fiable en tu ruta. Usá el casco para Alexa; la música puede sonar como llamada mientras el micrófono Bluetooth clásico está abierto.", style = MaterialTheme.typography.bodySmall)
-                                }
-                                SectionCard("Llamadas") {
-                                    Text("Para ‘llama a [nombre]’, concedé acceso a contactos y llamadas antes del viaje. Si el nombre o número es ambiguo, APP no marca.")
-                                    Button(onClick = { requestNamedCallPermissions() }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                                        Text("Habilitar llamadas por nombre")
-                                    }
-                                    Text("Opcional: elegí un contacto fijo para la orden ‘llamar’.", style = MaterialTheme.typography.bodySmall)
-                                    OutlinedButton(onClick = { chooseTripCallContact() }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
-                                        Text(if (tripCallContact == null) "Elegir contacto fijo" else "Cambiar contacto fijo")
-                                    }
-                                    tripCallContact?.let { contact ->
-                                        Text("Contacto fijo: ${contact.display}")
-                                        OutlinedButton(onClick = {
-                                            TripCallContactStore.clear(this@MainActivity)
-                                            tripCallContact = null
-                                            tripCallMessage = "Contacto quitado."
-                                        }, enabled = !busy) { Text("Quitar contacto") }
-                                    }
-                                    Text(tripCallMessage, style = MaterialTheme.typography.bodySmall)
-                                }
-                            }
-                        }
-                    }
-                }
+        val state = CopilotUiState(
+            tripActive = TripTestState.running,
+            measuring = running,
+            listening = listening,
+            wakeEnabled = wakeEnabled,
+            wakeTransition = wakeTransition,
+            tripStatus = TripTestState.status,
+            lastCommandResult = TripTestState.lastCommandResult,
+            metrics = TripMetricsUi(
+                detections = TripTestState.detections,
+                manualCommands = TripTestState.manualCommands,
+                recognized = TripTestState.recognized,
+                actions = TripTestState.actions,
+                failures = TripTestState.failures,
+                readyLatencyMs = TripTestState.lastWakeToSttMs,
+                totalLatencyMs = TripTestState.lastLatencyMs
+            ),
+            phraseId = wakePhrase.name,
+            phraseLabel = wakePhrase.label,
+            sensitivity = wakeSensitivity,
+            inputId = tripAudioMode.name,
+            assistantSelected = isSelectedAssistant(),
+            assistantMessage = assistantMessage,
+            voiceMessage = voiceMessage,
+            probeMessage = message,
+            wakeMessage = wakeMessage,
+            wakeDetections = wakeDetections,
+            audioDiagnostic = audioDiagnostic,
+            callMessage = tripCallMessage,
+            fixedContact = tripCallContact?.display,
+            probe = result?.let {
+                ProbeUi(it.requestedInput, it.actualInput, it.selectedOutput, it.durationMs,
+                    it.sampleCount, it.rmsDbfs, it.peakDbfs, it.warning)
             }
-        }
+        )
+        CopilotApp(
+            state = state,
+            selectedScreen = selectedScreen,
+            onScreenChange = { selectedScreen = it },
+            actions = CopilotActions(
+                onToggleTrip = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
+                onRefreshAudio = { audioDiagnostic = media.audioRouteDiagnostic() },
+                onSelectAssistant = ::requestAssistantRole,
+                onToggleListening = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) },
+                onMeasure = ::requestProbe,
+                onToggleWake = { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) },
+                onPhraseChange = { wakePhrase = WakePhrase.valueOf(it) },
+                onSensitivityChange = { wakeSensitivity = it },
+                onInputChange = { tripAudioMode = WakeAudioMode.valueOf(it) },
+                onEnableNamedCalls = ::requestNamedCallPermissions,
+                onChooseContact = ::chooseTripCallContact,
+                onClearContact = {
+                    TripCallContactStore.clear(this@MainActivity)
+                    tripCallContact = null
+                    tripCallMessage = getString(R.string.contact_removed)
+                }
+            )
+        )
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        outState.putString("ui_screen", selectedScreen.name)
+        outState.putString("ui_phrase", wakePhrase.name)
+        outState.putString("ui_input", tripAudioMode.name)
+        outState.putFloat("ui_sensitivity", wakeSensitivity)
+        super.onSaveInstanceState(outState)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -407,7 +251,7 @@ class MainActivity : ComponentActivity() {
         // Consumir el intent: una recreación de la pantalla no debe iniciar otra escucha.
         setIntent(Intent(this, MainActivity::class.java))
         if (TripTestState.running) {
-            selectedScreen = AppScreen.TRIP
+            selectedScreen = CopilotScreen.TRIP
             assistantMessage = "Botón recibido ($source) durante el viaje."
             runCatching {
                 startService(Intent(this, TripVoiceService::class.java)
@@ -416,7 +260,7 @@ class MainActivity : ComponentActivity() {
                 TripTestState.status = "No se pudo abrir la orden del botón: ${it.message ?: "error de Android"}."
             }
         } else {
-            selectedScreen = AppScreen.TESTS
+            selectedScreen = CopilotScreen.TESTS
             if (wakeEnabled || wakeTransition || running || listening) {
                 assistantMessage = "Botón recibido ($source), pero ya hay una escucha activa. Detenela antes de repetir."
             } else {
@@ -740,3 +584,4 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 }
+

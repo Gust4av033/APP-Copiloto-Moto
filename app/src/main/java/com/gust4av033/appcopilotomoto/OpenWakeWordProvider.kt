@@ -5,6 +5,7 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.MediaRecorder
 import android.os.Build
+import androidx.annotation.RequiresApi
 import com.openwakeword.OpenWakeWord
 
 /** Frases con modelos incluidos; una frase nueva requiere un modelo entrenado. */
@@ -75,6 +76,7 @@ class OpenWakeWordProvider(
         return "Alexa: micrófono del teléfono; órdenes: casco Bluetooth."
     }
 
+    @RequiresApi(Build.VERSION_CODES.S)
     private fun selectHeadset() {
         val headset = audioManager.availableCommunicationDevices.firstOrNull {
             it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
