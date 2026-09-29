@@ -4,7 +4,7 @@ La base visual avanza en paralelo con la validación de fase 0. El objetivo es o
 
 ## Punto de partida
 
-- Audio y pruebas de campo: `feature/fase-0-3-boton-y12-sesion`.
+- Audio y pruebas de campo: `feature/fase-0-audio-bluetooth` (incluye los cambios de 0.3).
 - Interfaz: `feature/ui-base-compose`, creada desde el commit `1f01daabd6f17c0be53da3f4a94f6ce67af6c98c` de la rama de audio.
 - Acuerdo del chat 0.1: Alexa sigue como activación principal; los toques cortos del Y12 siguen disponibles para siguiente/anterior canción y la pulsación larga queda como respaldo.
 - Continúa pendiente validar el volumen bajo al iniciar el viaje, la calidad de Bluetooth, activaciones y estabilidad en el S22+ con el Y12. Esta UI no cierra fase 0.
@@ -44,9 +44,9 @@ Los textos de estado y errores que genera el runtime siguen llegando en español
 ## Coordinación con el trabajo de audio
 
 1. Los cambios visuales se concentran en `presentation/` y recursos.
-2. Las correcciones de audio siguen en la rama de fase 0.3. Al incorporar nuevas señales, actualizar únicamente el puente `AppUi()` y el contrato de estado necesario.
+2. Las correcciones de audio siguen en `feature/fase-0-audio-bluetooth`. Al incorporar nuevas señales, actualizar únicamente el puente `AppUi()` y el contrato de estado necesario.
 3. Antes de probar juntos cambios nuevos de audio y UI, integrar la última rama de audio en la rama de UI y resolver explícitamente cualquier conflicto de `MainActivity`.
-4. El PR de UI apunta a la rama de fase 0.3. Validar primero en el teléfono; integrar en `main` según el cierre del trabajo de fase 0.
+4. El PR de UI apunta a `feature/fase-0-audio-bluetooth`. Validar primero en el teléfono; integrar en `main` según el cierre del trabajo de fase 0.
 
 No se asume sincronización automática entre chats. Este archivo registra el punto de partida y las reglas para que ambos trabajos puedan retomarse desde el código publicado.
 
