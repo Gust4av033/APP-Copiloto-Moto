@@ -30,6 +30,7 @@ import java.util.concurrent.Executors
 object TripTestState {
     var running by mutableStateOf(false)
     var status by mutableStateOf("Iniciá la sesión de prueba con la app abierta.")
+    var lastCommandResult by mutableStateOf("Aún no hay órdenes en esta sesión.")
     var detections by mutableStateOf(0)
     var manualCommands by mutableStateOf(0)
     var recognized by mutableStateOf(0)
@@ -56,6 +57,7 @@ object TripTestState {
     }
 
     fun reset(context: Context) {
+        lastCommandResult = "Aún no hay órdenes en esta sesión."
         detections = 0
         manualCommands = 0
         recognized = 0
@@ -402,6 +404,7 @@ class TripVoiceService : Service() {
                 else -> "Escuché ‘$heard’; no coincide con las órdenes de prueba."
             }
             TripTestState.status = "$source: ${TripTestState.status}"
+            TripTestState.lastCommandResult = TripTestState.status
             updateNotification("$source · orden terminada; esperando activación")
             if (consecutiveFailures >= 2) {
                 stopSession("Dos activaciones sin orden válida; sesión detenida. ${TripTestState.status}")
