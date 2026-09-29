@@ -551,8 +551,8 @@ class MainActivity : ComponentActivity() {
                                     TestIntent.MEDIA_PREVIOUS -> "Anterior canción"
                                     TestIntent.MEDIA_PLAY -> "Reproducir"
                                     TestIntent.MEDIA_PAUSE -> "Pausar"
-                                    TestIntent.VOLUME_UP -> "Subir volumen (${media.musicVolume()})"
-                                    TestIntent.VOLUME_DOWN -> "Bajar volumen (${media.musicVolume()})"
+                                    TestIntent.VOLUME_UP -> "Subir volumen (${media.commandVolumeStatus()})"
+                                    TestIntent.VOLUME_DOWN -> "Bajar volumen (${media.commandVolumeStatus()})"
                                     else -> "Orden"
                                 }
                                 if (action.isSuccess) "Escuché: ‘$heard’. Envié $command en $elapsed ms. Comprobá el resultado en la música."
