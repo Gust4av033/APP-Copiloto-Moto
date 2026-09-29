@@ -2,6 +2,7 @@ package com.gust4av033.appcopilotomoto
 
 import android.content.Context
 import android.media.AudioManager
+import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.os.Build
 import android.os.SystemClock
@@ -54,10 +55,27 @@ class MediaActionAdapter(context: Context) {
                 else -> "otra ruta de comunicación"
             }
         } else "ruta no informada"
+        // Android 13+ informa la salida prevista para un audio con atributos de música.
+        // No afirma qué salida decidió usar otra app o un dispositivo remoto.
+        val mediaOutput = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            runCatching {
+                audioManager.getAudioDevicesForAttributes(
+                    AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build()
+                ).map { device ->
+                    when (device.type) {
+                        AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "Bluetooth A2DP"
+                        AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "Bluetooth SCO"
+                        AudioDeviceInfo.TYPE_BLE_HEADSET -> "Bluetooth LE"
+                        AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> "altavoz del teléfono"
+                        else -> "tipo ${device.type}"
+                    }
+                }.distinct().joinToString().ifEmpty { "sin salida informada" }
+            }.getOrDefault("no disponible")
+        } else "no disponible en esta versión de Android"
         val mode = if (audioManager.mode == AudioManager.MODE_IN_COMMUNICATION) "comunicación" else "normal"
         val music = musicVolume()
         val voice = "${audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)}"
-        return "Modo: $mode · Ruta: $route · Música: $music · Comunicación: $voice"
+        return "Modo: $mode · Ruta comunicación: $route · Salida música prevista: $mediaOutput · Música: $music · Comunicación: $voice"
     }
 
     /** Solicita una pausa solo si Android informa reproducción activa. */
