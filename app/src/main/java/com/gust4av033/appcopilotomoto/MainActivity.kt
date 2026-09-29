@@ -110,7 +110,7 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.StartActivityForResult()
     ) {
         assistantMessage = if (isSelectedAssistant()) {
-            "APP es el asistente elegido. Sin iniciar sesión de viaje, mantené pulsado el botón del Y12 y esperá ‘Reconocedor listo’."
+            "APP es el asistente elegido. Pulsá el Y12 durante la sesión o probá una orden corta sin sesión."
         } else "APP no quedó como asistente. Gemini sigue disponible; podés volver a probar cuando quieras."
     }
 
@@ -214,7 +214,7 @@ class MainActivity : ComponentActivity() {
                                         enabled = TripTestState.running || !busy,
                                         modifier = Modifier.fillMaxWidth()
                                     ) { Text(if (TripTestState.running) "Detener sesión" else "Iniciar sesión de viaje") }
-                                    Text("Decí ‘${wakePhrase.label}’ o mantené pulsado el botón central del Y12. Después del tono, decí la orden. El botón sirve de respaldo con la sesión activa.", style = MaterialTheme.typography.bodySmall)
+                                    Text("Decí ‘${wakePhrase.label}’ o mantené pulsado el botón central del Y12. Esperá a que APP indique «Reconocedor listo» antes de decir la orden.", style = MaterialTheme.typography.bodySmall)
                                 }
                                 SectionCard("Órdenes disponibles") {
                                     Text("Música: siguiente, anterior, pausa y reanudar. También podés subir o bajar volumen.")
@@ -222,7 +222,7 @@ class MainActivity : ComponentActivity() {
                                     Text("‘Detener sesión’ cierra el micrófono. Ajustá la frase, la sensibilidad y los contactos en Ajustes.", style = MaterialTheme.typography.bodySmall)
                                 }
                                 SectionCard("Resultados del viaje") {
-                                    Text("${TripTestState.detections} activaciones · ${TripTestState.actions} acciones · ${TripTestState.failures} fallos")
+                                    Text("Alexa: ${TripTestState.detections} · Y12: ${TripTestState.manualCommands} · ${TripTestState.actions} acciones · ${TripTestState.failures} fallos")
                                     OutlinedButton(onClick = { detailsVisible = !detailsVisible }) {
                                         Text(if (detailsVisible) "Ocultar detalles" else "Ver detalles")
                                     }
@@ -396,6 +396,8 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_VOICE_COMMAND -> "VOICE_COMMAND"
             else -> return
         }
+        // Consumir el intent: una recreación de la pantalla no debe iniciar otra escucha.
+        setIntent(Intent(this, MainActivity::class.java))
         if (TripTestState.running) {
             selectedScreen = AppScreen.TRIP
             assistantMessage = "Botón recibido ($source) durante el viaje."
