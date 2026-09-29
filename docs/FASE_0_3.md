@@ -45,6 +45,12 @@ En el Y12 probado, mantener pulsado el botón central abre Gemini: Android dirig
 
 Con el casco conectado y la moto detenida, **sin iniciar sesión de viaje**, elegí APP, poné música y mantené pulsado el botón del Y12. Si el teléfono entrega `ACTION_ASSIST` o `ACTION_VOICE_COMMAND`, APP abre **Pruebas**, muestra la acción recibida y usa **Orden corta**: esperá **Reconocedor listo**, decí por el casco «siguiente canción» o «subir volumen» y comprobá la acción. Durante la espera del botón, esta ruta no mantiene el micrófono de APP abierto ni fuerza la ruta de comunicación; al escuchar una orden puede pasar brevemente a calidad de llamada. La prueba de botón no admite llamadas todavía; la confirmación de llamadas sigue en la sesión de viaje. Si solo aparece un selector del sistema, registrar su pantalla: no hay confirmación de que Samsung haya entregado el intent a APP. Las restricciones de Samsung con pantalla bloqueada y el comportamiento concreto del botón deben validarse en el S22+ antes de usarla en ruta.
 
+### Prueba Y12 durante la sesión de viaje
+
+Con APP elegida como asistente, iniciá la sesión usando **Casco: activación y orden**. Esperá a que la pantalla o la notificación indique que espera «Alexa». Con la moto detenida, mantené pulsado el botón central del Y12: APP debe mostrar **Y12: abriendo reconocedor** y luego **Y12: reconocedor listo**. Decí «siguiente canción» al estar listo y comprobá que cambie la pista. Repetí con «pausa» y «reanudar»; tras cada orden debe volver a esperar «Alexa» y admitir otra pulsación. La pantalla **Resultados del viaje** cuenta por separado las activaciones Alexa y las órdenes iniciadas con Y12. Si pulsás durante otra orden, se informa que la sesión está ocupada y no se abre una segunda captura.
+
+Si el botón abre APP sin iniciar el reconocedor, anotá el estado exacto mostrado en Viaje y si la sesión seguía activa. Probá después con la pantalla apagada y con otra app al frente, siempre estando detenido. No des por validada la ruta del casco solo porque Android haya entregado `VOICE_COMMAND`: también debe llegar a STT y ejecutar la acción.
+
 ### Pantalla de prueba ordenada
 
 **Viaje** muestra el estado, el botón principal, los comandos y las métricas; los tiempos detallados se despliegan si hacen falta. **Pruebas** agrupa el botón del casco, la orden corta, el diagnóstico de micrófono y la activación local con la app visible. **Ajustes** agrupa frase y sensibilidad, ruta del micrófono y contactos. Esta organización no cambia los permisos ni las reglas que confirman una llamada.
@@ -63,4 +69,4 @@ Si desconectás el casco, detén la sesión desde la notificación. En la siguie
 
 ## Límite de esta entrega
 
-Esta fase no añade lectura de Waze, LLM ni acciones sensibles. Después de validar la sesión y sus métricas en el teléfono, cerrar la fase 0 y abrir la fase 1 para ampliar Intent Router y Action Executor.
+El objetivo de esta fase sigue siendo validar el flujo manos libres con casco, activación, botón Y12, STT, multimedia y métricas. Las llamadas incluidas como prueba experimental no cierran la Fase 1. Después de validar la sesión y sus métricas en el S22+, cerrar la Fase 0 y ampliar Intent Router y Action Executor en una rama de Fase 1.
