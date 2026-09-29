@@ -52,7 +52,7 @@ class MainActivity : ComponentActivity() {
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
     private var assistantMessage by mutableStateOf("Opcional: probá el botón del Y12 como acceso a una orden corta.")
     private var audioDiagnostic by mutableStateOf("Actualizá los niveles con la moto detenida y la sesión activa.")
-    private var selectedScreen by mutableStateOf(CopilotScreen.TRIP)
+    private var selectedScreen by mutableStateOf(CopilotScreen.HOME)
     private var result by mutableStateOf<AudioProbeResult?>(null)
     private var pendingAction: (() -> Unit)? = null
 
@@ -128,7 +128,7 @@ class MainActivity : ComponentActivity() {
         tripCallContact = TripCallContactStore.load(this)
         savedInstanceState?.let { saved ->
             selectedScreen = runCatching { CopilotScreen.valueOf(saved.getString("ui_screen").orEmpty()) }
-                .getOrDefault(CopilotScreen.TRIP)
+                .getOrDefault(CopilotScreen.HOME)
             wakePhrase = runCatching { WakePhrase.valueOf(saved.getString("ui_phrase").orEmpty()) }
                 .getOrDefault(WakePhrase.ALEXA)
             tripAudioMode = runCatching { WakeAudioMode.valueOf(saved.getString("ui_input").orEmpty()) }
@@ -587,4 +587,3 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 }
-

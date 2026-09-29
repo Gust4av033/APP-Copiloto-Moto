@@ -3,10 +3,11 @@ package com.gust4av033.appcopilotomoto.presentation
 import androidx.compose.runtime.Immutable
 import com.gust4av033.appcopilotomoto.R
 
-enum class CopilotScreen(val titleRes: Int, val iconRes: Int) {
+enum class CopilotScreen(val titleRes: Int, val iconRes: Int, val inMainNavigation: Boolean = true) {
+    HOME(R.string.nav_home, R.drawable.ic_home),
     TRIP(R.string.nav_trip, R.drawable.ic_trip),
-    TESTS(R.string.nav_tests, R.drawable.ic_tests),
-    SETTINGS(R.string.nav_settings, R.drawable.ic_settings)
+    SETTINGS(R.string.nav_settings, R.drawable.ic_settings),
+    TESTS(R.string.nav_tests, R.drawable.ic_tests, inMainNavigation = false)
 }
 
 @Immutable

@@ -1,6 +1,6 @@
 # APP Copiloto Moto
 
-Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta rama contiene la base Compose de Viaje, Pruebas y Ajustes sobre el prototipo de fase 0: activación, audio Bluetooth, órdenes multimedia, volumen y llamadas con confirmación. La estabilidad del audio sigue en validación con hardware real.
+Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta rama contiene Inicio, Viaje y Ajustes sobre el prototipo de fase 0: activación, audio Bluetooth, órdenes multimedia, volumen y llamadas con confirmación. Pruebas y diagnóstico se abren desde estas pantallas. Inicio prepara la presentación de Mi Moto, Preparar viaje y Mis viajes como módulos próximos. La estabilidad del audio sigue en validación con hardware real.
 
 ## Abrir en Android Studio
 
@@ -36,4 +36,3 @@ La arquitectura prevista conserva límites entre `presentation`, `application`, 
 ### Sincronizar cambios de GitHub
 
 En Android Studio: **Git > Pull** o `git pull origin main` desde la terminal del proyecto. Para subir cambios propios: **Commit** y luego **Push** (o `git add . && git commit -m "..." && git push`).
-

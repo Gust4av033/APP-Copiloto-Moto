@@ -15,16 +15,34 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.ChoiceUi
+
+@Composable
+fun SessionStatus(active: Boolean) {
+    Surface(
+        color = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
+        shape = MaterialTheme.shapes.small
+    ) {
+        Text(
+            stringResource(if (active) R.string.trip_active else R.string.trip_stopped),
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
+            style = MaterialTheme.typography.titleLarge
+        )
+    }
+}
 
 @Composable
 fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {

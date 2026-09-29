@@ -4,10 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -17,9 +15,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.CopilotActions
@@ -27,21 +22,13 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 import com.gust4av033.appcopilotomoto.presentation.components.ActionButton
 import com.gust4av033.appcopilotomoto.presentation.components.ChoiceGroup
 import com.gust4av033.appcopilotomoto.presentation.components.SectionCard
+import com.gust4av033.appcopilotomoto.presentation.components.SessionStatus
 import com.gust4av033.appcopilotomoto.presentation.components.SupportingText
 
 @Composable
-fun TripScreen(state: CopilotUiState, actions: CopilotActions) {
+fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -> Unit) {
     SectionCard(stringResource(R.string.trip_session)) {
-        Surface(
-            color = if (state.tripActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-            shape = MaterialTheme.shapes.small
-        ) {
-            Text(
-                stringResource(if (state.tripActive) R.string.trip_active else R.string.trip_stopped),
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
-                style = MaterialTheme.typography.titleLarge
-            )
-        }
+        SessionStatus(state.tripActive)
         Text(stringResource(R.string.trip_activation, state.phraseLabel))
         SupportingText(state.tripStatus)
         ActionButton(
@@ -54,6 +41,15 @@ fun TripScreen(state: CopilotUiState, actions: CopilotActions) {
     }
     SectionCard(stringResource(R.string.trip_last_result)) {
         SupportingText(state.lastCommandResult.ifBlank { stringResource(R.string.no_command_result) })
+    }
+    SectionCard(stringResource(R.string.trip_audio_check)) {
+        SupportingText(stringResource(R.string.trip_audio_check_hint))
+        var comparisonVisible by rememberSaveable { mutableStateOf(false) }
+        TextButton(onClick = { comparisonVisible = !comparisonVisible }) {
+            Text(stringResource(if (comparisonVisible) R.string.audio_comparison_hide else R.string.audio_comparison_show))
+        }
+        if (comparisonVisible) AudioComparison(state)
+        ActionButton(stringResource(R.string.open_tests), onClick = onOpenTests)
     }
     SectionCard(stringResource(R.string.trip_commands)) {
         Text(stringResource(R.string.commands_music))
@@ -96,9 +92,7 @@ fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
     SupportingText(stringResource(R.string.tests_intro))
     if (state.tripActive) SupportingText(stringResource(R.string.tests_trip_active))
     SectionCard(stringResource(R.string.tests_audio)) {
-        SupportingText(stringResource(R.string.audio_before, state.audioBefore))
-        SupportingText(stringResource(R.string.audio_during, state.audioDuring))
-        SupportingText(stringResource(R.string.audio_after, state.audioAfter))
+        AudioComparison(state)
         SupportingText(state.audioDiagnostic)
         ActionButton(stringResource(R.string.audio_refresh), onClick = actions.onRefreshAudio)
     }
@@ -150,7 +144,7 @@ fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
 }
 
 @Composable
-fun SettingsScreen(state: CopilotUiState, actions: CopilotActions) {
+fun SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -> Unit) {
     if (state.busy) SupportingText(stringResource(R.string.settings_busy))
     SectionCard(stringResource(R.string.settings_phrase)) {
         ChoiceGroup(state.phrases, state.phraseId, !state.busy, actions.onPhraseChange)
@@ -184,4 +178,15 @@ fun SettingsScreen(state: CopilotUiState, actions: CopilotActions) {
         }
         SupportingText(state.callMessage)
     }
+    SectionCard(stringResource(R.string.settings_test_tools)) {
+        SupportingText(stringResource(R.string.settings_test_tools_hint))
+        ActionButton(stringResource(R.string.open_tests), onClick = onOpenTests)
+    }
+}
+
+@Composable
+private fun AudioComparison(state: CopilotUiState) {
+    SupportingText(stringResource(R.string.audio_before, state.audioBefore))
+    SupportingText(stringResource(R.string.audio_during, state.audioDuring))
+    SupportingText(stringResource(R.string.audio_after, state.audioAfter))
 }

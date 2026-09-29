@@ -1,5 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="nav_home">Inicio</string>
+    <string name="home_copilot">Tu copiloto</string>
+    <string name="home_open_trip">Ver viaje</string>
+    <string name="home_voice_hint">Durante la sesión, decí “%1$s” para pedir una orden. Usá los toques cortos del Y12 para cambiar canción.</string>
+    <string name="home_setup">Antes de salir</string>
+    <string name="home_configure">Configurar copiloto</string>
+    <string name="home_check_headset">Comprobar audio y casco</string>
+    <string name="home_test_active">Hay una prueba de micrófono activa. Abrí Pruebas para verla o detener la escucha.</string>
+    <string name="home_open_test">Ver prueba activa</string>
+    <string name="home_assistant_ready">APP está elegida como asistente para el botón del casco.</string>
+    <string name="home_assistant_optional">La selección de APP como asistente es opcional para probar el botón del casco.</string>
+    <string name="home_next_modules">Próximos módulos</string>
+    <string name="home_next_hint">Esta es la base para ampliar el copiloto. Estos módulos todavía no están disponibles.</string>
+    <string name="module_upcoming">Próximamente</string>
+    <string name="module_motorcycle">Mi Moto</string>
+    <string name="module_motorcycle_detail">Registrar tu motocicleta, kilometraje y recordatorios de mantenimiento.</string>
+    <string name="module_prepare_trip">Preparar viaje</string>
+    <string name="module_prepare_trip_detail">Revisar destino, ruta, clima y autonomía antes de salir.</string>
+    <string name="module_history">Mis viajes</string>
+    <string name="module_history_detail">Consultar recorridos, duración y resúmenes cuando exista la bitácora.</string>
+    <string name="trip_audio_check">Audio del viaje</string>
+    <string name="trip_audio_check_hint">APP captura los niveles al iniciar, durante la activación y al detener la sesión. Revisalos con la moto detenida.</string>
+    <string name="audio_comparison_show">Ver comparación de audio</string>
+    <string name="audio_comparison_hide">Ocultar comparación</string>
+    <string name="open_tests">Abrir pruebas y diagnóstico</string>
+    <string name="settings_test_tools">Pruebas y diagnóstico</string>
+    <string name="settings_test_tools_hint">Comprobá el micrófono, el volumen, la activación y el botón del Y12.</string>
+    <string name="back_to_screen">Volver a %1$s</string>
     <string name="ui_brand">APP · COPILOTO MOTO</string>
     <string name="ui_phase">Fase 0 · Validación manos libres</string>
     <string name="nav_trip">Viaje</string>
