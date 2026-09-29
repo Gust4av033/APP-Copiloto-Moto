@@ -19,13 +19,27 @@ class MediaActionAdapter(context: Context) {
 
     fun pause(): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_PAUSE) }
 
-    /** Un paso del volumen multimedia, sin modificar el volumen de llamadas. */
+    /** Durante la ruta SCO, Android puede usar el nivel de comunicación para el casco. */
+    private fun commandVolumeStream(): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            audioManager.mode == AudioManager.MODE_IN_COMMUNICATION &&
+            audioManager.communicationDevice?.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO) {
+            AudioManager.STREAM_VOICE_CALL
+        } else AudioManager.STREAM_MUSIC
+
+    /** Solo cambia un paso cuando el usuario pronuncia la orden de volumen. */
     fun volumeUp(): Result<Unit> = runCatching {
-        audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_RAISE, 0)
+        audioManager.adjustStreamVolume(commandVolumeStream(), AudioManager.ADJUST_RAISE, 0)
     }
 
     fun volumeDown(): Result<Unit> = runCatching {
-        audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_LOWER, 0)
+        audioManager.adjustStreamVolume(commandVolumeStream(), AudioManager.ADJUST_LOWER, 0)
+    }
+
+    fun commandVolumeStatus(): String {
+        val stream = commandVolumeStream()
+        val label = if (stream == AudioManager.STREAM_VOICE_CALL) "casco/comunicación" else "música"
+        return "$label ${audioManager.getStreamVolume(stream)}/${audioManager.getStreamMaxVolume(stream)}"
     }
 
     fun musicVolume(): String = "${audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)}"
