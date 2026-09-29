@@ -15,7 +15,9 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -23,20 +25,43 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.lightColorScheme
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import java.util.concurrent.Executors
+
+private enum class AppScreen(val label: String) {
+    TRIP("Viaje"), TESTS("Pruebas"), SETTINGS("Ajustes")
+}
+
+@Composable
+private fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().padding(bottom = 14.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+            content()
+        }
+    }
+}
 
 class MainActivity : ComponentActivity() {
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -63,6 +88,8 @@ class MainActivity : ComponentActivity() {
     private var message by mutableStateOf("Conectá el casco Bluetooth y pulsá Iniciar prueba.")
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
     private var assistantMessage by mutableStateOf("Opcional: probá el botón del Y12 como acceso a una orden corta.")
+    private var selectedScreen by mutableStateOf(AppScreen.TRIP)
+    private var detailsVisible by mutableStateOf(false)
     private var result by mutableStateOf<AudioProbeResult?>(null)
     private var pendingAction: (() -> Unit)? = null
 
@@ -136,146 +163,199 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         TripTestState.restore(this)
         tripCallContact = TripCallContactStore.load(this)
-        setContent {
-            MaterialTheme {
-                Scaffold { padding ->
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(24.dp),
-                        verticalArrangement = Arrangement.Center
+        setContent { AppUi() }
+        handleAssistantInvocation(intent)
+    }
+
+    @Composable
+    private fun AppUi() {
+        val busy = running || listening || wakeEnabled || wakeTransition || TripTestState.running
+        MaterialTheme(
+            colorScheme = lightColorScheme(
+                primary = Color(0xFF5C478F),
+                background = Color(0xFFF7F5FA),
+                surface = Color.White,
+                onSurface = Color(0xFF25212B)
+            )
+        ) {
+            Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
+                Column(modifier = Modifier.fillMaxSize().padding(padding)) {
+                    Column(modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 20.dp, bottom = 8.dp)) {
+                        Text("APP · Copiloto Moto", style = MaterialTheme.typography.headlineSmall)
+                        Text("Validación manos libres", color = MaterialTheme.colorScheme.primary)
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 14.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        Text("APP · Fase 0.0", style = MaterialTheme.typography.headlineMedium)
-                        Text("Diagnóstico de micrófono Bluetooth", modifier = Modifier.padding(top = 12.dp), style = MaterialTheme.typography.titleMedium)
-                        Text("La prueba escucha cinco segundos. Hablá por el casco; el audio se descarta y solo se muestran medidas.", modifier = Modifier.padding(top = 12.dp))
-                        Button(onClick = { requestProbe() }, enabled = !running && !listening && !wakeEnabled && !wakeTransition && !TripTestState.running, modifier = Modifier.padding(top = 20.dp)) {
-                            Text(if (running) "Midiendo…" else "Iniciar prueba")
-                        }
-                        Text(message, modifier = Modifier.padding(top = 16.dp))
-                        result?.let { measurement ->
-                            Text("Entrada solicitada: ${measurement.requestedInput}", modifier = Modifier.padding(top = 16.dp))
-                            Text("Entrada real: ${measurement.actualInput}")
-                            Text("Salida de comunicación seleccionada: ${measurement.selectedOutput}")
-                            Text("La salida de comunicación no verifica dónde se reproduce la música.", style = MaterialTheme.typography.bodySmall)
-                            Text("Duración: ${measurement.durationMs} ms · Muestras: ${measurement.sampleCount}")
-                            Text("Nivel medio: ${measurement.rmsDbfs} dBFS · Pico: ${measurement.peakDbfs} dBFS")
-                            measurement.warning?.let { Text(it, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 12.dp)) }
-                        }
-                        Text("Fase 0.1 · Orden corta", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Pulsá Escuchar, esperá a que diga ‘Reconocedor listo’ y probá ‘siguiente canción’, ‘anterior canción’, ‘reanudar’, ‘pausa’, ‘subir volumen’ o ‘bajar volumen’.", modifier = Modifier.padding(top = 8.dp))
-                        Text("Durante la orden APP pide pausar la música; al terminar solicita reanudarla.", style = MaterialTheme.typography.bodySmall)
-                        Text("Prueba opcional · botón del Y12", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
-                        Text("Android abre el asistente elegido al mantener pulsado el botón. Si elegís APP, una pulsación abrirá esta pantalla y escuchará una orden corta por el casco. Probalo primero con la moto detenida y sin sesión de viaje; mientras esperás el botón, el micrófono no queda abierto por APP.", style = MaterialTheme.typography.bodySmall)
-                        Button(onClick = { requestAssistantRole() }, enabled = !listening && !running && !TripTestState.running, modifier = Modifier.padding(top = 8.dp)) {
-                            Text("Elegir APP como asistente del botón")
-                        }
-                        Text(assistantMessage, style = MaterialTheme.typography.bodySmall)
-                        Button(onClick = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) }, enabled = !running && !wakeEnabled && !wakeTransition && !TripTestState.running, modifier = Modifier.padding(top = 12.dp)) {
-                            Text(if (listening) "Cancelar escucha" else "Escuchar orden")
-                        }
-                        Text(voiceMessage, modifier = Modifier.padding(top = 12.dp))
-                        Text("Fase 0.2 · Activación local", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Iniciá la sesión, esperá a que diga ‘Esperando’ y decí ‘${wakePhrase.label}’. Cuando aparezca ‘Reconocedor listo’, decí una orden de música; ‘detener sesión’ cierra esta prueba.", modifier = Modifier.padding(top = 8.dp))
-                        Text("Frase de activación de prueba", modifier = Modifier.padding(top = 12.dp))
-                        Column(modifier = Modifier.selectableGroup()) {
-                            WakePhrase.entries.forEach { option ->
-                                val canChange = !wakeEnabled && !wakeTransition && !listening && !running && !TripTestState.running
-                                Row(
-                                    modifier = Modifier.selectable(
-                                        selected = wakePhrase == option,
-                                        enabled = canChange,
-                                        role = Role.RadioButton,
-                                        onClick = { wakePhrase = option }
-                                    ),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    RadioButton(selected = wakePhrase == option, onClick = null, enabled = canChange)
-                                    Text(option.label, modifier = Modifier.padding(start = 8.dp))
+                        AppScreen.entries.forEach { screen ->
+                            if (selectedScreen == screen) {
+                                Button(onClick = { selectedScreen = screen }, modifier = Modifier.weight(1f)) {
+                                    Text(screen.label)
+                                }
+                            } else {
+                                OutlinedButton(onClick = { selectedScreen = screen }, modifier = Modifier.weight(1f)) {
+                                    Text(screen.label)
                                 }
                             }
                         }
-                        Text("«Hola amigo» requiere entrenar un modelo propio; elegir un nombre aquí no cambia lo que escucha el detector.", style = MaterialTheme.typography.bodySmall)
-                        Text("Sensibilidad de activación: ${wakeSensitivity.toInt()} %", modifier = Modifier.padding(top = 12.dp))
-                        Slider(
-                            value = wakeSensitivity,
-                            onValueChange = { wakeSensitivity = it },
-                            valueRange = 40f..85f,
-                            steps = 8,
-                            enabled = !wakeEnabled && !wakeTransition && !listening && !running && !TripTestState.running
-                        )
-                        Text("Más sensibilidad puede detectar más veces la frase elegida, pero también activarse por error. Ajustala con la sesión detenida.", style = MaterialTheme.typography.bodySmall)
-                        Button(
-                            onClick = { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) },
-                            enabled = !TripTestState.running && !running && (wakeEnabled || (!listening && !wakeTransition)),
-                            modifier = Modifier.padding(top = 12.dp)
-                        ) {
-                            Text(if (wakeEnabled) "Detener sesión" else "Iniciar activación")
-                        }
-                        Text(wakeMessage, modifier = Modifier.padding(top = 12.dp))
-                        Text("Activaciones detectadas: $wakeDetections")
-                        Text("El porcentaje entre paréntesis es la puntuación de una detección, no la tasa de aciertos.", style = MaterialTheme.typography.bodySmall)
-                        Text("Esta prueba 0.2 usa la app visible; la sesión 0.3 se controla abajo.", style = MaterialTheme.typography.bodySmall)
-                        Text("Fase 0.3 · Sesión con pantalla apagada", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 28.dp))
-                        Text("Iniciá la sesión con el casco conectado. Tras ‘${wakePhrase.label}’ y el tono, probá música, volumen o ‘llama a [nombre]’. ‘Detener sesión’ termina la escucha.", modifier = Modifier.padding(top = 8.dp))
-                        Text("Micrófono mientras espera Alexa", modifier = Modifier.padding(top = 12.dp))
-                        Column(modifier = Modifier.selectableGroup()) {
-                            WakeAudioMode.entries.forEach { option ->
-                                val canChange = !TripTestState.running && !running && !listening && !wakeEnabled && !wakeTransition
-                                Row(
-                                    modifier = Modifier.selectable(
-                                        selected = tripAudioMode == option,
-                                        enabled = canChange,
-                                        role = Role.RadioButton,
-                                        onClick = { tripAudioMode = option }
-                                    ),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    RadioButton(selected = tripAudioMode == option, onClick = null, enabled = canChange)
-                                    Text(option.label, modifier = Modifier.padding(start = 8.dp))
+                    }
+                    Column(
+                        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())
+                            .padding(horizontal = 18.dp, vertical = 12.dp)
+                    ) {
+                        when (selectedScreen) {
+                            AppScreen.TRIP -> {
+                                SectionCard("Sesión de viaje") {
+                                    Text(if (TripTestState.running) "Activa · esperando ‘${wakePhrase.label}’" else "Detenida · lista para iniciar")
+                                    Text(TripTestState.status, style = MaterialTheme.typography.bodyMedium)
+                                    Button(
+                                        onClick = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
+                                        enabled = TripTestState.running || !busy,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { Text(if (TripTestState.running) "Detener sesión" else "Iniciar sesión de viaje") }
+                                    Text("Usá el casco para decir ‘${wakePhrase.label}’, esperá a que el reconocedor esté listo y decí la orden.", style = MaterialTheme.typography.bodySmall)
+                                }
+                                SectionCard("Órdenes disponibles") {
+                                    Text("Música: siguiente, anterior, pausa y reanudar. También podés subir o bajar volumen.")
+                                    Text("Llamadas: ‘llama a [nombre]’ o ‘llamar’ al contacto fijo. APP pedirá confirmación hablada antes de marcar.")
+                                    Text("‘Detener sesión’ cierra el micrófono. Ajustá la frase, la sensibilidad y los contactos en Ajustes.", style = MaterialTheme.typography.bodySmall)
+                                }
+                                SectionCard("Resultados del viaje") {
+                                    Text("${TripTestState.detections} activaciones · ${TripTestState.actions} acciones · ${TripTestState.failures} fallos")
+                                    OutlinedButton(onClick = { detailsVisible = !detailsVisible }) {
+                                        Text(if (detailsVisible) "Ocultar detalles" else "Ver detalles")
+                                    }
+                                    if (detailsVisible) {
+                                        Text("Transcripciones: ${TripTestState.recognized}")
+                                        Text("Activación → STT listo: ${TripTestState.lastWakeToSttMs} ms")
+                                        Text("Activación → resultado: ${TripTestState.lastLatencyMs} ms")
+                                        Text("La puntuación del detector no mide la tasa de aciertos.", style = MaterialTheme.typography.bodySmall)
+                                    }
+                                }
+                            }
+                            AppScreen.TESTS -> {
+                                SectionCard("Botón del casco · sin decir Alexa") {
+                                    Text("Tu Y12 abre el asistente del teléfono al mantener pulsado el botón central. Elegí APP como asistente para probar si Android le entrega esa pulsación.")
+                                    Text("Probalo con la moto detenida, el Y12 conectado y sin sesión de viaje. Cuando APP indique ‘Reconocedor listo’, decí ‘siguiente canción’ o ‘subir volumen’.", style = MaterialTheme.typography.bodySmall)
+                                    Button(
+                                        onClick = { requestAssistantRole() },
+                                        enabled = !busy,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { Text(if (isSelectedAssistant()) "APP es el asistente elegido" else "Elegir APP como asistente") }
+                                    Text(assistantMessage, style = MaterialTheme.typography.bodySmall)
+                                    Text("Mientras esperás el botón, APP no usa el micrófono. Esta prueba solo ejecuta música y volumen.", style = MaterialTheme.typography.bodySmall)
+                                }
+                                SectionCard("Orden corta · prueba manual") {
+                                    Text("Escuchá una sola orden por Bluetooth. La música se pausa mientras Android reconoce tu voz.")
+                                    Button(
+                                        onClick = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) },
+                                        enabled = !running && !wakeEnabled && !wakeTransition && !TripTestState.running,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { Text(if (listening) "Cancelar escucha" else "Escuchar orden") }
+                                    Text(voiceMessage)
+                                }
+                                SectionCard("Micrófono Bluetooth · 5 segundos") {
+                                    Button(
+                                        onClick = { requestProbe() },
+                                        enabled = !busy,
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { Text(if (running) "Midiendo…" else "Medir micrófono") }
+                                    Text(message)
+                                    result?.let { measurement ->
+                                        Text("Solicitado: ${measurement.requestedInput}")
+                                        Text("Real: ${measurement.actualInput}")
+                                        Text("Ruta de comunicación: ${measurement.selectedOutput}")
+                                        Text("${measurement.durationMs} ms · ${measurement.sampleCount} muestras")
+                                        Text("Medio: ${measurement.rmsDbfs} dBFS · pico: ${measurement.peakDbfs} dBFS")
+                                        measurement.warning?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                                    }
+                                }
+                                SectionCard("Activación local · app visible") {
+                                    Text("Prueba el detector sin iniciar la sesión de viaje. Decí ‘${wakePhrase.label}’ y luego una orden cuando el reconocedor esté listo.")
+                                    Button(
+                                        onClick = { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) },
+                                        enabled = !TripTestState.running && !running && (wakeEnabled || (!listening && !wakeTransition)),
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) { Text(if (wakeEnabled) "Detener activación" else "Iniciar activación") }
+                                    Text(wakeMessage)
+                                    Text("Detecciones: $wakeDetections", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            AppScreen.SETTINGS -> {
+                                SectionCard("Frase de activación") {
+                                    Column(modifier = Modifier.selectableGroup()) {
+                                        WakePhrase.entries.forEach { option ->
+                                            val enabled = !busy
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().selectable(
+                                                    selected = wakePhrase == option,
+                                                    enabled = enabled,
+                                                    role = Role.RadioButton,
+                                                    onClick = { wakePhrase = option }
+                                                ),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                RadioButton(selected = wakePhrase == option, onClick = null, enabled = enabled)
+                                                Text(option.label, modifier = Modifier.padding(start = 8.dp))
+                                            }
+                                        }
+                                    }
+                                    Text("Una frase nueva como ‘Hola amigo’ necesita un modelo entrenado para reconocerla.", style = MaterialTheme.typography.bodySmall)
+                                    Text("Sensibilidad: ${wakeSensitivity.toInt()} %")
+                                    Slider(
+                                        value = wakeSensitivity,
+                                        onValueChange = { wakeSensitivity = it },
+                                        valueRange = 40f..85f,
+                                        steps = 8,
+                                        enabled = !busy
+                                    )
+                                    Text("Más sensibilidad también puede causar activaciones por error.", style = MaterialTheme.typography.bodySmall)
+                                }
+                                SectionCard("Micrófono para la activación") {
+                                    Column(modifier = Modifier.selectableGroup()) {
+                                        WakeAudioMode.entries.forEach { option ->
+                                            Row(
+                                                modifier = Modifier.fillMaxWidth().selectable(
+                                                    selected = tripAudioMode == option,
+                                                    enabled = !busy,
+                                                    role = Role.RadioButton,
+                                                    onClick = { tripAudioMode = option }
+                                                ),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                RadioButton(selected = tripAudioMode == option, onClick = null, enabled = !busy)
+                                                Text(option.label, modifier = Modifier.padding(start = 8.dp))
+                                            }
+                                        }
+                                    }
+                                    Text("El teléfono no resultó fiable en tu ruta. Usá el casco para Alexa; la música puede sonar como llamada mientras el micrófono Bluetooth clásico está abierto.", style = MaterialTheme.typography.bodySmall)
+                                }
+                                SectionCard("Llamadas") {
+                                    Text("Para ‘llama a [nombre]’, concedé acceso a contactos y llamadas antes del viaje. Si el nombre o número es ambiguo, APP no marca.")
+                                    Button(onClick = { requestNamedCallPermissions() }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                                        Text("Habilitar llamadas por nombre")
+                                    }
+                                    Text("Opcional: elegí un contacto fijo para la orden ‘llamar’.", style = MaterialTheme.typography.bodySmall)
+                                    OutlinedButton(onClick = { chooseTripCallContact() }, enabled = !busy, modifier = Modifier.fillMaxWidth()) {
+                                        Text(if (tripCallContact == null) "Elegir contacto fijo" else "Cambiar contacto fijo")
+                                    }
+                                    tripCallContact?.let { contact ->
+                                        Text("Contacto fijo: ${contact.display}")
+                                        OutlinedButton(onClick = {
+                                            TripCallContactStore.clear(this@MainActivity)
+                                            tripCallContact = null
+                                            tripCallMessage = "Contacto quitado."
+                                        }, enabled = !busy) { Text("Quitar contacto") }
+                                    }
+                                    Text(tripCallMessage, style = MaterialTheme.typography.bodySmall)
                                 }
                             }
                         }
-                        Text("En la prueba con teléfono, Alexa debe llegar al micrófono del celular aunque hablés desde el casco. Si va guardado o hay viento, puede no oírte. Solo la orden usa el casco; probalo con la moto detenida.", style = MaterialTheme.typography.bodySmall)
-                        Text("Fase 1.0 · Prueba de llamada normal", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 20.dp))
-                        Text("Sin elegir contacto: habilitá permisos y decí ‘Alexa’ → tono → ‘llama a Ana’. APP dirá a quién encontró; tras el segundo tono, decí ‘confirmar llamada’ o ‘cancelar’. Si hay varios contactos o números, no marca.", style = MaterialTheme.typography.bodySmall)
-                        Button(
-                            onClick = { requestNamedCallPermissions() },
-                            enabled = !TripTestState.running && !wakeEnabled && !wakeTransition && !listening,
-                            modifier = Modifier.padding(top = 8.dp)
-                        ) { Text("Habilitar llamadas por nombre") }
-                        Text("Opcional: si un contacto tiene varios números, elegí uno fijo para probar la orden ‘llamar’.", style = MaterialTheme.typography.bodySmall)
-                        Button(
-                            onClick = { chooseTripCallContact() },
-                            enabled = !TripTestState.running && !wakeEnabled && !wakeTransition && !listening,
-                            modifier = Modifier.padding(top = 8.dp)
-                        ) { Text(if (tripCallContact == null) "Elegir contacto para llamada" else "Cambiar contacto para llamada") }
-                        tripCallContact?.let { contact ->
-                            Text("Seleccionado: ${contact.display}")
-                            Button(
-                                onClick = {
-                                    TripCallContactStore.clear(this@MainActivity)
-                                    tripCallContact = null
-                                    tripCallMessage = "Contacto quitado."
-                                },
-                                enabled = !TripTestState.running
-                            ) { Text("Quitar contacto") }
-                        }
-                        Text(tripCallMessage, style = MaterialTheme.typography.bodySmall)
-                        Button(
-                            onClick = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
-                            enabled = TripTestState.running || (!running && !listening && !wakeEnabled && !wakeTransition),
-                            modifier = Modifier.padding(top = 12.dp)
-                        ) {
-                            Text(if (TripTestState.running) "Detener sesión de viaje" else "Iniciar sesión de viaje")
-                        }
-                        Text(TripTestState.status, modifier = Modifier.padding(top = 12.dp))
-                        Text("Detecciones: ${TripTestState.detections} · Transcripciones: ${TripTestState.recognized} · Acciones: ${TripTestState.actions} · Fallos: ${TripTestState.failures}")
-                        Text("Último tiempo activación → STT listo: ${TripTestState.lastWakeToSttMs} ms · activación → resultado: ${TripTestState.lastLatencyMs} ms", style = MaterialTheme.typography.bodySmall)
-                        Text("Mientras espera ‘${wakePhrase.label}’, el detector escucha la frase. Cada orden abre el reconocedor solo unos segundos. El modo casco puede cambiar el sonido de la música durante toda la sesión; el experimental puede hacerlo durante la orden. Podés cerrarla por voz, desde la app o desde la notificación.", style = MaterialTheme.typography.bodySmall)
-                        Text("Para medir aciertos y falsas alarmas, anotá por separado cuántas veces dijiste la frase y si hubo alguna activación sin hablar.", style = MaterialTheme.typography.bodySmall)
                     }
                 }
             }
         }
-        handleAssistantInvocation(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -311,13 +391,16 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleAssistantInvocation(incoming: Intent?) {
-        if (incoming?.action != Intent.ACTION_ASSIST) return
-        if (!isSelectedAssistant()) {
-            assistantMessage = "Elegí APP como asistente antes de probar el botón."
-        } else if (TripTestState.running || wakeEnabled || wakeTransition || running || listening) {
-            assistantMessage = "Terminá la sesión o la prueba activa antes de usar el botón del Y12."
+        val source = when (incoming?.action) {
+            Intent.ACTION_ASSIST -> "ASSIST"
+            Intent.ACTION_VOICE_COMMAND -> "VOICE_COMMAND"
+            else -> return
+        }
+        selectedScreen = AppScreen.TESTS
+        if (TripTestState.running || wakeEnabled || wakeTransition || running || listening) {
+            assistantMessage = "Botón recibido ($source), pero ya hay una escucha activa. Detenela antes de repetir."
         } else {
-            assistantMessage = "Botón del casco recibido. Preparando una orden corta por Bluetooth…"
+            assistantMessage = "Botón recibido ($source). Preparando una orden corta por Bluetooth…"
             requestAudioPermissions(::startVoiceTest)
         }
     }
