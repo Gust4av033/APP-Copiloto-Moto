@@ -67,8 +67,8 @@ Si desconectás el casco, detén la sesión desde la notificación. En la siguie
 
 Hacer esta comparación con la moto detenida, el S22+ y el Y12 conectados, y la misma canción reproduciéndose. No subir el volumen automáticamente desde APP: primero identificar qué ruta y nivel cambian al iniciar el viaje.
 
-1. Con la sesión detenida, entrar a **Pruebas → Audio del casco → Actualizar niveles**. Anotar literalmente **Modo, Ruta, Música y Comunicación**, además de cómo se oye la canción.
-2. Iniciar **Casco: activación y orden**. Esperar a que indique **Esperando «Alexa»**. La tarjeta muestra automáticamente las lecturas **Antes** y **Esperando Alexa**; anotar los cuatro datos de cada una y si bajaron volumen, calidad o ambos.
+1. Con la sesión detenida, entrar a **Pruebas → Audio del casco → Actualizar niveles**. Anotar literalmente **Modo, Ruta comunicación, Salida música prevista, Música y Comunicación**, además de cómo se oye la canción. La salida de música es una estimación de Android para audio multimedia, no una confirmación de lo que decidió otra app.
+2. Iniciar **Casco: activación y orden**. Esperar a que indique **Esperando «Alexa»**. La tarjeta muestra automáticamente las lecturas **Antes** y **Esperando Alexa**; anotar los cinco datos de cada una y si bajaron volumen, calidad o ambos.
 3. Con la sesión activa, pulsar **una vez** el botón físico de subir volumen del Y12 y actualizar el diagnóstico. Anotar qué valor cambió y si se oyó más fuerte. Los toques cortos de siguiente/anterior canción siguen siendo el control normal de pistas; no mantener pulsado para cambiarlas.
 4. Detener la sesión desde la app o la notificación. Esperar a que aparezca la lectura automática **Después** y comprobar si regresan el volumen y la calidad iniciales.
 
