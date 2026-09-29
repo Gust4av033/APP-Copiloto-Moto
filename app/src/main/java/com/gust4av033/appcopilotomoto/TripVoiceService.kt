@@ -38,6 +38,9 @@ object TripTestState {
     var failures by mutableStateOf(0)
     var lastWakeToSttMs by mutableStateOf(0L)
     var lastLatencyMs by mutableStateOf(0L)
+    var audioBefore by mutableStateOf("Sin lectura previa.")
+    var audioDuring by mutableStateOf("Iniciá una sesión para medir la ruta activa.")
+    var audioAfter by mutableStateOf("Detené la sesión para medir la ruta restaurada.")
 
     private const val PREFS = "fase_0_3_metricas"
 
@@ -160,6 +163,9 @@ class TripVoiceService : Service() {
         TripTestState.running = true
         TripTestState.markRunning(this, true)
         TripTestState.reset(this)
+        TripTestState.audioBefore = media.audioRouteDiagnostic()
+        TripTestState.audioDuring = "Preparando la ruta Bluetooth…"
+        TripTestState.audioAfter = "Sesión activa; falta detenerla."
         TripTestState.status = "Preparando detector; mantené el casco conectado…"
 
         val phrase = runCatching {
@@ -220,6 +226,7 @@ class TripVoiceService : Service() {
             return
         }
         armed = true
+        TripTestState.audioDuring = media.audioRouteDiagnostic()
         TripTestState.status = "Esperando ‘${provider.phrase}’ con pantalla apagada… ${inputCheck.getOrNull().orEmpty()}"
         updateNotification("Esperando ‘${provider.phrase}’")
     }
@@ -514,13 +521,19 @@ class TripVoiceService : Service() {
         callPending = false
         armed = false
         generation++
+        val stoppedGeneration = generation
         if (callPromptLazy.isInitialized()) callPrompt.cancel()
         pendingTask?.let(mainHandler::removeCallbacks)
         pendingTask = null
         if (speechLazy.isInitialized()) speech.cancel()
         val previous = detector
         detector = null
-        if (previous != null) worker.execute { runCatching { previous.close() } }
+        if (previous != null) worker.execute {
+            runCatching { previous.close() }
+            mainHandler.post {
+                if (generation == stoppedGeneration) TripTestState.audioAfter = media.audioRouteDiagnostic()
+            }
+        }
         TripTestState.running = false
         TripTestState.markRunning(this, false)
         TripTestState.status = reason
