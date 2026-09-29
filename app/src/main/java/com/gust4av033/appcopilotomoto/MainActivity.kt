@@ -88,6 +88,7 @@ class MainActivity : ComponentActivity() {
     private var message by mutableStateOf("Conectá el casco Bluetooth y pulsá Iniciar prueba.")
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
     private var assistantMessage by mutableStateOf("Opcional: probá el botón del Y12 como acceso a una orden corta.")
+    private var audioDiagnostic by mutableStateOf("Actualizá los niveles con la moto detenida y la sesión activa.")
     private var selectedScreen by mutableStateOf(AppScreen.TRIP)
     private var detailsVisible by mutableStateOf(false)
     private var result by mutableStateOf<AudioProbeResult?>(null)
@@ -214,7 +215,13 @@ class MainActivity : ComponentActivity() {
                                         enabled = TripTestState.running || !busy,
                                         modifier = Modifier.fillMaxWidth()
                                     ) { Text(if (TripTestState.running) "Detener sesión" else "Iniciar sesión de viaje") }
-                                    Text("Decí ‘${wakePhrase.label}’ o mantené pulsado el botón central del Y12. Esperá a que APP indique «Reconocedor listo» antes de decir la orden.", style = MaterialTheme.typography.bodySmall)
+                                    Text("Para siguiente y anterior canción, usá los toques cortos que ya trae el Y12. Para otras órdenes, decí ‘${wakePhrase.label}’. La pulsación larga queda como respaldo.", style = MaterialTheme.typography.bodySmall)
+                                }
+                                SectionCard("Audio del casco · diagnóstico") {
+                                    Text(audioDiagnostic, style = MaterialTheme.typography.bodySmall)
+                                    OutlinedButton(onClick = { audioDiagnostic = media.audioRouteDiagnostic() }) {
+                                        Text("Actualizar niveles")
+                                    }
                                 }
                                 SectionCard("Órdenes disponibles") {
                                     Text("Música: siguiente, anterior, pausa y reanudar. También podés subir o bajar volumen.")
