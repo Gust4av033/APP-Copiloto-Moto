@@ -31,6 +31,7 @@ object TripTestState {
     var running by mutableStateOf(false)
     var status by mutableStateOf("Iniciá la sesión de prueba con la app abierta.")
     var detections by mutableStateOf(0)
+    var manualCommands by mutableStateOf(0)
     var recognized by mutableStateOf(0)
     var actions by mutableStateOf(0)
     var failures by mutableStateOf(0)
@@ -46,6 +47,7 @@ object TripTestState {
             prefs.edit().putBoolean("session_active", false).apply()
         }
         detections = prefs.getInt("detections", 0)
+        manualCommands = prefs.getInt("manual_commands", 0)
         recognized = prefs.getInt("recognized", 0)
         actions = prefs.getInt("actions", 0)
         failures = prefs.getInt("failures", 0)
@@ -55,6 +57,7 @@ object TripTestState {
 
     fun reset(context: Context) {
         detections = 0
+        manualCommands = 0
         recognized = 0
         actions = 0
         failures = 0
@@ -66,6 +69,7 @@ object TripTestState {
     fun save(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putInt("detections", detections)
+            .putInt("manual_commands", manualCommands)
             .putInt("recognized", recognized)
             .putInt("actions", actions)
             .putInt("failures", failures)
@@ -249,7 +253,7 @@ class TripVoiceService : Service() {
                             playHandoffTone()
                             schedule(400L) {
                                 if (active && detector === provider && handoff == generation) {
-                                    listenForCommand(provider, now)
+                                    listenForCommand(provider, now, "Alexa")
                                 }
                             }
                         }
@@ -264,6 +268,8 @@ class TripVoiceService : Service() {
         armed = false
         val cycle = ++generation // Invalida detecciones atrasadas de Alexa.
         val startedAt = SystemClock.elapsedRealtime()
+        TripTestState.manualCommands++
+        TripTestState.save(this)
         TripTestState.status = "Botón del Y12 recibido; preparando orden…"
         updateNotification("Preparando orden del botón")
         worker.execute {
@@ -278,7 +284,7 @@ class TripVoiceService : Service() {
                             playHandoffTone()
                             schedule(400L) {
                                 if (active && detector === provider && cycle == generation) {
-                                    listenForCommand(provider, startedAt)
+                                    listenForCommand(provider, startedAt, "Y12")
                                 }
                             }
                         }
@@ -297,15 +303,16 @@ class TripVoiceService : Service() {
         }
     }
 
-    private fun listenForCommand(provider: WakeWordProvider, wakeAt: Long) {
-        TripTestState.status = "Abriendo reconocedor; decí la orden después del tono…"
-        updateNotification("Escuchando orden")
+    private fun listenForCommand(provider: WakeWordProvider, wakeAt: Long, source: String) {
+        TripTestState.status = "$source: abriendo reconocedor; decí la orden cuando esté listo…"
+        updateNotification("$source · abriendo reconocedor")
         val cycle = generation
         speech.listenOnce(onState = { state ->
             if (active && cycle == generation && state == SpeechCaptureState.READY) {
                 TripTestState.lastWakeToSttMs = SystemClock.elapsedRealtime() - wakeAt
                 TripTestState.save(this)
-                TripTestState.status = "Reconocedor listo; decí música, volumen o ‘llama a [nombre]’."
+                TripTestState.status = "$source: reconocedor listo; decí música, volumen o ‘llama a [nombre]’."
+                updateNotification("$source · reconocedor listo; decí la orden")
             }
         }, shouldResumePlayback = { heard ->
             heard?.let(MinimalIntentRouter::resolve) != TestIntent.MEDIA_PAUSE
@@ -394,7 +401,8 @@ class TripVoiceService : Service() {
                 intent == TestIntent.STOP_TTS -> "Escuché ‘$heard’; Silencio reconocido (sin TTS activo)."
                 else -> "Escuché ‘$heard’; no coincide con las órdenes de prueba."
             }
-            updateNotification("Orden terminada; esperando activación")
+            TripTestState.status = "$source: ${TripTestState.status}"
+            updateNotification("$source · orden terminada; esperando activación")
             if (consecutiveFailures >= 2) {
                 stopSession("Dos activaciones sin orden válida; sesión detenida. ${TripTestState.status}")
             } else {
