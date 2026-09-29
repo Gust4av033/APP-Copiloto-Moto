@@ -61,6 +61,17 @@ En Android 13 o posterior, la pantalla solicita permiso para notificaciones ante
 
 Si desconectás el casco, detén la sesión desde la notificación. En la siguiente reanudación el servicio detendrá la sesión al no encontrar una entrada Bluetooth de comunicación; la detección inmediata de una desconexión mientras espera la frase aún requiere una prueba adicional en el S22+.
 
+## Prueba prioritaria: volumen bajo con Y12
+
+Hacer esta comparación con la moto detenida, el S22+ y el Y12 conectados, y la misma canción reproduciéndose. No subir el volumen automáticamente desde APP: primero identificar qué ruta y nivel cambian al iniciar el viaje.
+
+1. Con la sesión detenida, entrar a **Pruebas → Audio del casco → Actualizar niveles**. Anotar literalmente **Modo, Ruta, Música y Comunicación**, además de cómo se oye la canción.
+2. Iniciar **Casco: activación y orden**. Esperar a que indique **Esperando «Alexa»**. La tarjeta muestra automáticamente las lecturas **Antes** y **Esperando Alexa**; anotar los cuatro datos de cada una y si bajaron volumen, calidad o ambos.
+3. Con la sesión activa, pulsar **una vez** el botón físico de subir volumen del Y12 y actualizar el diagnóstico. Anotar qué valor cambió y si se oyó más fuerte. Los toques cortos de siguiente/anterior canción siguen siendo el control normal de pistas; no mantener pulsado para cambiarlas.
+4. Detener la sesión desde la app o la notificación. Esperar a que aparezca la lectura automática **Después** y comprobar si regresan el volumen y la calidad iniciales.
+
+Registrar los valores **antes / durante / después**, junto con la versión de Android y la app musical usada. Si Música se mantiene alta, Comunicación baja y el sonido mejora solo al ajustar Comunicación, probar un ajuste voluntario por voz en la ruta SCO. Si los niveles no explican el cambio, investigar el perfil Bluetooth y la ruta de reproducción antes de modificar el volumen. La ruta con micrófono del teléfono no resultó fiable en la posición de viaje observada; usarla solo como comparación estacionaria. No considerar apta la escucha continua en ruta hasta comprobar el volumen y la activación con el Y12 real.
+
 ## Criterios de aceptación en el S22+
 
 - Iniciar sesión con la app abierta y el casco conectado; apagar la pantalla o abrir otra app; decir «Alexa» y, tras la señal, «siguiente canción». Verificar cambio de pista y continuidad de escucha para otra orden.

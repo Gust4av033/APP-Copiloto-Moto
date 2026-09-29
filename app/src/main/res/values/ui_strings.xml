@@ -34,6 +34,9 @@
     <string name="tests_trip_active">La sesión de viaje está activa. Detenela para iniciar una prueba de micrófono; podés consultar los niveles de audio mientras sigue activa.</string>
     <string name="tests_audio">Audio del casco</string>
     <string name="audio_refresh">Actualizar niveles</string>
+    <string name="audio_before">Antes: %1$s</string>
+    <string name="audio_during">Esperando Alexa: %1$s</string>
+    <string name="audio_after">Después: %1$s</string>
     <string name="tests_short_command">Una orden corta</string>
     <string name="tests_short_hint">La música se pausa mientras Android reconoce tu voz y se reanuda según la orden.</string>
     <string name="listen_start">Escuchar orden</string>

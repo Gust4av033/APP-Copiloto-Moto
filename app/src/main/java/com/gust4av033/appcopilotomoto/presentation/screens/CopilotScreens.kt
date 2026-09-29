@@ -96,6 +96,9 @@ fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
     SupportingText(stringResource(R.string.tests_intro))
     if (state.tripActive) SupportingText(stringResource(R.string.tests_trip_active))
     SectionCard(stringResource(R.string.tests_audio)) {
+        SupportingText(stringResource(R.string.audio_before, state.audioBefore))
+        SupportingText(stringResource(R.string.audio_during, state.audioDuring))
+        SupportingText(stringResource(R.string.audio_after, state.audioAfter))
         SupportingText(state.audioDiagnostic)
         ActionButton(stringResource(R.string.audio_refresh), onClick = actions.onRefreshAudio)
     }

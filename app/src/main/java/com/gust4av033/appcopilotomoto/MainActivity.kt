@@ -170,6 +170,9 @@ class MainActivity : ComponentActivity() {
             wakeMessage = wakeMessage,
             wakeDetections = wakeDetections,
             audioDiagnostic = audioDiagnostic,
+            audioBefore = TripTestState.audioBefore,
+            audioDuring = TripTestState.audioDuring,
+            audioAfter = TripTestState.audioAfter,
             callMessage = tripCallMessage,
             fixedContact = tripCallContact?.display,
             probe = result?.let {

@@ -65,6 +65,9 @@ data class CopilotUiState(
     val wakeMessage: String = "",
     val wakeDetections: Int = 0,
     val audioDiagnostic: String = "",
+    val audioBefore: String = "",
+    val audioDuring: String = "",
+    val audioAfter: String = "",
     val callMessage: String = "",
     val fixedContact: String? = null,
     val probe: ProbeUi? = null
