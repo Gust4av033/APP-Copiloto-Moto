@@ -214,7 +214,7 @@ class MainActivity : ComponentActivity() {
                                         enabled = TripTestState.running || !busy,
                                         modifier = Modifier.fillMaxWidth()
                                     ) { Text(if (TripTestState.running) "Detener sesión" else "Iniciar sesión de viaje") }
-                                    Text("Usá el casco para decir ‘${wakePhrase.label}’, esperá a que el reconocedor esté listo y decí la orden.", style = MaterialTheme.typography.bodySmall)
+                                    Text("Decí ‘${wakePhrase.label}’ o mantené pulsado el botón central del Y12. Después del tono, decí la orden. El botón sirve de respaldo con la sesión activa.", style = MaterialTheme.typography.bodySmall)
                                 }
                                 SectionCard("Órdenes disponibles") {
                                     Text("Música: siguiente, anterior, pausa y reanudar. También podés subir o bajar volumen.")
@@ -228,8 +228,8 @@ class MainActivity : ComponentActivity() {
                                     }
                                     if (detailsVisible) {
                                         Text("Transcripciones: ${TripTestState.recognized}")
-                                        Text("Activación → STT listo: ${TripTestState.lastWakeToSttMs} ms")
-                                        Text("Activación → resultado: ${TripTestState.lastLatencyMs} ms")
+                                        Text("Inicio de orden → STT listo: ${TripTestState.lastWakeToSttMs} ms")
+                                        Text("Inicio de orden → resultado: ${TripTestState.lastLatencyMs} ms")
                                         Text("La puntuación del detector no mide la tasa de aciertos.", style = MaterialTheme.typography.bodySmall)
                                     }
                                 }
@@ -237,14 +237,14 @@ class MainActivity : ComponentActivity() {
                             AppScreen.TESTS -> {
                                 SectionCard("Botón del casco · sin decir Alexa") {
                                     Text("Tu Y12 abre el asistente del teléfono al mantener pulsado el botón central. Elegí APP como asistente para probar si Android le entrega esa pulsación.")
-                                    Text("Probalo con la moto detenida, el Y12 conectado y sin sesión de viaje. Cuando APP indique ‘Reconocedor listo’, decí ‘siguiente canción’ o ‘subir volumen’.", style = MaterialTheme.typography.bodySmall)
+                                    Text("Con la sesión detenida, el botón permite probar música y volumen. Durante una sesión activa, permite también ‘llama a [nombre]’, con confirmación hablada.", style = MaterialTheme.typography.bodySmall)
                                     Button(
                                         onClick = { requestAssistantRole() },
                                         enabled = !busy,
                                         modifier = Modifier.fillMaxWidth()
                                     ) { Text(if (isSelectedAssistant()) "APP es el asistente elegido" else "Elegir APP como asistente") }
                                     Text(assistantMessage, style = MaterialTheme.typography.bodySmall)
-                                    Text("Mientras esperás el botón, APP no usa el micrófono. Esta prueba solo ejecuta música y volumen.", style = MaterialTheme.typography.bodySmall)
+                                    Text("Sin sesión de viaje, APP abre el micrófono solo al recibir el botón. Con sesión activa, el detector sigue esperando la frase.", style = MaterialTheme.typography.bodySmall)
                                 }
                                 SectionCard("Orden corta · prueba manual") {
                                     Text("Escuchá una sola orden por Bluetooth. La música se pausa mientras Android reconoce tu voz.")
@@ -396,12 +396,23 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_VOICE_COMMAND -> "VOICE_COMMAND"
             else -> return
         }
-        selectedScreen = AppScreen.TESTS
-        if (TripTestState.running || wakeEnabled || wakeTransition || running || listening) {
-            assistantMessage = "Botón recibido ($source), pero ya hay una escucha activa. Detenela antes de repetir."
+        if (TripTestState.running) {
+            selectedScreen = AppScreen.TRIP
+            assistantMessage = "Botón recibido ($source) durante el viaje."
+            runCatching {
+                startService(Intent(this, TripVoiceService::class.java)
+                    .setAction(TripVoiceService.ACTION_MANUAL_COMMAND))
+            }.onFailure {
+                TripTestState.status = "No se pudo abrir la orden del botón: ${it.message ?: "error de Android"}."
+            }
         } else {
-            assistantMessage = "Botón recibido ($source). Preparando una orden corta por Bluetooth…"
-            requestAudioPermissions(::startVoiceTest)
+            selectedScreen = AppScreen.TESTS
+            if (wakeEnabled || wakeTransition || running || listening) {
+                assistantMessage = "Botón recibido ($source), pero ya hay una escucha activa. Detenela antes de repetir."
+            } else {
+                assistantMessage = "Botón recibido ($source). Preparando una orden corta por Bluetooth…"
+                requestAudioPermissions(::startVoiceTest)
+            }
         }
     }
 
