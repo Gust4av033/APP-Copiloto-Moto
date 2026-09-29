@@ -85,6 +85,7 @@ class TripVoiceService : Service() {
     companion object {
         const val ACTION_START = "com.gust4av033.appcopilotomoto.START_TRIP_TEST"
         const val ACTION_STOP = "com.gust4av033.appcopilotomoto.STOP_TRIP_TEST"
+        const val ACTION_MANUAL_COMMAND = "com.gust4av033.appcopilotomoto.MANUAL_TRIP_COMMAND"
         const val EXTRA_PHRASE = "phrase"
         const val EXTRA_SENSITIVITY = "sensitivity"
         const val EXTRA_AUDIO_MODE = "audio_mode"
@@ -114,6 +115,18 @@ class TripVoiceService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             stopSession("Sesión detenida desde la app o la notificación.")
+            return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_MANUAL_COMMAND) {
+            val provider = detector
+            if (active && armed && provider != null) {
+                startManualCommand(provider)
+            } else if (active) {
+                TripTestState.status = "La sesión está procesando otra orden; esperá antes de pulsar de nuevo."
+            } else if (!callPending) {
+                stopSelf(startId)
+            }
+            // Una pulsación sin sesión activa nunca inicia un micrófono en segundo plano.
             return START_NOT_STICKY
         }
         if (intent?.action != ACTION_START) {
@@ -237,6 +250,35 @@ class TripVoiceService : Service() {
                             schedule(400L) {
                                 if (active && detector === provider && handoff == generation) {
                                     listenForCommand(provider, now)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /** Usa la escucha y las confirmaciones de la sesión existente sin contar una detección de wake word. */
+    private fun startManualCommand(provider: WakeWordProvider) {
+        armed = false
+        val cycle = ++generation // Invalida detecciones atrasadas de Alexa.
+        val startedAt = SystemClock.elapsedRealtime()
+        TripTestState.status = "Botón del Y12 recibido; preparando orden…"
+        updateNotification("Preparando orden del botón")
+        worker.execute {
+            val paused = runCatching { provider.pause() }
+            mainHandler.post {
+                if (!active || detector !== provider || cycle != generation) return@post
+                if (paused.isFailure) {
+                    stopSession("No se pudo liberar el micrófono: ${paused.exceptionOrNull()?.message}")
+                } else {
+                    schedule(350L) {
+                        if (active && detector === provider && cycle == generation) {
+                            playHandoffTone()
+                            schedule(400L) {
+                                if (active && detector === provider && cycle == generation) {
+                                    listenForCommand(provider, startedAt)
                                 }
                             }
                         }
