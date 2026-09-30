@@ -148,6 +148,10 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         TripTestState.restore(this)
         tripCallContact = TripCallContactStore.load(this)
+        tripAudioMode = runCatching {
+            WakeAudioMode.valueOf(getSharedPreferences("ui_settings", MODE_PRIVATE)
+                .getString("trip_audio_mode", WakeAudioMode.BLUETOOTH.name).orEmpty())
+        }.getOrDefault(WakeAudioMode.BLUETOOTH)
         savedInstanceState?.let { saved ->
             selectedScreen = runCatching { CopilotScreen.valueOf(saved.getString("ui_screen").orEmpty()) }
                 .getOrDefault(CopilotScreen.HOME)
@@ -210,6 +214,7 @@ class MainActivity : ComponentActivity() {
             onScreenChange = { selectedScreen = it },
             actions = CopilotActions(
                 onToggleTrip = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
+                onManualTripCommand = ::requestManualTripCommand,
                 onRefreshAudio = {
                     audioDiagnostic = runCatching { media.audioRouteDiagnostic() }
                         .getOrDefault(getString(R.string.devices_read_error))
@@ -224,7 +229,11 @@ class MainActivity : ComponentActivity() {
                 onToggleWake = { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) },
                 onPhraseChange = { wakePhrase = WakePhrase.valueOf(it) },
                 onSensitivityChange = { wakeSensitivity = it },
-                onInputChange = { tripAudioMode = WakeAudioMode.valueOf(it) },
+                onInputChange = {
+                    tripAudioMode = WakeAudioMode.valueOf(it)
+                    getSharedPreferences("ui_settings", MODE_PRIVATE).edit()
+                        .putString("trip_audio_mode", tripAudioMode.name).apply()
+                },
                 onEnableNamedCalls = ::requestNamedCallPermissions,
                 onChooseContact = ::chooseTripCallContact,
                 onClearContact = {
@@ -474,6 +483,16 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun requestManualTripCommand() {
+        if (!TripTestState.running) return
+        runCatching {
+            startService(Intent(this, TripVoiceService::class.java)
+                .setAction(TripVoiceService.ACTION_MANUAL_COMMAND))
+        }.onFailure {
+            TripTestState.status = "No se pudo abrir la orden: ${it.message ?: it.javaClass.simpleName}"
+        }
+    }
+
     private fun stopTripTest() {
         runCatching {
             startService(Intent(this, TripVoiceService::class.java).setAction(TripVoiceService.ACTION_STOP))
@@ -535,7 +554,7 @@ class MainActivity : ComponentActivity() {
                         when (MinimalIntentRouter.resolve(heard)) {
                             TestIntent.MEDIA_NEXT, TestIntent.MEDIA_PREVIOUS,
                             TestIntent.MEDIA_PLAY, TestIntent.MEDIA_PAUSE,
-                            TestIntent.VOLUME_UP, TestIntent.VOLUME_DOWN -> {
+                            TestIntent.VOLUME_UP, TestIntent.VOLUME_DOWN, TestIntent.VOLUME_SET -> {
                                 val action = when (MinimalIntentRouter.resolve(heard)) {
                                     TestIntent.MEDIA_NEXT -> media.nextTrack()
                                     TestIntent.MEDIA_PREVIOUS -> media.previousTrack()
@@ -543,6 +562,9 @@ class MainActivity : ComponentActivity() {
                                     TestIntent.MEDIA_PAUSE -> media.pause()
                                     TestIntent.VOLUME_UP -> media.volumeUp()
                                     TestIntent.VOLUME_DOWN -> media.volumeDown()
+                                    TestIntent.VOLUME_SET -> media.setRequestedVolume(
+                                        checkNotNull(MinimalIntentRouter.requestedVolume(heard)),
+                                        bluetoothVoice = false)
                                     else -> error("Orden multimedia no soportada")
                                 }
                                 val command = when (MinimalIntentRouter.resolve(heard)) {
@@ -552,6 +574,7 @@ class MainActivity : ComponentActivity() {
                                     TestIntent.MEDIA_PAUSE -> "Pausar"
                                     TestIntent.VOLUME_UP -> "Subir volumen (${media.commandVolumeStatus(action.getOrNull() as? VolumeAdjustment)})"
                                     TestIntent.VOLUME_DOWN -> "Bajar volumen (${media.commandVolumeStatus(action.getOrNull() as? VolumeAdjustment)})"
+                                    TestIntent.VOLUME_SET -> "Fijar volumen (${media.commandVolumeStatus(action.getOrNull() as? VolumeAdjustment)})"
                                     else -> "Orden"
                                 }
                                 if (action.isSuccess) "Escuché: ‘$heard’. $command en $elapsed ms. Comprobá el resultado en la música."
