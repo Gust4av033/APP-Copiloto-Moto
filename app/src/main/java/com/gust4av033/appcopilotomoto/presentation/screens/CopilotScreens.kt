@@ -30,7 +30,8 @@ import com.gust4av033.appcopilotomoto.presentation.components.SupportingText
 fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -> Unit) {
     SectionCard(stringResource(R.string.trip_session)) {
         SessionStatus(state.tripActive)
-        Text(stringResource(R.string.trip_activation, state.phraseLabel))
+        Text(if (state.inputId == "BUTTON") stringResource(R.string.trip_activation_button)
+            else stringResource(R.string.trip_activation, state.phraseLabel))
         SupportingText(state.tripStatus)
         ActionButton(
             stringResource(if (state.tripActive) R.string.trip_stop else R.string.trip_start),
@@ -38,7 +39,13 @@ fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -
             primary = true,
             onClick = actions.onToggleTrip
         )
-        SupportingText(stringResource(R.string.trip_y12_hint, state.phraseLabel))
+        SupportingText(if (state.inputId == "BUTTON") stringResource(R.string.trip_button_hint)
+            else stringResource(R.string.trip_y12_hint, state.phraseLabel))
+        if (state.inputId == "BUTTON" && state.tripActive) {
+            ActionButton(stringResource(R.string.trip_manual_command),
+                enabled = !state.restoringAudio,
+                onClick = actions.onManualTripCommand)
+        }
     }
     SectionCard(stringResource(R.string.trip_last_result)) {
         SupportingText(state.lastCommandResult.ifBlank { stringResource(R.string.no_command_result) })
@@ -168,7 +175,7 @@ fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
 @Composable
 fun SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -> Unit) {
     if (state.busy) SupportingText(stringResource(R.string.settings_busy))
-    SectionCard(stringResource(R.string.settings_phrase)) {
+    if (state.inputId != "BUTTON") SectionCard(stringResource(R.string.settings_phrase)) {
         ChoiceGroup(state.phrases, state.phraseId, !state.busy, actions.onPhraseChange)
         SupportingText(stringResource(R.string.settings_phrase_hint))
         Text(stringResource(R.string.settings_sensitivity, state.sensitivity.toInt()))
