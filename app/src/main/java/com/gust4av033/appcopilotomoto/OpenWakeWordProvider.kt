@@ -93,12 +93,19 @@ class OpenWakeWordProvider(
         if (closed) return
         closed = true
         try { detector.release() } finally {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (ownsRoute) audioManager.clearCommunicationDevice()
-                oldMode?.let { audioManager.mode = it }
+            try {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    try {
+                        if (ownsRoute) audioManager.clearCommunicationDevice()
+                    } finally {
+                        // Restaurar el modo aunque falle la limpieza de la ruta SCO.
+                        oldMode?.let { audioManager.mode = it }
+                    }
+                }
+            } finally {
+                ownsRoute = false
+                oldMode = null
             }
-            ownsRoute = false
-            oldMode = null
         }
     }
 }
