@@ -259,9 +259,9 @@ class TripVoiceService : Service() {
                 media.volumeUp(requireBluetoothCommunication = true)
             } else media.volumeDown(requireBluetoothCommunication = true)
             val change = action.getOrNull()
-            val atLimit = change != null && if (pendingVolume.intent == TestIntent.VOLUME_UP) {
+            val atLimit = change != null && (if (pendingVolume.intent == TestIntent.VOLUME_UP) {
                 change.before >= change.maximum
-            } else change.before <= audioManager.getStreamMinVolume(change.stream)
+            } else change.before <= audioManager.getStreamMinVolume(change.stream))
             if (change != null && change.after != change.before) TripTestState.actions++
             else if (action.isFailure || !atLimit) TripTestState.failures++
             val elapsed = SystemClock.elapsedRealtime() - pendingVolume.wakeAt
@@ -311,7 +311,7 @@ class TripVoiceService : Service() {
                             playHandoffTone()
                             schedule(400L) {
                                 if (active && detector === provider && handoff == generation) {
-                                    listenForCommand(provider, now, "Alexa")
+                                    listenForCommand(provider, now, provider.phrase)
                                 }
                             }
                         }
