@@ -5,7 +5,6 @@ import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.MediaRecorder
 import android.os.Build
-import android.os.Process
 import androidx.annotation.RequiresApi
 import com.openwakeword.OpenWakeWord
 
@@ -67,7 +66,7 @@ class OpenWakeWordProvider(
     /** Comprueba la entrada activa del detector; elegir una salida no garantiza el micrófono. */
     fun wakeInputStatus(): String? {
         val inputs = audioManager.activeRecordingConfigurations
-            .filter { it.clientUid == Process.myUid() }
+            .filter { it.clientAudioSource == MediaRecorder.AudioSource.VOICE_RECOGNITION }
             .mapNotNull { it.audioDevice }
         if (audioMode == WakeAudioMode.BLUETOOTH) {
             if (inputs.isEmpty()) return "Alexa: Android no informó el micrófono activo."
