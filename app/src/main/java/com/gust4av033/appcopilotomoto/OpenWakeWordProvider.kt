@@ -85,6 +85,12 @@ class OpenWakeWordProvider(
         return "Alexa: micrófono del teléfono; órdenes: casco Bluetooth."
     }
 
+    /** Tras STT, Android puede haber perdido el modo/ruta SCO de la sesión. */
+    fun restoreHeadsetRouteForCommand() {
+        check(audioMode == WakeAudioMode.BLUETOOTH && !closed) { "No hay sesión Bluetooth activa." }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) selectHeadset()
+    }
+
     @RequiresApi(Build.VERSION_CODES.S)
     private fun selectHeadset() {
         val headset = BluetoothAudioRouteSelector.communicationHeadset(audioManager)
