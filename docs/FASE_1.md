@@ -1,5 +1,7 @@
 # Fase 1 — núcleo de comandos
 
+Rama de trabajo: `feature/fase-1-intent-router`. Reúne comandos, UI, recuperación de llamadas y apertura emergente.
+
 ## Núcleo implementado
 
 - El Intent Router interpreta la frase una sola vez y devuelve la intención junto con sus parámetros. Conserva la distinción entre «detener» (pausar música) y «detener sesión» (cerrar el viaje), y rechaza frases combinadas o volumen fuera de rango.
@@ -11,9 +13,15 @@
 
 ## Abrir aplicaciones
 
-Con APP visible, la orden abre la aplicación encontrada. En la sesión de viaje, APP deja la aplicación preparada en una acción **Abrir [nombre]** de la notificación. Android restringe abrir una pantalla desde un servicio en segundo plano; esta entrega requiere tocar esa acción. El inventario local se limita a los accesos que Android publica al lanzador en el perfil actual. Las apps sin acceso de lanzador, deshabilitadas o instaladas solo en otro perfil no aparecerán. La lista no se envía ni se guarda.
+Con APP visible, la orden abre la aplicación encontrada. En la sesión de viaje, APP publica un aviso emergente **Abrir [nombre]**, separado de la notificación silenciosa del viaje. Android controla su presentación: habilitá avisos emergentes del canal Abrir aplicaciones. También conserva la acción en la notificación del viaje. Android restringe abrir una pantalla desde un servicio en segundo plano; esta entrega requiere tocar esa acción. El inventario local se limita a los accesos que Android publica al lanzador en el perfil actual. Las apps sin acceso de lanzador, deshabilitadas o instaladas solo en otro perfil no aparecerán. La lista no se envía ni se guarda.
 
 Esta acción no es navegación ni controla la aplicación abierta. La integración con Waze corresponde a Fase 2.
+
+## Llamadas y modo botón
+
+La confirmación o cancelación mantiene el viaje activo. Durante una llamada telefónica, APP libera el micrófono y espera el fin de la llamada; después espera la devolución de audio antes de recrear el detector. Se necesita el permiso Estado del teléfono. El modo botón conserva la pausa de música entre orden y confirmación, reanuda después de recuperar la ruta y cancela una captura sin respuesta tras 15 segundos. La orden pausa conserva la música pausada.
+
+Protocolo de regresión: `docs/PRUEBA_LLAMADAS_Y_AVISO_APPS.md`.
 
 ## Prueba en el S22+ con la moto detenida
 
@@ -23,4 +31,4 @@ Esta acción no es navegación ni controla la aplicación abierta. La integraci�
 4. Repetir en la sesión de viaje con la pantalla apagada. Verificar que aparece **Abrir [nombre]** en la notificación y que solo al tocarla se abre la aplicación. Pedir otra app y luego decir «cancelar»: la acción anterior debe desaparecer.
 5. Comprobar que música, volumen y detener sesión siguen funcionando. Si probás una llamada con confirmación hablada, tocá **Silencio** durante el anuncio: debe detener la voz, cancelar la llamada y dejar la sesión esperando otra activación.
 
-La compilación y las pruebas locales verifican las reglas y el código Android. El comportamiento del botón, del casco, de la notificación y de las aplicaciones instaladas requiere esta prueba en el teléfono antes de integrar la rama. «Silencio» pronunciado durante el anuncio aún no puede reconocerse porque el micrófono de órdenes está cerrado mientras habla; la acción de notificación permite interrumpirlo en esta etapa.
+La compilación y las pruebas locales verifican las reglas y el código Android. El comportamiento del botón, del casco, de la notificación y de las aplicaciones instaladas requiere esta prueba en el teléfono para validar el comportamiento físico. «Silencio» pronunciado durante el anuncio aún no puede reconocerse porque el micrófono de órdenes está cerrado mientras habla; la acción de notificación permite interrumpirlo en esta etapa.

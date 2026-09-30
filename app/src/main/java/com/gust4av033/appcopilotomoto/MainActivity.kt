@@ -103,16 +103,17 @@ class MainActivity : ComponentActivity() {
     }
 
     private val callPermissionRequest = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { granted ->
-        tripCallMessage = if (granted) "Llamadas habilitadas para el contacto elegido."
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { _ ->
+        tripCallMessage = if (listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+                .all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }) "Llamadas habilitadas para el contacto elegido."
         else "Sin permiso de teléfono, las órdenes de llamada no marcarán."
     }
 
     private val namedCallPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
-        tripCallMessage = if (listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE)
+        tripCallMessage = if (listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
                 .all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }) {
             "Listo: podés decir ‘llama a [nombre]’ durante la sesión."
         } else "Faltan permisos de contactos o llamadas; podés seguir usando música y volumen."
@@ -141,8 +142,9 @@ class MainActivity : ComponentActivity() {
         } else {
             tripCallContact = selected
             tripCallMessage = "Contacto de prueba: ${selected.display}."
-            if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
-                callPermissionRequest.launch(Manifest.permission.CALL_PHONE)
+            if (listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+                    .any { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }) {
+                callPermissionRequest.launch(arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE))
             }
         }
     }
@@ -473,7 +475,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestNamedCallPermissions() {
-        val needed = listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE)
+        val needed = listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
             .filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (needed.isEmpty()) tripCallMessage = "Los permisos ya están concedidos: decí ‘llama a [nombre]’."
         else namedCallPermissions.launch(needed.toTypedArray())

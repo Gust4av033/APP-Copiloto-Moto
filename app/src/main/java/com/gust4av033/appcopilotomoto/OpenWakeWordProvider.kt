@@ -123,7 +123,7 @@ class OpenWakeWordProvider(
 class ButtonWakeWordProvider(context: Context) : WakeWordProvider {
     override val phrase = "botón del casco"
     private val audioManager = context.getSystemService(AudioManager::class.java)
-    private val oldMode: Int = audioManager.mode
+    private val oldMode: Int = AudioManager.MODE_NORMAL
     private var ownsRoute = false
     private var closed = false
 

@@ -52,7 +52,7 @@
     <string name="trip_commands">Lo que podés decir</string>
     <string name="commands_music">“Siguiente canción”, “anterior canción”, “pausa” o “reanudar”.</string>
     <string name="commands_volume">“Subir volumen”, “bajar volumen”, “volumen al 40 por ciento” o “volumen a 6”. El porcentaje se adapta al rango de Android; el número elige un nivel.</string>
-    <string name="commands_apps">“Abre [nombre de la aplicación]”. En Pruebas podés ver los nombres detectados. Durante el viaje, tocá la acción de la notificación para abrirla.</string>
+    <string name="commands_apps">“Abre [nombre de la aplicación]”. En Pruebas podés ver los nombres detectados. Durante el viaje, tocá el aviso emergente para abrirla. Habilitá los avisos emergentes de Abrir aplicaciones en Android.</string>
     <string name="tests_apps_title">Aplicaciones del teléfono</string>
     <string name="tests_apps_refresh">Actualizar aplicaciones</string>
     <string name="tests_apps_show">Ver nombres para órdenes</string>
