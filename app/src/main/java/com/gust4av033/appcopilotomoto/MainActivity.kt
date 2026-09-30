@@ -37,6 +37,8 @@ class MainActivity : ComponentActivity() {
     private val worker = Executors.newSingleThreadExecutor()
     private val speech by lazy { AndroidSpeechToTextProvider(applicationContext) }
     private val media by lazy { MediaActionAdapter(applicationContext) }
+    private val mediaCommands by lazy { MediaCommandExecutor(media) }
+    private val appLauncher by lazy { AppLaunchAdapter(this) }
     private val audioManager by lazy { getSystemService(AudioManager::class.java) }
     private var audioDevices by mutableStateOf(AudioDevicesUi())
     private var audioDeviceMessage = ""
@@ -532,7 +534,7 @@ class MainActivity : ComponentActivity() {
             speech.listenOnce(onState = { state ->
                 if (listening) when (state) {
                     SpeechCaptureState.READY -> {
-                        voiceMessage = "Reconocedor listo. Decí una orden de música ahora."
+                        voiceMessage = "Reconocedor listo. Decí una orden de música, volumen o abrir aplicación."
                         if (fromWake) wakeMessage = "Reconocedor listo: decí la orden ahora."
                     }
                     // El motor puede confundir música o ruido con voz: no es una orden reconocida.
@@ -546,42 +548,32 @@ class MainActivity : ComponentActivity() {
                 if (!listening) return@listenOnce
                 listening = false
                 val elapsed = SystemClock.elapsedRealtime() - start
-                val commandRecognized = outcome.getOrNull()?.let {
-                    MinimalIntentRouter.resolve(it) != TestIntent.UNKNOWN
-                } ?: false
+                val routed = outcome.getOrNull()?.let(MinimalIntentRouter::route)
+                val commandRecognized = routed?.intent != null && routed.intent != TestIntent.UNKNOWN
                 voiceMessage = outcome.fold(
                     onSuccess = { heard ->
-                        when (MinimalIntentRouter.resolve(heard)) {
+                        val command = checkNotNull(routed)
+                        when (command.intent) {
                             TestIntent.MEDIA_NEXT, TestIntent.MEDIA_PREVIOUS,
                             TestIntent.MEDIA_PLAY, TestIntent.MEDIA_PAUSE,
                             TestIntent.VOLUME_UP, TestIntent.VOLUME_DOWN, TestIntent.VOLUME_SET -> {
-                                val action = when (MinimalIntentRouter.resolve(heard)) {
-                                    TestIntent.MEDIA_NEXT -> media.nextTrack()
-                                    TestIntent.MEDIA_PREVIOUS -> media.previousTrack()
-                                    TestIntent.MEDIA_PLAY -> media.play()
-                                    TestIntent.MEDIA_PAUSE -> media.pause()
-                                    TestIntent.VOLUME_UP -> media.volumeUp()
-                                    TestIntent.VOLUME_DOWN -> media.volumeDown()
-                                    TestIntent.VOLUME_SET -> media.setRequestedVolume(
-                                        checkNotNull(MinimalIntentRouter.requestedVolume(heard)),
-                                        bluetoothVoice = false)
-                                    else -> error("Orden multimedia no soportada")
-                                }
-                                val command = when (MinimalIntentRouter.resolve(heard)) {
-                                    TestIntent.MEDIA_NEXT -> "Siguiente canción"
-                                    TestIntent.MEDIA_PREVIOUS -> "Anterior canción"
-                                    TestIntent.MEDIA_PLAY -> "Reproducir"
-                                    TestIntent.MEDIA_PAUSE -> "Pausar"
-                                    TestIntent.VOLUME_UP -> "Subir volumen (${media.commandVolumeStatus(action.getOrNull() as? VolumeAdjustment)})"
-                                    TestIntent.VOLUME_DOWN -> "Bajar volumen (${media.commandVolumeStatus(action.getOrNull() as? VolumeAdjustment)})"
-                                    TestIntent.VOLUME_SET -> "Fijar volumen (${media.commandVolumeStatus(action.getOrNull() as? VolumeAdjustment)})"
-                                    else -> "Orden"
-                                }
-                                if (action.isSuccess) "Escuché: ‘$heard’. $command en $elapsed ms. Comprobá el resultado en la música."
-                                else "Escuché: ‘$heard’, pero falló el envío de $command: ${action.exceptionOrNull()?.message}"
+                                val action = checkNotNull(mediaCommands.execute(command))
+                                val label = mediaCommands.description(command.intent, action.getOrNull() as? VolumeAdjustment)
+                                if (action.isSuccess) "Escuché: ‘$heard’. $label en $elapsed ms. Comprobá el resultado en la música."
+                                else "Escuché: ‘$heard’, pero falló el envío de $label: ${action.exceptionOrNull()?.message}"
                             }
                             TestIntent.STOP_TTS -> "Escuché: ‘$heard’. Orden Silencio reconocida; aún no hay voz sintetizada para interrumpir."
                             TestIntent.CANCEL -> "Escuché: ‘$heard’. Orden Cancelar reconocida; no se ejecutó ninguna acción."
+                            TestIntent.OPEN_APP -> appLauncher.find(checkNotNull(command.appName)).fold(
+                                onSuccess = { target -> runCatching {
+                                    startActivity(target.launchIntent)
+                                    if (fromWake) endWakeTest("Prueba de activación detenida al abrir ${target.label}.")
+                                }.fold(
+                                    onSuccess = { "Abriendo ${target.label}." },
+                                    onFailure = { "No se pudo abrir ${target.label}: ${it.message}." }
+                                ) },
+                                onFailure = { it.message ?: "No se encontró la aplicación." }
+                            )
                             TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.CONFIRM_CALL -> "Escuché: ‘$heard’. Las llamadas por nombre se prueban en la sesión de viaje."
                             TestIntent.STOP_SESSION -> "Escuché: ‘$heard’. ${if (fromWake) "Deteniendo sesión de activación." else "No hay sesión de activación en esta prueba manual."}"
                             TestIntent.UNKNOWN -> "Escuché: ‘$heard’. No coincide con las órdenes de esta prueba; no se ejecutó nada."

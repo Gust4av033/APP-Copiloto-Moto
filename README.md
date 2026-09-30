@@ -31,6 +31,7 @@ La arquitectura prevista conserva límites entre `presentation`, `application`, 
 
 - `docs/UI_BASE.md`: alcance de la interfaz, estructura, coordinación con fase 0 y comprobaciones en el teléfono.
 - `docs/FASE_0.md`: objetivo, validación y orden de implementación.
+- `docs/FASE_1.md`: primera entrega del núcleo de comandos y su prueba en el S22+.
 - `docs/referencias/`: documentos originales del proyecto. La especificación V4, los requisitos y la arquitectura son la línea base. El registro de modificaciones aprobadas complementa los documentos base según su regla de precedencia. Las indicaciones iniciales se conservan como antecedente.
 - `main` es la base estable. Para un cambio grande, crear una rama `feature/nombre`; probar en el teléfono y fusionar mediante PR. Borrar la rama temporal tras integrar.
 - No incluir claves, tokens, firmados, `local.properties`, grabaciones personales ni datos de viajes en Git.

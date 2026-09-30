@@ -52,6 +52,7 @@
     <string name="trip_commands">Lo que podés decir</string>
     <string name="commands_music">“Siguiente canción”, “anterior canción”, “pausa” o “reanudar”.</string>
     <string name="commands_volume">“Subir volumen”, “bajar volumen”, “volumen al 40 por ciento” o “volumen a 6”. El porcentaje se adapta al rango de Android; el número elige un nivel.</string>
+    <string name="commands_apps">“Abre Spotify” o “abre [nombre exacto de la aplicación]”. Durante el viaje, tocá la acción de la notificación para abrirla.</string>
     <string name="commands_call">“Llama a [nombre]”. Confirmá el destinatario por voz antes de marcar.</string>
     <string name="commands_stop">“Detener sesión” cierra el micrófono. Configurá la activación y las llamadas en Ajustes.</string>
     <string name="trip_results">Resultados de la sesión</string>

@@ -76,6 +76,7 @@ fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -
     SectionCard(stringResource(R.string.trip_commands)) {
         Text(stringResource(R.string.commands_music))
         Text(stringResource(R.string.commands_volume))
+        Text(stringResource(R.string.commands_apps))
         Text(stringResource(R.string.commands_call))
         SupportingText(stringResource(R.string.commands_stop))
     }
