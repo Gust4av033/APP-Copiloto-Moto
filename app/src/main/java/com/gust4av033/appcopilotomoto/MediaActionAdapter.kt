@@ -43,11 +43,21 @@ class MediaActionAdapter(context: Context) {
         } else false
         val stream = if (voiceHeadset) AudioManager.STREAM_VOICE_CALL else AudioManager.STREAM_MUSIC
         val before = audioManager.getStreamVolume(stream)
-        audioManager.adjustStreamVolume(stream, direction, 0)
+        val maximum = audioManager.getStreamMaxVolume(stream)
+        if (voiceHeadset) {
+            // En el S22+ con Y12, adjustStreamVolume(VOICE_CALL) no movió 15/15.
+            // Pedir el índice concreto permite distinguir un bloqueo de Android
+            // de una variación que el casco no reproduce de forma audible.
+            val minimum = audioManager.getStreamMinVolume(stream)
+            val target = (before + direction).coerceIn(minimum, maximum)
+            audioManager.setStreamVolume(stream, target, 0)
+        } else {
+            audioManager.adjustStreamVolume(stream, direction, 0)
+        }
         return VolumeAdjustment(
             before = before,
             after = audioManager.getStreamVolume(stream),
-            maximum = audioManager.getStreamMaxVolume(stream),
+            maximum = maximum,
             direction = direction,
             fixed = audioManager.isVolumeFixed,
             stream = stream
