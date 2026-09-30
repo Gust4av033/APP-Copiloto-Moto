@@ -72,10 +72,21 @@ class MediaActionAdapter(context: Context) {
                 }.distinct().joinToString().ifEmpty { "sin salida informada" }
             }.getOrDefault("no disponible")
         } else "no disponible en esta versión de Android"
+        val availableHeadsets = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            runCatching {
+                audioManager.availableCommunicationDevices.mapNotNull {
+                    when (it.type) {
+                        AudioDeviceInfo.TYPE_BLE_HEADSET -> "LE Audio"
+                        AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> "SCO clásico"
+                        else -> null
+                    }
+                }.distinct().joinToString().ifEmpty { "ninguno" }
+            }.getOrDefault("no disponible")
+        } else "no disponible"
         val mode = if (audioManager.mode == AudioManager.MODE_IN_COMMUNICATION) "comunicación" else "normal"
         val music = musicVolume()
         val voice = "${audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)}"
-        return "Modo: $mode · Ruta comunicación: $route · Salida música prevista: $mediaOutput · Música: $music · Comunicación: $voice"
+        return "Modo: $mode · Ruta comunicación: $route · Salida música prevista: $mediaOutput · Entradas casco disponibles: $availableHeadsets · Música: $music · Comunicación: $voice"
     }
 
     /** Espera a que Android deje de enviar música por la ruta de llamada. */
