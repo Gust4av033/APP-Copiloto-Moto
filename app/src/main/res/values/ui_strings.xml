@@ -22,8 +22,8 @@
     <string name="module_history_detail">Consultar recorridos, duración y resúmenes cuando exista la bitácora.</string>
     <string name="trip_audio_check">Audio del viaje</string>
     <string name="trip_audio_check_hint">Compará la salida de música antes, durante y después de la sesión con la moto detenida. El número de volumen no mide la intensidad real.</string>
-    <string name="trip_sco_observed">Durante la espera de Alexa, Android informa salida Bluetooth SCO. La música puede sonar más tenue y con menor calidad aunque marque el mismo volumen.</string>
-    <string name="trip_le_observed">Android informa salida Bluetooth LE durante la espera de Alexa. Compará cómo suenan la música y el micrófono: esta ruta depende de las capacidades del casco.</string>
+    <string name="trip_sco_observed">Durante la escucha continua, Android informa salida Bluetooth SCO. La música puede sonar más tenue y con menor calidad aunque marque el mismo volumen.</string>
+    <string name="trip_le_observed">Android informa salida Bluetooth LE durante la escucha continua. Compará cómo suenan la música y el micrófono: esta ruta depende de las capacidades del casco.</string>
     <string name="tests_audio_profile_hint">«Rutas casco disponibles» muestra los perfiles de comunicación que Android ofrece. Confirmá la salida multimedia y la entrada real del micrófono: LE Audio disponible no garantiza que se haya elegido ni que suene mejor.</string>
     <string name="trip_phone_wake_trial">Solo prueba estacionaria: Alexa usa el micrófono del teléfono. En ruta el teléfono no ha logrado oírte; elegí el modo casco antes de conducir.</string>
     <string name="audio_comparison_show">Ver comparación de audio</string>
@@ -70,7 +70,7 @@
     <string name="tests_audio">Audio del casco</string>
     <string name="audio_refresh">Actualizar niveles</string>
     <string name="audio_before">Antes: %1$s</string>
-    <string name="audio_during">Esperando Alexa: %1$s</string>
+    <string name="audio_during">Durante: %1$s</string>
     <string name="audio_after">Después: %1$s</string>
     <string name="tests_short_command">Una orden corta</string>
     <string name="tests_short_hint">La música se pausa mientras Android reconoce tu voz y se reanuda según la orden.</string>
