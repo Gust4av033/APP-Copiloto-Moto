@@ -118,6 +118,11 @@
     <string name="devices_auto_unresolved">Sin casco inequívoco; elegí uno o conectá solo un dispositivo.</string>
     <string name="devices_selection_lost">El casco elegido ya no está disponible. Volvé a elegirlo antes de iniciar.</string>
     <string name="devices_none">Android no ofrece un casco de comunicación conectado.</string>
+    <string name="devices_connected_outputs">Salidas Bluetooth conectadas que Android informa</string>
+    <string name="devices_no_bluetooth_output">Ninguna salida Bluetooth informada.</string>
+    <string name="devices_connected_inputs">Micrófonos Bluetooth conectados que Android informa</string>
+    <string name="devices_no_bluetooth_input">Ningún micrófono Bluetooth informado.</string>
+    <string name="devices_profiles_hint">Solo los cascos de la lista Elegir casco pueden usarse para Alexa. Si Skullcandy aparece como salida pero no como casco de voz, revisá en los ajustes Bluetooth del Galaxy si está habilitado para llamadas y actualizá. Una entrada detectada tampoco garantiza que Android permita seleccionarla para comunicación.</string>
     <string name="devices_busy">Detené la sesión o la prueba para cambiar el casco o abrir los controles de Android.</string>
     <string name="devices_restoring">Restaurando el audio. Esperá antes de cambiar de casco o iniciar otra prueba.</string>
     <string name="devices_choose">Elegir casco</string>
