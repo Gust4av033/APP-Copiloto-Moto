@@ -38,13 +38,14 @@ class MediaActionAdapter(context: Context) {
 
     private fun adjustActiveRoute(direction: Int, requireBluetoothCommunication: Boolean): VolumeAdjustment {
         val voiceHeadset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // Samsung puede informar MODE_NORMAL durante la captura aunque el
+            // micrófono y el dispositivo de comunicación SCO estén activos.
             val routeType = audioManager.communicationDevice?.type
-            audioManager.mode == AudioManager.MODE_IN_COMMUNICATION &&
-                (routeType == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
-                    routeType == AudioDeviceInfo.TYPE_BLE_HEADSET)
+            routeType == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                routeType == AudioDeviceInfo.TYPE_BLE_HEADSET
         } else false
         check(!requireBluetoothCommunication || voiceHeadset) {
-            "Android no restauró la ruta de voz Bluetooth; música quedó intacta."
+            "Ruta de voz Bluetooth no disponible al ajustar volumen; música quedó intacta."
         }
         val stream = if (voiceHeadset) AudioManager.STREAM_VOICE_CALL else AudioManager.STREAM_MUSIC
         val before = audioManager.getStreamVolume(stream)
