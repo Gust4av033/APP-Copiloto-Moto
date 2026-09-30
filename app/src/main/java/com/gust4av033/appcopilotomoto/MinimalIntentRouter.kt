@@ -25,7 +25,8 @@ object MinimalIntentRouter {
         return when {
             normalized in setOf("detener sesion", "terminar sesion", "finalizar sesion") -> TestIntent.STOP_SESSION
             normalized in setOf("callate", "silencio", "deja de hablar", "para de hablar") -> TestIntent.STOP_TTS
-            normalized in setOf("cancelar", "cancela", "olvidalo") -> TestIntent.CANCEL
+            normalized in setOf("cancelar", "cancela", "olvidalo",
+                "cancelar cancelar", "cancela cancela", "cancelar cancela", "cancela cancelar") -> TestIntent.CANCEL
             normalized in setOf("confirmar llamada", "confirma llamada", "llamar ahora") -> TestIntent.CONFIRM_CALL
             normalized in setOf("llamar", "hacer llamada", "llamar al contacto", "llama al contacto") -> TestIntent.CALL_SELECTED
             requestedContact(transcript) != null -> TestIntent.CALL_NAMED
