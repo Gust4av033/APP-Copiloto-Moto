@@ -36,18 +36,50 @@ class MediaActionAdapter(context: Context) {
     fun volumeDown(requireBluetoothCommunication: Boolean = false): Result<VolumeAdjustment> =
         runCatching { adjustActiveRoute(AudioManager.ADJUST_LOWER, requireBluetoothCommunication) }
 
+    fun setRequestedVolume(request: VolumeRequest, bluetoothVoice: Boolean): Result<VolumeAdjustment> = runCatching {
+        if (!bluetoothVoice) check(isMediaRouteReady()) { "A2DP aún no se restauró; volumen intacto." }
+        val stream = if (bluetoothVoice) {
+            check(bluetoothCommunicationSelected()) { "Ruta de voz Bluetooth no disponible; volumen intacto." }
+            AudioManager.STREAM_VOICE_CALL
+        } else AudioManager.STREAM_MUSIC
+        val minimum = audioManager.getStreamMinVolume(stream)
+        val maximum = audioManager.getStreamMaxVolume(stream)
+        val target = if (request.percent) {
+            minimum + ((maximum - minimum) * request.amount + 50) / 100
+        } else {
+            check(request.amount in minimum..maximum) { "Nivel fuera de rango: elegí entre $minimum y $maximum." }
+            request.amount
+        }
+        val before = audioManager.getStreamVolume(stream)
+        audioManager.setStreamVolume(stream, target, 0)
+        VolumeAdjustment(before, audioManager.getStreamVolume(stream), maximum,
+            target.compareTo(before), audioManager.isVolumeFixed, stream)
+    }
+
+    fun adjustMusicAfterRoute(direction: Int): Result<VolumeAdjustment> = runCatching {
+        check(isMediaRouteReady()) { "A2DP aún no se restauró; volumen intacto." }
+        adjustStream(AudioManager.STREAM_MUSIC, direction)
+    }
+
+    private fun bluetoothCommunicationSelected(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return false
+        return when (audioManager.communicationDevice?.type) {
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLE_HEADSET -> true
+            else -> false
+        }
+    }
+
     private fun adjustActiveRoute(direction: Int, requireBluetoothCommunication: Boolean): VolumeAdjustment {
-        val voiceHeadset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            // Samsung puede informar MODE_NORMAL durante la captura aunque el
-            // micrófono y el dispositivo de comunicación SCO estén activos.
-            val routeType = audioManager.communicationDevice?.type
-            routeType == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
-                routeType == AudioDeviceInfo.TYPE_BLE_HEADSET
-        } else false
+        // Samsung puede informar MODE_NORMAL aunque SCO esté seleccionado.
+        val voiceHeadset = bluetoothCommunicationSelected()
         check(!requireBluetoothCommunication || voiceHeadset) {
             "Ruta de voz Bluetooth no disponible al ajustar volumen; música quedó intacta."
         }
-        val stream = if (voiceHeadset) AudioManager.STREAM_VOICE_CALL else AudioManager.STREAM_MUSIC
+        return adjustStream(if (voiceHeadset) AudioManager.STREAM_VOICE_CALL else AudioManager.STREAM_MUSIC, direction)
+    }
+
+    private fun adjustStream(stream: Int, direction: Int): VolumeAdjustment {
+        val voiceHeadset = stream == AudioManager.STREAM_VOICE_CALL
         val before = audioManager.getStreamVolume(stream)
         val maximum = audioManager.getStreamMaxVolume(stream)
         if (voiceHeadset) {
