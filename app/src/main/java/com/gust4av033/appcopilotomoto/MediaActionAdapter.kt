@@ -30,17 +30,22 @@ class MediaActionAdapter(context: Context) {
     fun pause(): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_PAUSE) }
 
     /** En SCO el nivel multimedia puede cambiar sin modificar la intensidad audible. */
-    fun volumeUp(): Result<VolumeAdjustment> = runCatching { adjustActiveRoute(AudioManager.ADJUST_RAISE) }
+    fun volumeUp(requireBluetoothCommunication: Boolean = false): Result<VolumeAdjustment> =
+        runCatching { adjustActiveRoute(AudioManager.ADJUST_RAISE, requireBluetoothCommunication) }
 
-    fun volumeDown(): Result<VolumeAdjustment> = runCatching { adjustActiveRoute(AudioManager.ADJUST_LOWER) }
+    fun volumeDown(requireBluetoothCommunication: Boolean = false): Result<VolumeAdjustment> =
+        runCatching { adjustActiveRoute(AudioManager.ADJUST_LOWER, requireBluetoothCommunication) }
 
-    private fun adjustActiveRoute(direction: Int): VolumeAdjustment {
+    private fun adjustActiveRoute(direction: Int, requireBluetoothCommunication: Boolean): VolumeAdjustment {
         val voiceHeadset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             val routeType = audioManager.communicationDevice?.type
             audioManager.mode == AudioManager.MODE_IN_COMMUNICATION &&
                 (routeType == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
                     routeType == AudioDeviceInfo.TYPE_BLE_HEADSET)
         } else false
+        check(!requireBluetoothCommunication || voiceHeadset) {
+            "Android no restauró la ruta de voz Bluetooth; música quedó intacta."
+        }
         val stream = if (voiceHeadset) AudioManager.STREAM_VOICE_CALL else AudioManager.STREAM_MUSIC
         val before = audioManager.getStreamVolume(stream)
         val maximum = audioManager.getStreamMaxVolume(stream)
