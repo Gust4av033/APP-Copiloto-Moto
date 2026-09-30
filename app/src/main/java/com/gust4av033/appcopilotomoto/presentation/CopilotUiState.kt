@@ -22,6 +22,8 @@ data class AudioDevicesUi(
     val supported: Boolean = false,
     val permissionGranted: Boolean = false,
     val headsets: List<AudioDeviceUi> = emptyList(),
+    val bluetoothOutputs: List<String> = emptyList(),
+    val bluetoothInputs: List<String> = emptyList(),
     val selectedId: Int? = null,
     val selectedLabel: String = "",
     val selectionMissing: Boolean = false,
