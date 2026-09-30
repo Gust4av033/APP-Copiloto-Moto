@@ -213,7 +213,7 @@ class TripVoiceService : Service() {
     }
 
     private fun startDetector(provider: WakeWordProvider) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+        if (wakeAudioMode != WakeAudioMode.BUTTON && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             !getSystemService(AudioManager::class.java).availableCommunicationDevices.any {
                 it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
             }) {
@@ -373,24 +373,54 @@ class TripVoiceService : Service() {
             mainHandler.post {
                 if (!active || detector !== provider || cycle != generation) return@post
                 if (paused.isFailure) {
-                    stopSession("No se pudo liberar el micrófono: ${paused.exceptionOrNull()?.message}")
+                    if (wakeAudioMode == WakeAudioMode.BUTTON) {
+                        recoverButtonCommand(provider, cycle,
+                            "No se pudo abrir el casco Bluetooth: ${paused.exceptionOrNull()?.message}")
+                    } else stopSession("No se pudo liberar el micrófono: ${paused.exceptionOrNull()?.message}")
                 } else {
-                    if (wakeAudioMode == WakeAudioMode.BUTTON && !headsetRouteAvailable()) {
-                        stopSession("Android no activó el casco Bluetooth para la orden; micrófono cerrado.")
-                        return@post
-                    }
-                    schedule(350L) {
-                        if (active && detector === provider && cycle == generation) {
-                            playHandoffTone()
-                            schedule(400L) {
-                                if (active && detector === provider && cycle == generation) {
-                                    listenForCommand(provider, startedAt, "Casco")
-                                }
-                            }
-                        }
+                    awaitManualRoute(provider, cycle, startedAt, 0)
+                }
+            }
+        }
+    }
+
+    /** La elección de SCO puede tardar después de setCommunicationDevice(), sobre todo con pantalla apagada. */
+    private fun awaitManualRoute(provider: WakeWordProvider, cycle: Int, startedAt: Long, attempt: Int) {
+        if (!active || detector !== provider || cycle != generation) return
+        if (wakeAudioMode == WakeAudioMode.BUTTON && !headsetRouteAvailable()) {
+            if (attempt < 12) {
+                schedule(250L) { awaitManualRoute(provider, cycle, startedAt, attempt + 1) }
+            } else {
+                recoverButtonCommand(provider, cycle,
+                    "Android no confirmó el micrófono Bluetooth; se canceló esta orden.")
+            }
+            return
+        }
+        schedule(350L) {
+            if (active && detector === provider && cycle == generation) {
+                playHandoffTone()
+                schedule(400L) {
+                    if (active && detector === provider && cycle == generation) {
+                        listenForCommand(provider, startedAt, "Casco")
                     }
                 }
             }
+        }
+    }
+
+    /** Una orden fallida no termina el viaje; suelta SCO antes de aceptar otra pulsación. */
+    private fun recoverButtonCommand(provider: WakeWordProvider, cycle: Int, reason: String) {
+        if (!active || detector !== provider || cycle != generation) return
+        TripTestState.failures++
+        TripTestState.save(this)
+        if (speechLazy.isInitialized()) {
+            resumeAfterButtonRoute = speech.cancel(resumePlayback = false) || resumeAfterButtonRoute
+        }
+        TripTestState.status = "$reason Restaurando música; probá de nuevo cuando indique que está listo."
+        TripTestState.lastCommandResult = TripTestState.status
+        updateNotification("Orden cancelada · restaurando música")
+        schedule(100L) {
+            if (active && detector === provider && cycle == generation) startDetector(provider)
         }
     }
 
@@ -538,7 +568,7 @@ class TripVoiceService : Service() {
             TripTestState.status = "$source: ${TripTestState.status}"
             TripTestState.lastCommandResult = TripTestState.status
             updateNotification("$source · orden terminada; esperando activación")
-            if (consecutiveFailures >= 2) {
+            if (consecutiveFailures >= 2 && wakeAudioMode != WakeAudioMode.BUTTON) {
                 stopSession("Dos activaciones sin orden válida; sesión detenida. ${TripTestState.status}")
             } else {
                 val delay = if (wakeAudioMode == WakeAudioMode.BUTTON) 100L
