@@ -13,7 +13,8 @@ data class VolumeAdjustment(
     val after: Int,
     val maximum: Int,
     val direction: Int,
-    val fixed: Boolean
+    val fixed: Boolean,
+    val stream: Int
 )
 
 class MediaActionAdapter(context: Context) {
@@ -28,38 +29,48 @@ class MediaActionAdapter(context: Context) {
 
     fun pause(): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_PAUSE) }
 
-    /** Una orden de música cambia STREAM_MUSIC incluso cuando el casco usa SCO. */
-    fun volumeUp(): Result<VolumeAdjustment> = runCatching { adjustMusic(AudioManager.ADJUST_RAISE) }
+    /** En SCO el nivel multimedia puede cambiar sin modificar la intensidad audible. */
+    fun volumeUp(): Result<VolumeAdjustment> = runCatching { adjustActiveRoute(AudioManager.ADJUST_RAISE) }
 
-    fun volumeDown(): Result<VolumeAdjustment> = runCatching { adjustMusic(AudioManager.ADJUST_LOWER) }
+    fun volumeDown(): Result<VolumeAdjustment> = runCatching { adjustActiveRoute(AudioManager.ADJUST_LOWER) }
 
-    private fun adjustMusic(direction: Int): VolumeAdjustment {
-        val before = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
-        audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, direction, 0)
+    private fun adjustActiveRoute(direction: Int): VolumeAdjustment {
+        val voiceHeadset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            audioManager.mode == AudioManager.MODE_IN_COMMUNICATION &&
+                audioManager.communicationDevice?.type in setOf(
+                    AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLE_HEADSET
+                )
+        } else false
+        val stream = if (voiceHeadset) AudioManager.STREAM_VOICE_CALL else AudioManager.STREAM_MUSIC
+        val before = audioManager.getStreamVolume(stream)
+        audioManager.adjustStreamVolume(stream, direction, 0)
         return VolumeAdjustment(
             before = before,
-            after = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC),
-            maximum = audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC),
+            after = audioManager.getStreamVolume(stream),
+            maximum = audioManager.getStreamMaxVolume(stream),
             direction = direction,
-            fixed = audioManager.isVolumeFixed
+            fixed = audioManager.isVolumeFixed,
+            stream = stream
         )
     }
 
     fun commandVolumeStatus(change: VolumeAdjustment? = null): String {
-        val music = change?.let { adjustment ->
-            when {
-                adjustment.fixed -> "volumen fijo por Android"
-                adjustment.after != adjustment.before ->
-                    "música ${adjustment.before}→${adjustment.after}/${adjustment.maximum}"
-                adjustment.direction == AudioManager.ADJUST_RAISE && adjustment.after >= adjustment.maximum ->
-                    "música ${adjustment.after}/${adjustment.maximum}: ya está al máximo"
-                adjustment.direction == AudioManager.ADJUST_LOWER && adjustment.after <= 0 ->
-                    "música ${adjustment.after}/${adjustment.maximum}: ya está al mínimo"
-                else -> "música ${adjustment.after}/${adjustment.maximum}: Android no cambió el nivel"
-            }
-        } ?: "música ${musicVolume()}"
+        val music = musicVolume()
         val communication = "${audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)}"
-        return "$music; comunicación $communication"
+        val adjustment = change?.let { changeValue ->
+            val label = if (changeValue.stream == AudioManager.STREAM_VOICE_CALL) "comunicación" else "música"
+            when {
+                changeValue.fixed -> "$label: volumen fijo por Android"
+                changeValue.after != changeValue.before ->
+                    "$label ${changeValue.before}→${changeValue.after}/${changeValue.maximum}"
+                changeValue.direction == AudioManager.ADJUST_RAISE && changeValue.after >= changeValue.maximum ->
+                    "$label ${changeValue.after}/${changeValue.maximum}: ya está al máximo"
+                changeValue.direction == AudioManager.ADJUST_LOWER && changeValue.after <= 0 ->
+                    "$label ${changeValue.after}/${changeValue.maximum}: ya está al mínimo"
+                else -> "$label ${changeValue.after}/${changeValue.maximum}: Android no cambió el nivel"
+            }
+        }
+        return listOfNotNull(adjustment, "música $music", "comunicación $communication").joinToString("; ")
     }
 
     fun musicVolume(): String = "${audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)}"
