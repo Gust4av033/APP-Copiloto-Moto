@@ -44,6 +44,12 @@ fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -
     }
     SectionCard(stringResource(R.string.trip_audio_check)) {
         SupportingText(stringResource(R.string.trip_audio_check_hint))
+        if (state.tripActive && state.audioDuring.contains("Salida música prevista: Bluetooth SCO")) {
+            SupportingText(stringResource(R.string.trip_sco_observed))
+        }
+        if (state.inputId == "PHONE_WAKE") {
+            SupportingText(stringResource(R.string.trip_phone_wake_trial))
+        }
         var comparisonVisible by rememberSaveable { mutableStateOf(false) }
         TextButton(onClick = { comparisonVisible = !comparisonVisible }) {
             Text(stringResource(if (comparisonVisible) R.string.audio_comparison_hide else R.string.audio_comparison_show))
