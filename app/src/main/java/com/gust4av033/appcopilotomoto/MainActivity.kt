@@ -293,6 +293,15 @@ class MainActivity : ComponentActivity() {
         }
         audioDevices = runCatching {
             val headsets = BluetoothAudioRouteSelector.availableHeadsets(audioManager)
+            val bluetoothOutputs = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                .filter { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                    it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                    it.type == AudioDeviceInfo.TYPE_BLE_HEADSET }
+                .map(::audioDeviceLabel).distinct()
+            val bluetoothInputs = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
+                .filter { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                    it.type == AudioDeviceInfo.TYPE_BLE_HEADSET }
+                .map(::audioDeviceLabel).distinct()
             val resolved = BluetoothAudioRouteSelector.communicationHeadset(audioManager)
             val outputs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 runCatching {
@@ -303,6 +312,8 @@ class MainActivity : ComponentActivity() {
             } else ""
             initial.copy(
                 headsets = headsets.map { AudioDeviceUi(it.id, audioDeviceLabel(it)) },
+                bluetoothOutputs = bluetoothOutputs,
+                bluetoothInputs = bluetoothInputs,
                 selectedLabel = preferred?.let { chosen ->
                     headsets.singleOrNull { BluetoothAudioRouteSelector.identity(it) == chosen }
                         ?.let(::audioDeviceLabel) ?: chosen.name
