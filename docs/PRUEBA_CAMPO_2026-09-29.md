@@ -42,4 +42,5 @@ Con la moto detenida: reproducir una canción, iniciar viaje, detener desde la a
 
 - Al decir «detener sesión», la canción vuelve a escucharse sin tener que iniciar otro viaje. Queda validada en esta prueba la recuperación del sonido tras el cierre por voz.
 - Mantener presionado el botón del Y12 Pro activa la alternativa de asistente. El reporte confirma la activación con pulsación larga, pero no cuantifica órdenes ejecutadas por esa vía ni sustituye el uso de toques cortos para cambiar pista.
-- Pendiente: repetir el cierre desde la app o la notificación, comprobar la ruta final A2DP, probar que «pausa» siga pausada al cerrar y comparar el volumen/calidad durante la espera de Alexa. No se modifica volumen automáticamente.
+- El usuario confirmó que detener desde la notificación y desde el botón de la app también cierra correctamente la sesión. El retorno audible de música quedó descrito explícitamente para el cierre por voz; no se atribuye sin dato adicional a las otras dos vías.
+- Pendiente: comprobar la ruta final A2DP, confirmar el sonido de la canción tras el cierre desde app/notificación si aplica, probar que «pausa» siga pausada al cerrar y comparar volumen/calidad durante la espera de Alexa. No se modifica volumen automáticamente.
