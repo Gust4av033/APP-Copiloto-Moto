@@ -78,6 +78,21 @@ class MediaActionAdapter(context: Context) {
         return "Modo: $mode · Ruta comunicación: $route · Salida música prevista: $mediaOutput · Música: $music · Comunicación: $voice"
     }
 
+    /** Espera a que Android deje de enviar música por la ruta de llamada. */
+    fun isMediaRouteReady(): Boolean {
+        if (audioManager.mode == AudioManager.MODE_IN_COMMUNICATION) return false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            return runCatching {
+                val outputs = audioManager.getAudioDevicesForAttributes(
+                    AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build()
+                )
+                outputs.isNotEmpty() && outputs.none { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
+            }.getOrDefault(false)
+        }
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            audioManager.communicationDevice?.type != AudioDeviceInfo.TYPE_BLUETOOTH_SCO
+    }
+
     /** Solicita una pausa solo si Android informa reproducción activa. */
     fun pauseIfPlaying(): Boolean {
         if (!audioManager.isMusicActive) return false
