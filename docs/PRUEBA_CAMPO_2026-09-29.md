@@ -15,7 +15,7 @@ La ruta de música informada cambia de A2DP a SCO mientras APP espera Alexa, aun
 
 ## Reconocimiento y micrófono
 
-- Una captura de resultados muestra 24 activaciones por voz, 23 transcripciones, 20 solicitudes enviadas y 1 fallo registrado. Son contadores de etapas diferentes, no una tasa de aciertos ni confirmación de ejecución en la app musical.
+- Una captura de resultados muestra 24 activaciones por voz, 23 transcripciones, 20 solicitudes enviadas y 1 fallo registrado. Son contadores de etapas diferentes, no una tasa de aciertos medida ni confirmación de ejecución en la app musical.
 - En esa captura, la última orden tardó 1442 ms desde el inicio de la orden hasta STT listo y 5305 ms hasta el resultado. Otras capturas muestran resultados de 5281 ms y 4746 ms; incluyen esperas y habla, no solo procesamiento.
 - La medición de 5 segundos registró entrada real Bluetooth SCO, 80 000 muestras en 5058 ms, nivel medio −54 dBFS y pico −36 dBFS. Esta lectura sola no establece una tasa de activación con ruido de moto.
 - Una prueba de orden corta transcribió «cancelar cancelar» y lo rechazó por coincidencia exacta. Se añade ese caso como cancelación sin ejecutar acciones.
@@ -25,3 +25,15 @@ La ruta de música informada cambia de A2DP a SCO mientras APP espera Alexa, aun
 ## Corrección y próxima prueba
 
 APP actualiza la lectura «Después» durante los segundos posteriores al cierre para esperar la restauración de A2DP. Se reconoce «cancelar cancelar» como cancelación segura. En el siguiente ensayo estacionario comparar sonido A2DP/SCO con la misma canción, verificar si la lectura final queda en A2DP y probar una activación y orden con ruido de motor. Durante el viaje registrar verbalmente o de memoria los fallos y revisar la pantalla únicamente al detenerse.
+
+## Observaciones posteriores del usuario
+
+- Con el volumen de música en 15/15 el casco sonó un poco más fuerte, pero la diferencia fue poco notable. El cambio de A2DP a SCO sigue siendo el problema de calidad y nivel más evidente.
+- En la salida donde se vieron 24 activaciones, 20 solicitudes y 23 transcripciones, el usuario estima que de unas 25 veces que dijo «Alexa», aproximadamente 22–23 activaron y entendieron bien la instrucción. Es una estimación de campo, no una tasa medida por los contadores ni confirmación del resultado en la otra app.
+- Fallo prioritario: al detener la sesión, por voz o desde la app, el reproductor figuraba en reproducción pero dejó de oírse hasta iniciar otra sesión.
+
+## Corrección para repetir la prueba
+
+El cierre conserva el servicio hasta liberar el detector, limpiar la selección de comunicación y observar el retorno de la salida multimedia. Si APP había pausado una canción para escuchar o para cambiar de ruta, la reanuda al final. La orden explícita «pausa» permanece pausada. La espera está acotada a ocho segundos y muestra diagnóstico si no se confirma la restauración; aún requiere validación real con S22+ y Y12.
+
+Con la moto detenida: reproducir una canción, iniciar viaje, detener desde la app y comprobar sonido sin reiniciar; repetir diciendo «detener sesión». Revisar «Audio del casco»: salida prevista A2DP y modo normal. También probar una pausa por voz antes de detener para verificar que la app no reproduzca contra la intención del usuario. No ajustar 15/15 automáticamente.
