@@ -40,15 +40,14 @@ internal object BluetoothAudioRouteSelector {
                 }?.let { return it }
             }
         }
-        // Algunos dispositivos no publican una dirección comparable en ambas rutas.
-        for (output in mediaOutputs) {
-            val type = communicationType(output) ?: continue
-            choices.singleOrNull { it.type == type }?.let { return it }
+        // Si hay un solo casco, Android puede omitir direcciones o publicar formatos distintos.
+        // Con varios, un único SCO podría pertenecer a otro casco que reproduce por A2DP.
+        if (choices.size == 1) {
+            val only = choices.single()
+            val bluetoothMedia = mediaOutputs.mapNotNull(::communicationType)
+            if (bluetoothMedia.isEmpty() || only.type in bluetoothMedia) return only
         }
-        audioManager.communicationDevice?.let { selected ->
-            choices.firstOrNull { it.id == selected.id }?.let { return it }
-        }
-        // Con varios cascos ambiguos se pide elegir una salida; no se toma el primero.
-        return choices.singleOrNull()
+        // Con varios cascos ambiguos se pide desconectar el que no se está usando.
+        return null
     }
 }
