@@ -86,7 +86,7 @@ class MediaActionAdapter(context: Context) {
         val mode = if (audioManager.mode == AudioManager.MODE_IN_COMMUNICATION) "comunicación" else "normal"
         val music = musicVolume()
         val voice = "${audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)}"
-        return "Modo: $mode · Ruta comunicación: $route · Salida música prevista: $mediaOutput · Entradas casco disponibles: $availableHeadsets · Música: $music · Comunicación: $voice"
+        return "Modo: $mode · Ruta comunicación: $route · Salida música prevista: $mediaOutput · Rutas casco disponibles: $availableHeadsets · Música: $music · Comunicación: $voice"
     }
 
     /** Espera a que Android deje de enviar música por la ruta de llamada. */
