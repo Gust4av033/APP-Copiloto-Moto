@@ -31,23 +31,28 @@ internal object BluetoothAudioRouteSelector {
             else -> null
         }
 
-        // Una dirección coincidente evita elegir otro casco conectado al mismo tiempo.
-        for (output in mediaOutputs) {
-            val type = communicationType(output) ?: continue
-            if (output.address.isNotBlank()) {
-                choices.firstOrNull {
-                    it.type == type && it.address.isNotBlank() && it.address == output.address
-                }?.let { return it }
-            }
+        val bluetoothMedia = mediaOutputs.mapNotNull { output ->
+            communicationType(output)?.let { type -> type to output.address }
         }
-        // Si hay un solo casco, Android puede omitir direcciones o publicar formatos distintos.
-        // Con varios, un único SCO podría pertenecer a otro casco que reproduce por A2DP.
+        // Android puede publicar varias salidas simultáneas: no tomar la primera al azar.
+        if (bluetoothMedia.map { it.second }.distinct().size > 1) return null
+        val matching = bluetoothMedia.flatMap { (type, address) ->
+            if (address.isBlank()) emptyList() else choices.filter {
+                it.type == type && it.address.isNotBlank() && it.address == address
+            }
+        }.distinctBy { it.id }
+        if (matching.size == 1) return matching.single()
+        if (matching.size > 1) return null
+
+        // Con un solo casco se tolera que Android omita la dirección, pero no una
+        // dirección conocida que apunte explícitamente a otro dispositivo.
         if (choices.size == 1) {
             val only = choices.single()
-            val bluetoothMedia = mediaOutputs.mapNotNull(::communicationType)
-            if (bluetoothMedia.isEmpty() || only.type in bluetoothMedia) return only
+            if (bluetoothMedia.isEmpty()) return only
+            if (bluetoothMedia.all { (type, address) ->
+                    type == only.type && (address.isBlank() || only.address.isBlank() || address == only.address)
+                }) return only
         }
-        // Con varios cascos ambiguos se pide desconectar el que no se está usando.
         return null
     }
 }
