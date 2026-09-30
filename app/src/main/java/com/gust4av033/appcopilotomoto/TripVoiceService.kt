@@ -41,6 +41,7 @@ object TripTestState {
     var audioBefore by mutableStateOf("Sin lectura previa.")
     var audioDuring by mutableStateOf("Iniciá una sesión para medir la ruta activa.")
     var audioAfter by mutableStateOf("Detené la sesión para medir la ruta restaurada.")
+    var audioCaptureGeneration = 0L
 
     private const val PREFS = "fase_0_3_metricas"
 
@@ -163,6 +164,7 @@ class TripVoiceService : Service() {
         TripTestState.running = true
         TripTestState.markRunning(this, true)
         TripTestState.reset(this)
+        TripTestState.audioCaptureGeneration++
         TripTestState.audioBefore = media.audioRouteDiagnostic()
         TripTestState.audioDuring = "Preparando la ruta Bluetooth…"
         TripTestState.audioAfter = "Sesión activa; falta detenerla."
@@ -528,10 +530,11 @@ class TripVoiceService : Service() {
         if (speechLazy.isInitialized()) speech.cancel()
         val previous = detector
         detector = null
+        val audioCaptureGeneration = TripTestState.audioCaptureGeneration
         if (previous != null) worker.execute {
             runCatching { previous.close() }
             mainHandler.post {
-                if (generation == stoppedGeneration) TripTestState.audioAfter = media.audioRouteDiagnostic()
+                if (generation == stoppedGeneration) captureRestoredAudio(audioCaptureGeneration, 0)
             }
         }
         TripTestState.running = false
@@ -539,6 +542,15 @@ class TripVoiceService : Service() {
         TripTestState.status = reason
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    /** El cambio SCO → A2DP puede llegar después de close(); conserva la lectura final estable. */
+    private fun captureRestoredAudio(captureGeneration: Long, attempt: Int) {
+        if (TripTestState.audioCaptureGeneration != captureGeneration || TripTestState.running) return
+        TripTestState.audioAfter = media.audioRouteDiagnostic()
+        if (attempt < 6) {
+            mainHandler.postDelayed({ captureRestoredAudio(captureGeneration, attempt + 1) }, 1_000L)
+        }
     }
 
     private fun createChannel() {
