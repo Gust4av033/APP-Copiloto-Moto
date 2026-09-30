@@ -36,10 +36,10 @@ class MediaActionAdapter(context: Context) {
 
     private fun adjustActiveRoute(direction: Int): VolumeAdjustment {
         val voiceHeadset = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val routeType = audioManager.communicationDevice?.type
             audioManager.mode == AudioManager.MODE_IN_COMMUNICATION &&
-                audioManager.communicationDevice?.type in setOf(
-                    AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLE_HEADSET
-                )
+                (routeType == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                    routeType == AudioDeviceInfo.TYPE_BLE_HEADSET)
         } else false
         val stream = if (voiceHeadset) AudioManager.STREAM_VOICE_CALL else AudioManager.STREAM_MUSIC
         val before = audioManager.getStreamVolume(stream)
