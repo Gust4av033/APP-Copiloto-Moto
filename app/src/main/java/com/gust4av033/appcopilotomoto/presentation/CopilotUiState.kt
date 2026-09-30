@@ -81,6 +81,7 @@ data class CopilotUiState(
     ),
     val inputs: List<ChoiceUi> = listOf(
         ChoiceUi("BLUETOOTH", R.string.input_headset),
+        ChoiceUi("BUTTON", R.string.input_button_quality),
         ChoiceUi("PHONE_WAKE", R.string.input_phone_test)
     ),
     val assistantSelected: Boolean = false,
@@ -106,6 +107,7 @@ data class CopilotUiState(
 /** La Activity adapta estas acciones al runtime existente. Los previews usan callbacks vacíos. */
 data class CopilotActions(
     val onToggleTrip: () -> Unit = {},
+    val onManualTripCommand: () -> Unit = {},
     val onRefreshAudio: () -> Unit = {},
     val onRefreshDevices: () -> Unit = {},
     val onSelectHeadset: (Int?) -> Unit = {},
