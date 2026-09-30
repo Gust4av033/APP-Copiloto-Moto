@@ -78,9 +78,8 @@ class OpenWakeWordProvider(
 
     @RequiresApi(Build.VERSION_CODES.S)
     private fun selectHeadset() {
-        val headset = audioManager.availableCommunicationDevices.firstOrNull {
-            it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
-        } ?: error("No se detecta el micrófono Bluetooth del casco.")
+        val headset = BluetoothAudioRouteSelector.communicationHeadset(audioManager)
+            ?: error("No se pudo elegir el micrófono del casco. Seleccioná su salida multimedia o desconectá el otro casco.")
         audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
         if (!audioManager.setCommunicationDevice(headset)) {
             audioManager.mode = oldMode ?: AudioManager.MODE_NORMAL
