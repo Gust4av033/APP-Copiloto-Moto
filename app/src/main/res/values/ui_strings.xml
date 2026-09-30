@@ -21,7 +21,9 @@
     <string name="module_history">Mis viajes</string>
     <string name="module_history_detail">Consultar recorridos, duración y resúmenes cuando exista la bitácora.</string>
     <string name="trip_audio_check">Audio del viaje</string>
-    <string name="trip_audio_check_hint">APP captura los niveles al iniciar, durante la activación y al detener la sesión. Revisalos con la moto detenida.</string>
+    <string name="trip_audio_check_hint">Compará la salida de música antes, durante y después de la sesión con la moto detenida. El número de volumen no mide la intensidad real.</string>
+    <string name="trip_sco_observed">Durante la espera de Alexa, Android informa salida Bluetooth SCO. La música puede sonar más tenue y con menor calidad aunque marque el mismo volumen.</string>
+    <string name="trip_phone_wake_trial">Prueba A2DP: Alexa usa el micrófono del teléfono mientras espera; la orden usa el casco. Validá la activación con la moto detenida antes de confiar en este modo en ruta.</string>
     <string name="audio_comparison_show">Ver comparación de audio</string>
     <string name="audio_comparison_hide">Ocultar comparación</string>
     <string name="open_tests">Abrir pruebas y diagnóstico</string>
@@ -95,8 +97,8 @@
     <string name="settings_sensitivity_hint">Más sensibilidad también puede causar activaciones por error.</string>
     <string name="settings_input">Micrófono para la activación</string>
     <string name="input_headset">Casco para activación y orden</string>
-    <string name="input_phone_test">Prueba: teléfono para activación, casco para la orden</string>
-    <string name="settings_input_hint">Usá el casco para la activación en ruta. Con Bluetooth clásico, la música puede cambiar de calidad mientras está abierto el micrófono. El modo teléfono sigue siendo una prueba.</string>
+    <string name="input_phone_test">Prueba A2DP: Alexa con teléfono, orden con casco</string>
+    <string name="settings_input_hint">Con el micrófono del casco, Android puede pasar la música a SCO: baja intensidad y calidad aunque el volumen no cambie. La prueba A2DP usa el micrófono del teléfono solo para Alexa; en ruta puede no oírte bien. Probá ambos modos con la moto detenida.</string>
     <string name="settings_calls">Llamadas</string>
     <string name="settings_calls_hint">Habilitá contactos y teléfono antes del viaje para decir “llama a [nombre]”. Si el destinatario es ambiguo, APP no marca.</string>
     <string name="calls_enable">Habilitar llamadas por nombre</string>
