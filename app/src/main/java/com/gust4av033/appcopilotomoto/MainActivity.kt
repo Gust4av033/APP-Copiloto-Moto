@@ -400,11 +400,11 @@ class MainActivity : ComponentActivity() {
                                     TestIntent.MEDIA_PREVIOUS -> "Anterior canción"
                                     TestIntent.MEDIA_PLAY -> "Reproducir"
                                     TestIntent.MEDIA_PAUSE -> "Pausar"
-                                    TestIntent.VOLUME_UP -> "Subir volumen (${media.commandVolumeStatus()})"
-                                    TestIntent.VOLUME_DOWN -> "Bajar volumen (${media.commandVolumeStatus()})"
+                                    TestIntent.VOLUME_UP -> "Subir volumen (${media.commandVolumeStatus(action.getOrNull() as? VolumeAdjustment)})"
+                                    TestIntent.VOLUME_DOWN -> "Bajar volumen (${media.commandVolumeStatus(action.getOrNull() as? VolumeAdjustment)})"
                                     else -> "Orden"
                                 }
-                                if (action.isSuccess) "Escuché: ‘$heard’. Envié $command en $elapsed ms. Comprobá el resultado en la música."
+                                if (action.isSuccess) "Escuché: ‘$heard’. $command en $elapsed ms. Comprobá el resultado en la música."
                                 else "Escuché: ‘$heard’, pero falló el envío de $command: ${action.exceptionOrNull()?.message}"
                             }
                             TestIntent.STOP_TTS -> "Escuché: ‘$heard’. Orden Silencio reconocida; aún no hay voz sintetizada para interrumpir."
