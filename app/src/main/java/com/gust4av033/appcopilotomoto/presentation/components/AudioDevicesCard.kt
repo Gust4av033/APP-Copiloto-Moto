@@ -62,6 +62,15 @@ fun AudioDevicesCard(state: CopilotUiState, actions: CopilotActions) {
                 }
                 SupportingText(stringResource(R.string.devices_choice_hint))
             }
+            Text(stringResource(R.string.devices_connected_outputs))
+            SupportingText(devices.bluetoothOutputs.joinToString("\n").ifBlank {
+                stringResource(R.string.devices_no_bluetooth_output)
+            })
+            Text(stringResource(R.string.devices_connected_inputs))
+            SupportingText(devices.bluetoothInputs.joinToString("\n").ifBlank {
+                stringResource(R.string.devices_no_bluetooth_input)
+            })
+            SupportingText(stringResource(R.string.devices_profiles_hint))
             SupportingText(stringResource(R.string.devices_music_output,
                 devices.musicOutput.ifBlank { stringResource(R.string.devices_not_reported) }))
             SupportingText(stringResource(R.string.devices_communication_route,
