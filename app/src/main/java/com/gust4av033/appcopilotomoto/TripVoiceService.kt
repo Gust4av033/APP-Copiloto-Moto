@@ -130,9 +130,11 @@ class TripVoiceService : Service() {
         val intent: TestIntent,
         val heard: String,
         val source: String,
-        val wakeAt: Long
+        val wakeAt: Long,
+        val requested: VolumeRequest? = null
     )
     private var pendingVolumeCommand: PendingVolumeCommand? = null
+    private var resumeAfterButtonRoute = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -163,9 +165,14 @@ class TripVoiceService : Service() {
             stopSelf(startId)
             return START_NOT_STICKY
         }
+        wakeAudioMode = runCatching {
+            WakeAudioMode.valueOf(intent.getStringExtra(EXTRA_AUDIO_MODE) ?: WakeAudioMode.BLUETOOTH.name)
+        }.getOrDefault(WakeAudioMode.BLUETOOTH)
         createChannel()
         try {
-            val notice = buildNotification("Preparando micrófono Bluetooth…")
+            val notice = buildNotification(if (wakeAudioMode == WakeAudioMode.BUTTON) {
+                "Preparando modo botón · música normal"
+            } else "Preparando micrófono Bluetooth…")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                 startForeground(NOTIFICATION_ID, notice, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
             } else startForeground(NOTIFICATION_ID, notice)
@@ -193,13 +200,11 @@ class TripVoiceService : Service() {
             WakePhrase.valueOf(intent.getStringExtra(EXTRA_PHRASE) ?: WakePhrase.ALEXA.name)
         }.getOrDefault(WakePhrase.ALEXA)
         val sensitivity = intent.getFloatExtra(EXTRA_SENSITIVITY, 80f).coerceIn(40f, 85f)
-        wakeAudioMode = runCatching {
-            WakeAudioMode.valueOf(intent.getStringExtra(EXTRA_AUDIO_MODE) ?: WakeAudioMode.BLUETOOTH.name)
-        }.getOrDefault(WakeAudioMode.BLUETOOTH)
-        val provider = runCatching {
-            OpenWakeWordProvider(applicationContext, (100f - sensitivity) / 100f, phrase, wakeAudioMode)
+        val provider: WakeWordProvider = runCatching {
+            if (wakeAudioMode == WakeAudioMode.BUTTON) ButtonWakeWordProvider(applicationContext)
+            else OpenWakeWordProvider(applicationContext, (100f - sensitivity) / 100f, phrase, wakeAudioMode)
         }.getOrElse {
-            stopSession("No se pudo cargar el detector: ${it.message}")
+            stopSession("No se pudo preparar la activación: ${it.message}")
             return START_NOT_STICKY
         }
         detector = provider
@@ -217,7 +222,9 @@ class TripVoiceService : Service() {
         }
         armed = false
         val cycle = ++generation
-        TripTestState.status = "Preparando escucha de ‘${provider.phrase}’…"
+        TripTestState.status = if (wakeAudioMode == WakeAudioMode.BUTTON) {
+            "Restaurando música; esperando el botón del casco…"
+        } else "Preparando escucha de ‘${provider.phrase}’…"
         worker.execute {
             val result = provider.start { score ->
                 mainHandler.post { onDetected(provider, cycle, score) }
@@ -227,8 +234,10 @@ class TripVoiceService : Service() {
                 if (result.isFailure) {
                     stopSession("Falló la escucha: ${result.exceptionOrNull()?.message}")
                 } else {
-                    TripTestState.status = "Estabilizando audio; esperá un momento…"
-                    schedule(1_500L) {
+                    TripTestState.status = if (wakeAudioMode == WakeAudioMode.BUTTON) {
+                        "Comprobando que la música volvió a su salida normal…"
+                    } else "Estabilizando audio; esperá un momento…"
+                    schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 500L else 1_500L) {
                         armDetector(provider, cycle, 0)
                     }
                 }
@@ -238,6 +247,23 @@ class TripVoiceService : Service() {
 
     private fun armDetector(provider: WakeWordProvider, cycle: Int, retry: Int) {
         if (!active || detector !== provider || cycle != generation) return
+        if (wakeAudioMode == WakeAudioMode.BUTTON) {
+            if (!media.isMediaRouteReady()) {
+                if (retry < 12) schedule(500L) { armDetector(provider, cycle, retry + 1) }
+                else stopSession("Android no devolvió la música a su salida normal tras la orden.")
+                return
+            }
+            finishPendingVolume(bluetoothVoice = false)
+            val pausedBySpeech = if (speechLazy.isInitialized()) speech.cancel(resumePlayback = false) else false
+            val resume = pausedBySpeech || resumeAfterButtonRoute
+            resumeAfterButtonRoute = false
+            if (resume) runCatching { media.resumePlayback() }
+            armed = true
+            TripTestState.audioDuring = media.audioRouteDiagnostic()
+            TripTestState.status = "Esperando el botón del casco. Música por la salida normal; micrófono cerrado."
+            updateNotification("Esperando botón · música normal")
+            return
+        }
         val inputCheck = runCatching { (provider as OpenWakeWordProvider).wakeInputStatus() }
         if (inputCheck.isFailure) {
             val reason = inputCheck.exceptionOrNull()?.message.orEmpty()
@@ -250,34 +276,46 @@ class TripVoiceService : Service() {
             stopSession("El casco de voz cambió o se desconectó. Elegí el casco de música y reiniciá la sesión.")
             return
         }
-        // Ahora sí hay micrófono y ruta SCO verificados. Ejecutar aquí evita que
-        // la orden se aplique a Música durante el traspaso desde SpeechRecognizer.
-        val pendingVolume = pendingVolumeCommand
-        pendingVolumeCommand = null
-        if (pendingVolume != null) {
-            val action = if (pendingVolume.intent == TestIntent.VOLUME_UP) {
-                media.volumeUp(requireBluetoothCommunication = true)
-            } else media.volumeDown(requireBluetoothCommunication = true)
-            val change = action.getOrNull()
-            val atLimit = change != null && (if (pendingVolume.intent == TestIntent.VOLUME_UP) {
-                change.before >= change.maximum
-            } else change.before <= audioManager.getStreamMinVolume(change.stream))
-            if (change != null && change.after != change.before) TripTestState.actions++
-            else if (action.isFailure || !atLimit) TripTestState.failures++
-            val elapsed = SystemClock.elapsedRealtime() - pendingVolume.wakeAt
-            TripTestState.lastLatencyMs = elapsed
-            TripTestState.save(this)
-            val command = if (pendingVolume.intent == TestIntent.VOLUME_UP) "Subir volumen" else "Bajar volumen"
-            TripTestState.lastCommandResult = if (action.isSuccess) {
-                "${pendingVolume.source}: Escuché ‘${pendingVolume.heard}’; $command (${media.commandVolumeStatus(change)}) en $elapsed ms."
-            } else {
-                "${pendingVolume.source}: Escuché ‘${pendingVolume.heard}’, pero falló $command: ${action.exceptionOrNull()?.message ?: "error de Android"}."
-            }
-        }
+        finishPendingVolume(bluetoothVoice = wakeAudioMode == WakeAudioMode.BLUETOOTH)
         armed = true
         TripTestState.audioDuring = media.audioRouteDiagnostic()
         TripTestState.status = "Esperando ‘${provider.phrase}’ con pantalla apagada… ${inputCheck.getOrNull().orEmpty()}"
         updateNotification("Esperando ‘${provider.phrase}’")
+    }
+
+    private fun finishPendingVolume(bluetoothVoice: Boolean) {
+        val pending = pendingVolumeCommand ?: return
+        pendingVolumeCommand = null
+        val action = when (pending.intent) {
+            TestIntent.VOLUME_UP -> if (bluetoothVoice) media.volumeUp(requireBluetoothCommunication = true)
+                else media.adjustMusicAfterRoute(AudioManager.ADJUST_RAISE)
+            TestIntent.VOLUME_DOWN -> if (bluetoothVoice) media.volumeDown(requireBluetoothCommunication = true)
+                else media.adjustMusicAfterRoute(AudioManager.ADJUST_LOWER)
+            TestIntent.VOLUME_SET -> media.setRequestedVolume(checkNotNull(pending.requested), bluetoothVoice)
+            else -> return
+        }
+        val change = action.getOrNull()
+        val atLimit = change != null && when (pending.intent) {
+            TestIntent.VOLUME_UP -> change.before >= change.maximum
+            TestIntent.VOLUME_DOWN -> change.before <= audioManager.getStreamMinVolume(change.stream)
+            TestIntent.VOLUME_SET -> change.after == change.before && !change.fixed
+            else -> false
+        }
+        if (change != null && (change.after != change.before || atLimit)) TripTestState.actions++
+        else TripTestState.failures++
+        val elapsed = SystemClock.elapsedRealtime() - pending.wakeAt
+        TripTestState.lastLatencyMs = elapsed
+        TripTestState.save(this)
+        val command = when (pending.intent) {
+            TestIntent.VOLUME_UP -> "Subir volumen"
+            TestIntent.VOLUME_DOWN -> "Bajar volumen"
+            else -> "Fijar volumen"
+        }
+        TripTestState.lastCommandResult = if (action.isSuccess) {
+            "${pending.source}: Escuché ‘${pending.heard}’; $command (${media.commandVolumeStatus(change)}) en $elapsed ms."
+        } else {
+            "${pending.source}: Escuché ‘${pending.heard}’, pero falló $command: ${action.exceptionOrNull()?.message ?: "error de Android"}."
+        }
     }
 
     private fun onDetected(provider: WakeWordProvider, cycle: Int, score: Float) {
@@ -328,7 +366,7 @@ class TripVoiceService : Service() {
         val startedAt = SystemClock.elapsedRealtime()
         TripTestState.manualCommands++
         TripTestState.save(this)
-        TripTestState.status = "Botón del Y12 recibido; preparando orden…"
+        TripTestState.status = "Botón del casco recibido; preparando orden…"
         updateNotification("Preparando orden del botón")
         worker.execute {
             val paused = runCatching { provider.pause() }
@@ -337,12 +375,16 @@ class TripVoiceService : Service() {
                 if (paused.isFailure) {
                     stopSession("No se pudo liberar el micrófono: ${paused.exceptionOrNull()?.message}")
                 } else {
+                    if (wakeAudioMode == WakeAudioMode.BUTTON && !headsetRouteAvailable()) {
+                        stopSession("Android no activó el casco Bluetooth para la orden; micrófono cerrado.")
+                        return@post
+                    }
                     schedule(350L) {
                         if (active && detector === provider && cycle == generation) {
                             playHandoffTone()
                             schedule(400L) {
                                 if (active && detector === provider && cycle == generation) {
-                                    listenForCommand(provider, startedAt, "Y12")
+                                    listenForCommand(provider, startedAt, "Casco")
                                 }
                             }
                         }
@@ -367,30 +409,44 @@ class TripVoiceService : Service() {
         val cycle = generation
         speech.listenOnce(onState = { state ->
             if (active && cycle == generation && state == SpeechCaptureState.READY) {
-                TripTestState.lastWakeToSttMs = SystemClock.elapsedRealtime() - wakeAt
-                TripTestState.save(this)
-                TripTestState.status = "$source: reconocedor listo; decí música, volumen o ‘llama a [nombre]’."
-                updateNotification("$source · reconocedor listo; decí la orden")
+                val input = speech.activeInputDescription()
+                if (wakeAudioMode == WakeAudioMode.BUTTON &&
+                    input.contains("micrófono del teléfono") && !input.contains("Bluetooth")) {
+                    TripTestState.failures++
+                    TripTestState.save(this)
+                    resumeAfterButtonRoute = speech.cancel(resumePlayback = false)
+                    TripTestState.status = "Android abrió el micrófono del teléfono; orden cancelada. Restaurando música."
+                    TripTestState.lastCommandResult = TripTestState.status
+                    schedule(100L) { if (active && detector === provider && cycle == generation) startDetector(provider) }
+                } else {
+                    TripTestState.lastWakeToSttMs = SystemClock.elapsedRealtime() - wakeAt
+                    TripTestState.save(this)
+                    TripTestState.status = "$source: reconocedor listo; entrada: $input. Decí música, volumen o ‘llama a [nombre]’."
+                    updateNotification("$source · reconocedor listo; decí la orden")
+                }
             }
         }, playbackResumePolicy = { heard ->
             when (heard?.let(MinimalIntentRouter::resolve)) {
                 TestIntent.MEDIA_PAUSE -> PlaybackResumePolicy.KEEP_PAUSED
                 TestIntent.STOP_SESSION -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
-                else -> PlaybackResumePolicy.NOW
+                else -> if (wakeAudioMode == WakeAudioMode.BUTTON) {
+                    PlaybackResumePolicy.AFTER_ROUTE_RESTORED
+                } else PlaybackResumePolicy.NOW
             }
         }) { outcome ->
             if (!active || cycle != generation) return@listenOnce
             val heard = outcome.getOrNull()
             val intent = heard?.let(MinimalIntentRouter::resolve) ?: TestIntent.UNKNOWN
-            if (wakeAudioMode == WakeAudioMode.BLUETOOTH &&
-                (intent == TestIntent.VOLUME_UP || intent == TestIntent.VOLUME_DOWN)) {
+            if (intent == TestIntent.VOLUME_UP || intent == TestIntent.VOLUME_DOWN ||
+                intent == TestIntent.VOLUME_SET) {
                 TripTestState.recognized++
                 TripTestState.save(this)
-                pendingVolumeCommand = PendingVolumeCommand(intent, heard.orEmpty(), source, wakeAt)
-                TripTestState.status = "$source: Escuché ‘$heard’; restaurando el casco para ajustar volumen…"
+                pendingVolumeCommand = PendingVolumeCommand(intent, heard.orEmpty(), source, wakeAt,
+                    if (intent == TestIntent.VOLUME_SET) MinimalIntentRouter.requestedVolume(heard.orEmpty()) else null)
+                TripTestState.status = "$source: Escuché ‘$heard’; restaurando la ruta para ajustar volumen…"
                 TripTestState.lastCommandResult = TripTestState.status
                 updateNotification("$source · restaurando ruta de voz")
-                schedule(350L) {
+                schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 100L else 350L) {
                     if (active && detector === provider && cycle == generation) startDetector(provider)
                 }
                 return@listenOnce
@@ -425,7 +481,9 @@ class TripVoiceService : Service() {
                     TripTestState.save(this)
                     TripTestState.status = "Para llamar, elegí un contacto y concedé el permiso de teléfono desde APP antes del viaje."
                     updateNotification("Llamada sin configurar")
-                    schedule(3_500L) { if (active && detector === provider && cycle == generation) startDetector(provider) }
+                    schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 100L else 3_500L) {
+                        if (active && detector === provider && cycle == generation) startDetector(provider)
+                    }
                 } else requestCallConfirmation(provider, cycle, contact)
                 return@listenOnce
             }
@@ -483,7 +541,8 @@ class TripVoiceService : Service() {
             if (consecutiveFailures >= 2) {
                 stopSession("Dos activaciones sin orden válida; sesión detenida. ${TripTestState.status}")
             } else {
-                val delay = if (intent != TestIntent.UNKNOWN && outcome.isSuccess) 2_000L else 3_500L
+                val delay = if (wakeAudioMode == WakeAudioMode.BUTTON) 100L
+                    else if (intent != TestIntent.UNKNOWN && outcome.isSuccess) 2_000L else 3_500L
                 schedule(delay) { if (active && detector === provider && cycle == generation) startDetector(provider) }
             }
         }
@@ -653,10 +712,13 @@ class TripVoiceService : Service() {
         pendingTask = null
         // Conserva la intención de reproducción mientras se libera SCO. Una pausa pedida por
         // el usuario no aparece aquí y permanece pausada.
-        val pausedBySpeech = if (speechLazy.isInitialized()) speech.cancel(resumePlayback = false) else false
+        val pausedBySpeech = (if (speechLazy.isInitialized()) speech.cancel(resumePlayback = false) else false) ||
+            resumeAfterButtonRoute
+        resumeAfterButtonRoute = false
         val previous = detector
         detector = null
-        val pausedForRoute = if (previous != null) {
+        val pausedForRoute = if (previous != null &&
+            (wakeAudioMode != WakeAudioMode.BUTTON || !media.isMediaRouteReady())) {
             runCatching { media.pauseIfPlaying() }.getOrDefault(false)
         } else false
         val resumeAfterRoute = pausedBySpeech || pausedForRoute
@@ -723,14 +785,19 @@ class TripVoiceService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val stop = PendingIntent.getService(this, 1, Intent(this, TripVoiceService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-        return Notification.Builder(this, CHANNEL_ID)
+        val notice = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setContentTitle("APP · prueba de voz activa")
+            .setContentTitle(if (wakeAudioMode == WakeAudioMode.BUTTON) "APP · viaje por botón" else "APP · prueba de voz activa")
             .setContentText(detail)
             .setContentIntent(open)
             .setOngoing(true)
-            .addAction(android.R.drawable.ic_media_pause, "Detener", stop)
-            .build()
+        if (wakeAudioMode == WakeAudioMode.BUTTON) {
+            val listen = PendingIntent.getService(this, 2,
+                Intent(this, TripVoiceService::class.java).setAction(ACTION_MANUAL_COMMAND),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            notice.addAction(android.R.drawable.ic_btn_speak_now, "Escuchar orden", listen)
+        }
+        return notice.addAction(android.R.drawable.ic_media_pause, "Detener", stop).build()
     }
 
     private fun updateNotification(detail: String) {
