@@ -46,8 +46,10 @@ class AudioRouteProbe(private val context: Context) {
             communication?.let { output ->
                 inputs.firstOrNull {
                     it.type == output.type && it.address.isNotBlank() && it.address == output.address
-                } ?: inputs.singleOrNull { it.type == output.type }
-                    ?: inputs.firstOrNull { it.type == output.type }
+                } ?: inputs.singleOrNull {
+                    it.type == output.type &&
+                        (output.address.isBlank() || it.address.isBlank() || it.address == output.address)
+                }
             }
         } else inputs.firstOrNull()
         val requested = bluetoothInput?.label() ?: "Micrófono predeterminado"
@@ -101,7 +103,7 @@ class AudioRouteProbe(private val context: Context) {
             val rms = sqrt(sumSquares / count) / 32768.0
             val warning = when {
                 bluetoothInput == null && inputs.isNotEmpty() ->
-                    "Hay varios cascos Bluetooth. Elegí la salida de música de uno y repetí la prueba."
+                    "No se pudo asociar un micrófono con el casco de voz. Desconectá el otro casco y repetí la prueba."
                 bluetoothInput == null -> "No se detectó entrada Bluetooth. La prueba utilizó la ruta disponible."
                 Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !switched ->
                     "Android no confirmó la selección de comunicación del casco."
