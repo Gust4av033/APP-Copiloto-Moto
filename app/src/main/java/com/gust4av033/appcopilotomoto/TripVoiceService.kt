@@ -356,8 +356,18 @@ class TripVoiceService : Service() {
                 TestIntent.MEDIA_PREVIOUS -> media.previousTrack()
                 TestIntent.MEDIA_PLAY -> media.play()
                 TestIntent.MEDIA_PAUSE -> media.pause()
-                TestIntent.VOLUME_UP -> media.volumeUp()
-                TestIntent.VOLUME_DOWN -> media.volumeDown()
+                TestIntent.VOLUME_UP -> runCatching {
+                    if (wakeAudioMode == WakeAudioMode.BLUETOOTH) {
+                        (provider as OpenWakeWordProvider).restoreHeadsetRouteForCommand()
+                    }
+                    media.volumeUp(requireBluetoothCommunication = wakeAudioMode == WakeAudioMode.BLUETOOTH).getOrThrow()
+                }
+                TestIntent.VOLUME_DOWN -> runCatching {
+                    if (wakeAudioMode == WakeAudioMode.BLUETOOTH) {
+                        (provider as OpenWakeWordProvider).restoreHeadsetRouteForCommand()
+                    }
+                    media.volumeDown(requireBluetoothCommunication = wakeAudioMode == WakeAudioMode.BLUETOOTH).getOrThrow()
+                }
                 else -> null
             }
             val elapsed = SystemClock.elapsedRealtime() - wakeAt
@@ -427,7 +437,7 @@ class TripVoiceService : Service() {
                         else -> "Orden"
                     }
                     if (mediaAction.isSuccess) "Escuché ‘$heard’; $command en $elapsed ms."
-                    else "Escuché ‘$heard’, pero falló el envío de $command."
+                    else "Escuché ‘$heard’, pero falló $command: ${mediaAction.exceptionOrNull()?.message ?: "error de Android"}."
                 }
                 intent == TestIntent.CANCEL -> "Escuché ‘$heard’; orden cancelada."
                 intent == TestIntent.STOP_TTS -> "Escuché ‘$heard’; Silencio reconocido (sin TTS activo)."
