@@ -30,6 +30,14 @@ APP elige ahora la ruta de comunicación relacionada con la salida multimedia ob
 
 Si los Skullcandy también muestran SCO, la limitación continúa para la escucha permanente desde el casco. Si muestran LE Audio en salida **y** entrada real, se evaluarán calidad, intensidad y reconocimiento antes de llamar estable a esa ruta.
 
+## Prueba del volumen y cambio de casco (2026-09-29)
+
+Con la moto detenida, poné música a un nivel medio, por ejemplo 7/15, antes de iniciar Modo Viaje. No comiences en 15/15: una orden de subir no puede superar el máximo. Al decir «Alexa, bajar volumen» y luego «Alexa, subir volumen», APP debe mostrar el nivel multimedia anterior y posterior, además del nivel de comunicación. La orden modifica música, incluso cuando el casco funciona en SCO; no sube automáticamente el volumen de llamadas ni amplifica el audio de otra aplicación. Si el número de música cambia pero la intensidad en el casco no cambia, anotá «cambia nivel, no sonido»: es un resultado distinto de «Android no cambió el nivel». Repetí fuera de Modo Viaje con la prueba de orden corta.
+
+Para comparar Y12 Pro con Skullcandy, detené primero la sesión, elegí la salida de música en el panel de Android y volvé a iniciar. En «Rutas casco disponibles», «Ruta comunicación» y «Salida música prevista» anotá nombre, perfil e ID temporal mostrado por APP. Si ambos cascos están conectados y Android no informa una correspondencia inequívoca, APP debe evitar escoger uno arbitrariamente; desconectá el otro para esa prueba. Si se pierde la ruta del casco durante la sesión, APP la detiene para no pasar a un micrófono distinto sin aviso. La selección manual de cascos y la prueba de combinaciones cruzadas quedan para la tarjeta de dispositivos en Base UI.
+
+Registrar para cada casco: salida elegida por Android; ruta de comunicación e ID; entrada real de la prueba de cinco segundos; música antes/durante/después; comunicación antes/durante/después; nivel tras cada orden; variación audible (sí/no); claridad (1–5); activaciones y órdenes correctas (de diez). La prueba de cinco segundos verifica su propia grabación, no sustituye la observación de Alexa durante la sesión.
+
 ## Ajustes del Galaxy a comprobar sin cambiar APP
 
 - Verificar en **Ajustes → Sonidos y vibración → Volumen → Límite de volumen multimedia** si hay un límite activo. Comparar solo si efectivamente está habilitado; 15/15 por sí solo no demuestra que exista.
