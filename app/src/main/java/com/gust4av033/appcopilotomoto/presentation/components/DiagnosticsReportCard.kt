@@ -79,6 +79,7 @@ fun DiagnosticsReportCard(state: CopilotUiState, actions: CopilotActions) {
                     it.warning?.let { warning -> appendLine(warning) }
                 }
                 appendLine("Última orden: ${state.lastCommandResult}")
+                state.notificationAppLabel?.let { appendLine("Acceso preparado en notificación: $it") }
                 appendLine(reportMetrics)
                 appendLine("Voz: ${state.metrics.detections}; manuales: ${state.metrics.manualCommands}; transcripciones: ${state.metrics.recognized}")
                 appendLine("Solicitudes: ${state.metrics.actions}; fallos: ${state.metrics.failures}; latencia: ${state.metrics.totalLatencyMs} ms")

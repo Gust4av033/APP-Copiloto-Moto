@@ -24,6 +24,7 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotScreen
 import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 import com.gust4av033.appcopilotomoto.presentation.components.ActionButton
 import com.gust4av033.appcopilotomoto.presentation.components.ActivationSummary
+import com.gust4av033.appcopilotomoto.presentation.components.PreparedAppNotice
 import com.gust4av033.appcopilotomoto.presentation.components.SectionCard
 import com.gust4av033.appcopilotomoto.presentation.components.SessionStatus
 import com.gust4av033.appcopilotomoto.presentation.components.SupportingText
@@ -47,6 +48,7 @@ fun HomeScreen(state: CopilotUiState, actions: CopilotActions, onNavigate: (Copi
         if (state.restoringAudio) SupportingText(stringResource(R.string.devices_restoring))
         else if (state.busy && !state.tripActive) SupportingText(stringResource(R.string.home_test_active))
     }
+    state.notificationAppLabel?.let { PreparedAppNotice(it) }
     SectionCard(stringResource(R.string.home_setup)) {
         if (!state.buttonMode) Text(stringResource(R.string.trip_activation, state.phraseLabel))
         val inputTitle = state.inputs.firstOrNull { it.id == state.inputId }?.titleRes
@@ -70,6 +72,11 @@ fun HomeScreen(state: CopilotUiState, actions: CopilotActions, onNavigate: (Copi
             stringResource(if (state.busy && !state.tripActive) R.string.home_open_test else R.string.home_check_headset),
             onClick = { onNavigate(CopilotScreen.TESTS) }
         )
+    }
+    SectionCard(stringResource(R.string.home_command_core)) {
+        SupportingText(stringResource(R.string.home_command_core_hint))
+        ActionButton(stringResource(R.string.home_view_commands), onClick = { onNavigate(CopilotScreen.TRIP) })
+        ActionButton(stringResource(R.string.phrase_check_title), onClick = { onNavigate(CopilotScreen.TESTS) })
     }
     SectionCard(stringResource(R.string.home_next_modules)) {
         SupportingText(stringResource(R.string.home_next_hint))

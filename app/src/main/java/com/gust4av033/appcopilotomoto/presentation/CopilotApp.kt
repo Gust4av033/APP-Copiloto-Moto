@@ -37,6 +37,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.gust4av033.appcopilotomoto.R
+import com.gust4av033.appcopilotomoto.MinimalIntentRouter
 import com.gust4av033.appcopilotomoto.presentation.screens.HomeScreen
 import com.gust4av033.appcopilotomoto.presentation.screens.SettingsScreen
 import com.gust4av033.appcopilotomoto.presentation.screens.TestsScreen
@@ -256,4 +257,15 @@ private fun RestoringPreview() {
 @Composable
 private fun ButtonSettingsPreview() {
     CopilotApp(PreviewState.copy(inputId = "BUTTON", audioDevices = PreviewDevices), CopilotScreen.SETTINGS, {}, CopilotActions())
+}
+
+@Preview(name = "Fase 1: aplicación preparada", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Preview(name = "Fase 1: aplicación texto grande", showBackground = true, widthDp = 360, heightDp = 800,
+    locale = "es", fontScale = 1.5f)
+@Composable
+private fun PreparedAppPreview() {
+    CopilotApp(PreviewState.copy(inputId = "BUTTON", tripActive = true, commandReady = true,
+        notificationAppLabel = "Spotify", lastTripCommand = MinimalIntentRouter.route("abre Spotify").toCommandUi(),
+        lastCommandResult = "Encontré Spotify. Tocá la acción de la notificación para abrirla.",
+        audioDevices = PreviewDevices), CopilotScreen.TRIP, {}, CopilotActions())
 }

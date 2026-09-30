@@ -24,6 +24,9 @@ import com.gust4av033.appcopilotomoto.presentation.components.ActionButton
 import com.gust4av033.appcopilotomoto.presentation.components.ActivationSummary
 import com.gust4av033.appcopilotomoto.presentation.components.AudioLevels
 import com.gust4av033.appcopilotomoto.presentation.components.DiagnosticsReportCard
+import com.gust4av033.appcopilotomoto.presentation.components.CommandInterpretation
+import com.gust4av033.appcopilotomoto.presentation.components.CommandPhraseTestCard
+import com.gust4av033.appcopilotomoto.presentation.components.PreparedAppNotice
 import com.gust4av033.appcopilotomoto.presentation.components.AudioDevicesCard
 import com.gust4av033.appcopilotomoto.presentation.components.ChoiceGroup
 import com.gust4av033.appcopilotomoto.presentation.components.SectionCard
@@ -54,8 +57,13 @@ fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -
         }
     }
     SectionCard(stringResource(R.string.trip_last_result)) {
+        state.lastTripCommand?.let {
+            SupportingText(stringResource(R.string.command_interpreted))
+            CommandInterpretation(it)
+        }
         SupportingText(state.lastCommandResult.ifBlank { stringResource(R.string.no_command_result) })
     }
+    state.notificationAppLabel?.let { PreparedAppNotice(it) }
     SectionCard(stringResource(R.string.trip_audio_check)) {
         SupportingText(stringResource(R.string.trip_audio_check_hint))
         AudioLevels(state)
@@ -83,6 +91,7 @@ fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -
             else stringResource(R.string.commands_voice_intro, state.phraseLabel))
         Text(stringResource(R.string.commands_music))
         Text(stringResource(R.string.commands_volume))
+        Text(stringResource(R.string.commands_apps))
         Text(stringResource(R.string.commands_call))
         Text(stringResource(R.string.commands_cancel))
         SupportingText(stringResource(R.string.commands_stop))
@@ -121,6 +130,7 @@ private fun Metric(value: Int, label: String, modifier: Modifier) {
 fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
     SupportingText(stringResource(R.string.tests_intro))
     if (state.tripActive) SupportingText(stringResource(R.string.tests_trip_active))
+    CommandPhraseTestCard()
     AudioDevicesCard(state, actions)
     DiagnosticsReportCard(state, actions)
     SectionCard(stringResource(R.string.tests_volume_title)) {
@@ -143,6 +153,10 @@ fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
             primary = true,
             onClick = actions.onToggleListening
         )
+        state.lastTestCommand?.let {
+            SupportingText(stringResource(R.string.command_interpreted))
+            CommandInterpretation(it)
+        }
         SupportingText(state.voiceMessage)
     }
     SectionCard(stringResource(R.string.tests_microphone)) {

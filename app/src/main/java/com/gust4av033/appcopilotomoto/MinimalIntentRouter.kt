@@ -3,9 +3,15 @@ package com.gust4av033.appcopilotomoto
 import java.text.Normalizer
 import java.util.Locale
 
-enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, UNKNOWN }
+enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, OPEN_APP, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, UNKNOWN }
 
 data class VolumeRequest(val amount: Int, val percent: Boolean)
+data class RoutedCommand(
+    val intent: TestIntent,
+    val volume: VolumeRequest? = null,
+    val contactName: String? = null,
+    val appName: String? = null
+)
 
 /** Las órdenes claras pasan por reglas locales; una frase desconocida no ejecuta nada. */
 object MinimalIntentRouter {
@@ -15,9 +21,14 @@ object MinimalIntentRouter {
             .replace(Regex("[^a-z0-9 ]"), " ")
             .replace(Regex("\\s+"), " ").trim()
 
+    private fun commandText(transcript: String): String = normalize(transcript)
+        .replace(Regex("^(?:por favor |puedes |podrias |quiero que )+"), "")
+        .replace(Regex("(?: por favor| gracias)+$"), "")
+        .trim()
+
     /** Porcentaje explícito (0-100) o índice del control de Android (0-15). */
     fun requestedVolume(transcript: String): VolumeRequest? {
-        val text = normalize(transcript)
+        val text = commandText(transcript)
         val percent = transcript.contains('%') || text.endsWith(" por ciento") || text.endsWith(" porciento")
         val withoutPercent = text.removeSuffix(" por ciento").removeSuffix(" porciento")
         val number = Regex("^(?:(?:pon|pone|poner|ajusta|ajustar|fija|establece) )?(?:el )?volumen(?: (?:a|al|en))? ([a-z0-9 ]+)$")
@@ -47,30 +58,47 @@ object MinimalIntentRouter {
     }
 
     fun requestedContact(transcript: String): String? {
-        val spoken = normalize(transcript)
+        val spoken = commandText(transcript)
         val prefix = listOf("llama a ", "llamar a ", "haz una llamada a ", "hacer una llamada a ")
             .firstOrNull { spoken.startsWith(it) } ?: return null
         return spoken.removePrefix(prefix).takeIf { it.length >= 2 && it.any(Char::isLetter) }
     }
 
-    fun resolve(transcript: String): TestIntent {
-        val normalized = normalize(transcript)
-        return when {
+    fun requestedApp(transcript: String): String? {
+        val spoken = commandText(transcript)
+        val prefix = listOf("abre la aplicacion ", "abrir la aplicacion ", "abre ", "abrir ",
+            "inicia ", "iniciar ", "lanza ", "lanzar ")
+            .firstOrNull { spoken.startsWith(it) } ?: return null
+        return spoken.removePrefix(prefix).takeIf { it.length >= 2 && it.any(Char::isLetter) }
+    }
+
+    fun route(transcript: String): RoutedCommand {
+        val normalized = commandText(transcript)
+        val volume = requestedVolume(transcript)
+        val contact = requestedContact(transcript)
+        val app = requestedApp(transcript)
+        val intent = when {
             normalized in setOf("detener sesion", "terminar sesion", "finalizar sesion") -> TestIntent.STOP_SESSION
             normalized in setOf("callate", "silencio", "deja de hablar", "para de hablar") -> TestIntent.STOP_TTS
             normalized in setOf("cancelar", "cancela", "olvidalo",
                 "cancelar cancelar", "cancela cancela", "cancelar cancela", "cancela cancelar") -> TestIntent.CANCEL
             normalized in setOf("confirmar llamada", "confirma llamada", "llamar ahora") -> TestIntent.CONFIRM_CALL
             normalized in setOf("llamar", "hacer llamada", "llamar al contacto", "llama al contacto") -> TestIntent.CALL_SELECTED
-            requestedContact(transcript) != null -> TestIntent.CALL_NAMED
-            requestedVolume(transcript) != null -> TestIntent.VOLUME_SET
-            normalized in setOf("subir volumen", "sube volumen", "sube el volumen", "subir el volumen", "mas volumen", "volumen mas alto") -> TestIntent.VOLUME_UP
-            normalized in setOf("bajar volumen", "baja volumen", "baja el volumen", "bajar el volumen", "menos volumen", "volumen mas bajo") -> TestIntent.VOLUME_DOWN
-            normalized in setOf("siguiente cancion", "siguiente pista", "pon la siguiente", "pasa a la siguiente", "salta la cancion", "siguiente", "next") -> TestIntent.MEDIA_NEXT
-            normalized in setOf("anterior cancion", "cancion anterior", "pista anterior", "anterior pista", "pon la anterior", "pasa a la anterior", "anterior", "previous") -> TestIntent.MEDIA_PREVIOUS
-            normalized in setOf("reanudar", "reanuda", "reproducir", "reproduce", "play", "continuar musica", "pon la musica") -> TestIntent.MEDIA_PLAY
-            normalized in setOf("pausa", "pausar", "pon pausa", "detener", "detener musica", "para la musica") -> TestIntent.MEDIA_PAUSE
+            contact != null -> TestIntent.CALL_NAMED
+            volume != null -> TestIntent.VOLUME_SET
+            app != null -> TestIntent.OPEN_APP
+            normalized in setOf("subir volumen", "sube volumen", "sube el volumen", "subir el volumen", "mas volumen", "volumen mas alto", "aumenta el volumen", "aumentar volumen") -> TestIntent.VOLUME_UP
+            normalized in setOf("bajar volumen", "baja volumen", "baja el volumen", "bajar el volumen", "menos volumen", "volumen mas bajo", "reduce el volumen", "disminuye el volumen") -> TestIntent.VOLUME_DOWN
+            normalized in setOf("siguiente cancion", "siguiente pista", "pon la siguiente", "pasa a la siguiente", "salta la cancion", "siguiente", "next", "cambia a la siguiente cancion", "pasa de cancion") -> TestIntent.MEDIA_NEXT
+            normalized in setOf("anterior cancion", "cancion anterior", "pista anterior", "anterior pista", "pon la anterior", "pasa a la anterior", "anterior", "previous", "regresa a la cancion anterior") -> TestIntent.MEDIA_PREVIOUS
+            normalized in setOf("reanudar", "reanuda", "reproducir", "reproduce", "play", "continuar musica", "pon la musica", "sigue la musica", "continua la musica") -> TestIntent.MEDIA_PLAY
+            normalized in setOf("pausa", "pausar", "pon pausa", "detener", "detener musica", "para la musica", "pausa la musica", "pon la musica en pausa") -> TestIntent.MEDIA_PAUSE
             else -> TestIntent.UNKNOWN
         }
+        return RoutedCommand(intent, if (intent == TestIntent.VOLUME_SET) volume else null,
+            if (intent == TestIntent.CALL_NAMED) contact else null,
+            if (intent == TestIntent.OPEN_APP) app else null)
     }
+
+    fun resolve(transcript: String): TestIntent = route(transcript).intent
 }

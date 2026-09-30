@@ -4,7 +4,7 @@ La base visual avanza en paralelo con la validación de fase 0. Inicio reúne el
 
 ## Punto de partida
 
-- Audio y pruebas de campo: `feature/fase-0-audio-bluetooth` (incluye los cambios de 0.3).
+- Núcleo actual: `feature/fase-1-intent-router`, basado en fase 0. Audio previo y pruebas de campo: `feature/fase-0-audio-bluetooth`.
 - Interfaz: `feature/ui-base-compose`, creada desde el commit `1f01daabd6f17c0be53da3f4a94f6ce67af6c98c` de la rama de audio.
 - La primera tarjeta de dispositivos partió de `eae37dcc9bbc917f5d92b383330e932ebcbce128`. La actualización UI audio 02 parte de `e6419d5c88872ccaa27e163d274fd1eb2df25145`, como se detalla abajo.
 - Acuerdo del chat 0.1: Alexa sigue como activación principal; los toques cortos del Y12 siguen disponibles para siguiente/anterior canción y la pulsación larga queda como respaldo.
@@ -12,7 +12,29 @@ La base visual avanza en paralelo con la validación de fase 0. Inicio reúne el
 
 El Documento 03 propone Compose y separación de presentación/runtime. Aunque la UI completa aparece más adelante en el plan original, el acuerdo actual permite adelantar esta base para apoyar las pruebas y moldear la presentación del producto. Mi Moto, preparación e historial tienen espacios informativos marcados como próximos; sus funciones, navegación, SOS, cuentas y memoria siguen pendientes.
 
-## Actualización UI audio 02 — 30 septiembre 2026
+## Actualización UI comandos 01 — fase 1
+
+La entrega anterior UI audio 02 partió de fase 0. Esta actualización integra realmente `feature/fase-1-intent-router` en `f307b9d9c9088128871412ed52fdf4f579330d56`, conservando las mejoras publicadas en la UI como `7dea2c6`. La cabecera ahora muestra **Fase 1 · Núcleo de comandos · UI comandos 01**. No se infiere la fase a partir del número del PR.
+
+- Se incluyen el router con parámetros, `MediaCommandExecutor`, `AppLaunchAdapter`, las consultas de lanzador del manifiesto y las pruebas de fase 1. La sesión mantiene las rutas y la recuperación de audio existentes.
+- Inicio muestra el alcance disponible y accesos a la guía y comprobación de frases. Viaje incorpora las formas naturales de música y la guía de abrir apps.
+- Pruebas añade **Comprobar una frase**: interpreta texto mediante el mismo `MinimalIntentRouter.route` que la voz y muestra la acción y sus parámetros. No ejecuta órdenes ni comprueba instalación, permisos o destinatarios. La frase escrita se conserva al rotar o volver a la pantalla.
+- La orden real interpretada se muestra en Viaje y en la prueba de voz visible. Es una proyección del `RoutedCommand` que ya produjo el runtime; no se vuelve a interpretar la transcripción para dibujar el resultado.
+- Inicio y Viaje muestran el nombre del acceso de app preparado por el servicio. El usuario lo abre desde la notificación del viaje, tal como implementa fase 1; no se promete abrir una pantalla automáticamente desde segundo plano. Al detener/iniciar sesión o sustituir la app preparada, la indicación sigue el mismo valor del servicio.
+- `CommandUi.kt` traduce las intenciones y parámetros a recursos de presentación. La observación de la orden y la app preparada no cambia sus condiciones de ejecución ni la confirmación de llamadas.
+- El PR de esta actualización apunta a `feature/fase-1-intent-router`. El trabajo de núcleo continúa en esa rama y el de presentación en `feature/ui-base-compose`.
+
+### Prueba específica de fase 1 en S22+
+
+1. Confirmar **UI comandos 01**. En Pruebas escribir `por favor, pasa de canción`, `detener`, `detener sesión`, `volumen al 40 por ciento`, `volumen a 6`, `volumen al 80` y `abre Spotify`. Comprobar acción y parámetros; `volumen al 80` debe quedar sin orden admitida. Escribir no debe cambiar música ni abrir apps.
+2. Usar la prueba de orden corta para `pon la música en pausa`, `reanudar` y `abre [nombre exacto de una app instalada]`. Comprobar la orden interpretada y el resultado real.
+3. Iniciar viaje en el modo elegido y pedir `abre [nombre exacto]`. Ver el acceso en Inicio/Viaje y en la notificación; abrirlo desde esa notificación. La sesión debe seguir disponible según el flujo de fase 1. Detener debe quitar la indicación del acceso preparado.
+4. Repetir música, volumen, cancelar, silencio y detener sesión con ambos modos de activación. Verificar botón y notificación con pantalla bloqueada; la UI conserva la disponibilidad y restauración de audio anteriores.
+5. Revisar texto grande y temas claro/oscuro, incluyendo frase escrita, parámetros y nombres largos de app. Las llamadas se conservan con su protocolo de confirmación; esta entrega no modifica el destinatario ni envía mensajes.
+
+Verificación local: `assembleDebug`, `lintDebug` y `testDebugUnitTest` completados. Once pruebas existentes aprobadas (seis de identidad de casco, dos de volumen y tres del router). Lint: cero errores, 29 advertencias y ocho sugerencias. Revisión visual, apertura de apps, notificación y Bluetooth pendientes en el S22+. La comprobación por texto interpreta la frase y no acredita ejecución ni aciertos de reconocimiento por voz.
+
+## Historial: actualización UI audio 02 — 30 septiembre 2026
 
 Base publicada: `e6419d5c88872ccaa27e163d274fd1eb2df25145`, compartida por audio y UI antes de esta entrega. Incluye modo botón con espera de ruta Bluetooth hasta tres segundos, recuperación de música tras fallos y volumen por nivel/porcentaje. La modificación del audio sigue perteneciendo a 0.1: en voz desde el casco se ajusta Comunicación; en botón se ajusta Música al restaurar la ruta. Esta UI no asegura que Comunicación sea audible en el S22+.
 
@@ -82,9 +104,9 @@ Los textos de estado y errores que genera el runtime siguen llegando en español
 ## Coordinación con el trabajo de audio
 
 1. Los cambios visuales se concentran en `presentation/` y recursos.
-2. Las correcciones de audio siguen en `feature/fase-0-audio-bluetooth`. Al incorporar nuevas señales, actualizar únicamente el puente `AppUi()` y el contrato de estado necesario.
-3. Antes de probar juntos cambios nuevos de audio y UI, integrar la última rama de audio en la rama de UI y resolver explícitamente cualquier conflicto de `MainActivity`.
-4. El PR de UI apunta a `feature/fase-0-audio-bluetooth`. Validar primero en el teléfono; integrar en `main` según el cierre del trabajo de fase 0.
+2. El núcleo actual se desarrolla en `feature/fase-1-intent-router`; fase 0 conserva la base de audio anterior. Al incorporar nuevas señales, actualizar el puente `AppUi()` y el contrato de estado necesario.
+3. Antes de probar nuevos cambios de núcleo y UI, integrar fase 1 en la rama visual y resolver explícitamente los conflictos, especialmente en `MainActivity` y `TripVoiceService`.
+4. El PR actual de UI apunta a `feature/fase-1-intent-router`. Validar en el teléfono antes de integrarlo; la publicación de UI no acredita por sí sola el cierre de una fase.
 
 No se asume sincronización automática entre chats. Este archivo registra el punto de partida y las reglas para que ambos trabajos puedan retomarse desde el código publicado.
 

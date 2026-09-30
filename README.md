@@ -1,6 +1,6 @@
 # APP Copiloto Moto
 
-Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta rama contiene Inicio, Viaje y Ajustes sobre el prototipo de fase 0: activación, audio Bluetooth, órdenes multimedia, volumen y llamadas con confirmación. Pruebas y diagnóstico se abren desde estas pantallas. Inicio prepara la presentación de Mi Moto, Preparar viaje y Mis viajes como módulos próximos. La estabilidad del audio sigue en validación con hardware real.
+Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta rama contiene Inicio, Viaje y Ajustes sobre el núcleo de fase 1: interpretación de comandos, activación, audio Bluetooth, multimedia, volumen, apertura de aplicaciones y llamadas con confirmación. Pruebas permite comprobar frases por texto y probar su ejecución por voz. Inicio prepara Mi Moto, Preparar viaje y Mis viajes como módulos próximos. Audio y comportamiento Android se validan con hardware real.
 
 En Ajustes y Pruebas, **Dispositivos de audio** permite elegir el casco de comunicación o mantener Automático. Muestra salida musical prevista, ruta de voz, niveles y la última entrada medida por separado. La salida de música de otras apps se elige en Android. Los cambios y nuevas capturas quedan bloqueados durante el viaje y la restauración del audio. Ver el protocolo de comparación en `docs/PRUEBA_AUDIO_PERFILES_Y12_SKULLCANDY.md`.
 
@@ -29,8 +29,9 @@ La arquitectura prevista conserva límites entre `presentation`, `application`, 
 
 ## Documentación y trabajo en Git
 
-- `docs/UI_BASE.md`: alcance de la interfaz, estructura, coordinación con fase 0 y comprobaciones en el teléfono.
+- `docs/UI_BASE.md`: alcance de la interfaz, estructura, integración con fase 1 y comprobaciones en el teléfono.
 - `docs/FASE_0.md`: objetivo, validación y orden de implementación.
+- `docs/FASE_1.md`: primera entrega del núcleo de comandos y su prueba en el S22+.
 - `docs/referencias/`: documentos originales del proyecto. La especificación V4, los requisitos y la arquitectura son la línea base. El registro de modificaciones aprobadas complementa los documentos base según su regla de precedencia. Las indicaciones iniciales se conservan como antecedente.
 - `main` es la base estable. Para un cambio grande, crear una rama `feature/nombre`; probar en el teléfono y fusionar mediante PR. Borrar la rama temporal tras integrar.
 - No incluir claves, tokens, firmados, `local.properties`, grabaciones personales ni datos de viajes en Git.
