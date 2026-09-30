@@ -37,8 +37,19 @@ class AudioRouteProbe(private val context: Context) {
         val minimum = AudioRecord.getMinBufferSize(sampleRate, channel, encoding)
         require(minimum > 0) { "No se pudo configurar la captura de audio." }
 
-        val bluetoothInput = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
-            .firstOrNull { it.type == AudioDeviceInfo.TYPE_BLE_HEADSET || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
+        val inputs = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
+            .filter { it.type == AudioDeviceInfo.TYPE_BLE_HEADSET || it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO }
+        val communication = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            BluetoothAudioRouteSelector.communicationHeadset(audioManager)
+        } else null
+        val bluetoothInput = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            communication?.let { output ->
+                inputs.firstOrNull {
+                    it.type == output.type && it.address.isNotBlank() && it.address == output.address
+                } ?: inputs.singleOrNull { it.type == output.type }
+                    ?: inputs.firstOrNull { it.type == output.type }
+            }
+        } else inputs.firstOrNull()
         val requested = bluetoothInput?.label() ?: "Micrófono predeterminado"
         val oldMode = audioManager.mode
         var switched = false
@@ -47,13 +58,8 @@ class AudioRouteProbe(private val context: Context) {
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && bluetoothInput != null) {
                 audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
-                val communicationDevice = audioManager.availableCommunicationDevices
-                    .firstOrNull { it.id == bluetoothInput.id }
-                    ?: audioManager.availableCommunicationDevices.firstOrNull {
-                        it.type == bluetoothInput.type
-                    }
-                if (communicationDevice != null) {
-                    switched = audioManager.setCommunicationDevice(communicationDevice)
+                if (communication != null) {
+                    switched = audioManager.setCommunicationDevice(communication)
                 }
             }
 
@@ -94,7 +100,11 @@ class AudioRouteProbe(private val context: Context) {
             } else "Salida predeterminada"
             val rms = sqrt(sumSquares / count) / 32768.0
             val warning = when {
+                bluetoothInput == null && inputs.isNotEmpty() ->
+                    "Hay varios cascos Bluetooth. Elegí la salida de música de uno y repetí la prueba."
                 bluetoothInput == null -> "No se detectó entrada Bluetooth. La prueba utilizó la ruta disponible."
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && !switched ->
+                    "Android no confirmó la selección de comunicación del casco."
                 routedDevice?.id != bluetoothInput.id -> "Android no confirmó el micrófono Bluetooth solicitado."
                 rms < 0.001 -> "La señal fue muy baja: revisá el micrófono o repetí la prueba hablando."
                 else -> null
