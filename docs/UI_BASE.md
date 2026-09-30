@@ -6,7 +6,7 @@ La base visual avanza en paralelo con la validación de fase 0. Inicio reúne el
 
 - Audio y pruebas de campo: `feature/fase-0-audio-bluetooth` (incluye los cambios de 0.3).
 - Interfaz: `feature/ui-base-compose`, creada desde el commit `1f01daabd6f17c0be53da3f4a94f6ce67af6c98c` de la rama de audio.
-- Estado integrado: fase 0 hasta `8f80d0edbda961bc81c7a906b7a5f2378bfcf905`, incorporada a la UI por el merge `25c8d6caab8556f86f957f18dab11bc6fb56a504`. El servicio y los proveedores conservan ese flujo, con diagnóstico automático antes/durante/después.
+- Estado integrado para esta entrega: audio y UI coincidían en `eae37dcc9bbc917f5d92b383330e932ebcbce128`. Incluye restauración de música al cerrar, asociación automática de casco, volumen sobre `STREAM_MUSIC`, supervisión de desconexiones y comprobación del micrófono de Alexa mediante una API pública. La tarjeta de dispositivos amplía esa base.
 - Acuerdo del chat 0.1: Alexa sigue como activación principal; los toques cortos del Y12 siguen disponibles para siguiente/anterior canción y la pulsación larga queda como respaldo.
 - Continúa pendiente validar el volumen bajo al iniciar el viaje, la calidad de Bluetooth, activaciones y estabilidad en el S22+ con el Y12. Esta UI no cierra fase 0.
 
@@ -18,8 +18,8 @@ El Documento 03 propone Compose y separación de presentación/runtime. Aunque l
 | --- | --- |
 | Inicio | Estado real, iniciar/abrir el viaje, configuración actual, acceso a pruebas y módulos próximos. |
 | Viaje | Estado real de la sesión, iniciar/detener, última orden, comparación automática de audio desplegable, guía breve y métricas. |
-| Pruebas | Ruta secundaria con diagnóstico de niveles, orden corta, medición de micrófono, detector con APP visible y selección de asistente para Y12. |
-| Ajustes | Frases con modelo disponible, sensibilidad, entrada de activación y configuración de llamadas existente. |
+| Pruebas | Dispositivos de audio, protocolo de comparación de volumen/cascos, diagnóstico de niveles, orden corta, medición de micrófono, detector con APP visible y selección de asistente para Y12. |
+| Ajustes | Frases con modelo disponible, sensibilidad, entrada de activación, selección de casco y configuración de llamadas existente. |
 
 La navegación inferior contiene Inicio, Viaje y Ajustes. Cambiar de pantalla no inicia ni detiene audio. Pruebas recuerda si se abrió desde Inicio, Viaje o Ajustes y vuelve a esa pantalla; Atrás desde las pantallas principales vuelve a Inicio. Durante una sesión aparece un acceso permanente para volver a Viaje desde otras pantallas. El diagnóstico de niveles puede consultarse durante el viaje; las pruebas que abren el micrófono y los cambios de configuración quedan bloqueados cuando el runtime ya está ocupado.
 
@@ -48,7 +48,7 @@ No se muestran kilómetros, ETA, nivel de combustible, clima, recorridos ni cont
 | `res/values/ui_strings.xml` | Textos nuevos de la interfaz, preparados para traducción. |
 | `MainActivity.AppUi()` | Puente pequeño entre los datos/acciones actuales y Compose. |
 
-El estado de sesión continúa perteneciendo a `TripVoiceService`/`TripTestState`. La pantalla recibe un snapshot y callbacks; no crea proveedores. Los métodos de pruebas, audio, reconocimiento y llamadas conservan su implementación. No se añaden dependencias Gradle ni permisos.
+El estado de sesión continúa perteneciendo a `TripVoiceService`/`TripTestState`. La pantalla recibe un snapshot y callbacks; no crea proveedores. La selección manual se añade al selector Bluetooth compartido; la medición y el monitor del viaje rechazan una selección explícita desaparecida. No se añaden permisos ni dependencias de ejecución. JUnit se añade solo para comprobar la identidad de la selección en pruebas locales.
 
 Durante lint se encontraron tres errores ya presentes en la base: dos llamadas de API 31 dentro de `selectHeadset()` y la falta de una declaración de telefonía opcional en el manifiesto. Se documentó el requisito de API de ese método, cuyos llamadores ya verifican Android 12, y se declaró `android.hardware.telephony` como opcional. Son declaraciones de compatibilidad; no cambian la selección de ruta ni los comandos.
 
@@ -101,3 +101,32 @@ Compilación y análisis local:
 La primera entrega de esta base pasó `assembleDebug` y `lintDebug`, con cero errores de lint. Persisten advertencias del prototipo, entre ellas compatibilidad de las bibliotecas nativas ONNX con páginas de 16 KB y actualizaciones de dependencias disponibles. No se actualizaron motores ni librerías en esta entrega. La revisión visual en el S22+ y las pruebas de Bluetooth siguen pendientes.
 
 La entrega sincronizada con Inicio y los espacios de próximos módulos también pasó `clean`, `assembleDebug` y `lintDebug`: cero errores, 22 advertencias y 8 sugerencias del prototipo. Se comprobó que `TripVoiceService` coincide con la fase 0 vigente y que los métodos de voz/audio/llamadas de la Activity se conservaron. La nueva navegación requiere revisión en el teléfono.
+
+## Tarjeta de dispositivos sobre el avance de 0.1
+
+- Ajustes y Pruebas muestran los cascos que Android ofrece como dispositivos de comunicación, con nombre, perfil SCO/LE e ID temporal. Bluetooth conectado para música no implica que exista un micrófono disponible.
+- Automático conserva la asociación con la salida multimedia de 0.1 y evita escoger arbitrariamente ante ambigüedad. Una selección explícita usa un casco concreto en el viaje, en el detector visible y en la medición. Elegirlo no abre una captura ni cambia el modo de audio por sí mismo.
+- La preferencia se comparte en memoria entre Activity y servicio, sobrevive a recreaciones de la Activity y vuelve a Automático si Android termina el proceso. No se guardan IDs temporales permanentemente. Si desaparece o cambia la identidad del dispositivo, se pide volver a elegir; no se cambia al otro casco.
+- Los selectores y el acceso a controles de Android se bloquean durante sesión, restauración del audio, escucha, detector o medición. Los callbacks también comprueban el bloqueo. Actualizar dispositivos solo consulta el sistema.
+- La Activity consulta pasivamente rutas y niveles cada segundo mientras está visible; detiene la actualización en `onPause`. Al volver de Android se actualiza la lectura. No abre micrófonos.
+- Se separan salida de música **prevista** por Android, ruta de comunicación actual, casco solicitado y entrada real de la última medición. Esta última no se presenta como entrada del STT o de Alexa; el viaje mantiene su comprobación de 0.1. Al cambiar de casco se borra la medición anterior.
+- Las órdenes de volumen siguen modificando `STREAM_MUSIC`. La tarjeta muestra música y comunicación por separado sin prometer ganancia acústica. Pruebas explica cómo distinguir «cambia nivel, no sonido» de «no cambia el nivel».
+- Para elegir dónde suena otra app, usar **Salida multimedia** del panel rápido del Galaxy. El botón abre el panel público de volumen, con alternativa a Ajustes de sonido; no usa una API oculta para controlar la salida de otra app.
+- Una ruta de comunicación selecciona entrada y salida asociadas. La combinación «micrófono Y12 / música Skullcandy en A2DP» no se garantiza: observar la ruta durante el viaje. La orden corta fuera del viaje sigue usando la entrada que decide Android; la medición y el detector sirven para comprobar el casco explícito.
+
+Fuentes de API: [AudioManager](https://developer.android.com/reference/android/media/AudioManager) y [Settings.Panel](https://developer.android.com/reference/android/provider/Settings.Panel).
+
+### Comprobación de esta entrega en S22+
+
+1. Detener toda sesión/prueba. Abrir Ajustes → Dispositivos de audio y conceder Bluetooth si falta.
+2. Conectar Y12 Pro y Skullcandy. Elegir Y12 y ejecutar la medición de cinco segundos desde Pruebas. Anotar entrada real y advertencias.
+3. Iniciar el viaje, verificar el casco de comunicación y el estado de Alexa. Cambiar de pantalla: los selectores deben quedar bloqueados.
+4. Probar bajar/subir desde un nivel medio; comprobar números y variación audible por separado.
+5. Detener el viaje y verificar restauración de música. Cambiar la salida multimedia de Android, seleccionar Skullcandy y repetir con la misma canción.
+6. Desconectar el casco elegido dejando el otro conectado: mostrar selección perdida y evitar iniciar en otro micrófono. Durante el viaje se conserva el cierre por pérdida de ruta.
+7. Volver a Automático y comprobar el comportamiento previo de asociación/ambigüedad. Girar el teléfono: conservar selección si el proceso continúa vivo.
+8. Revisar texto grande y tema claro/oscuro. Los previews incluyen dos cascos, sesión activa y selección desconectada; no ejecutan audio.
+
+Las pruebas locales de identidad cubren selección explícita con dos cascos, desconexión sin sustitución, reutilización de ID por otra dirección/perfil/nombre y retorno a Automático. La calidad acústica, las rutas reales y la revisión visual requieren S22+ y hardware conectado.
+
+Verificación de la tarjeta: `clean :app:assembleDebug :app:lintDebug :app:testDebugUnitTest` completó correctamente. Seis pruebas aprobadas; lint: cero errores, 23 advertencias y 8 sugerencias. Se corrigió el requisito de API de la lectura de direcciones Bluetooth, incluida una comprobación procedente de 0.1. No se actualizan motores de voz. Las advertencias del prototipo y la recomendación de centralizar la dependencia de pruebas siguen registradas por lint. Revisión visual y validación Bluetooth pendientes en el teléfono.

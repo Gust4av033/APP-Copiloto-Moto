@@ -73,7 +73,8 @@ class OpenWakeWordProvider(
             val selected = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audioManager.communicationDevice else null
             check(selected != null && inputs.all { input ->
                 input.type == selected.type &&
-                    (input.address.isBlank() || selected.address.isBlank() || input.address == selected.address)
+                    (Build.VERSION.SDK_INT < Build.VERSION_CODES.P ||
+                        input.address.isBlank() || selected.address.isBlank() || input.address == selected.address)
             }) { "Alexa usa otro micrófono distinto al casco seleccionado." }
             return "Alexa: micrófono Bluetooth ${if (selected.type == AudioDeviceInfo.TYPE_BLE_HEADSET) "LE" else "SCO"} verificado."
         }

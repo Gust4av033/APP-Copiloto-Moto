@@ -6,13 +6,26 @@ import android.media.AudioManager
 import android.os.Build
 import androidx.annotation.RequiresApi
 
-/** Elige la entrada de comunicación asociada a la salida multimedia elegida por Android. */
+/** Selección explícita para pruebas o asociación automática con la salida de Android. */
 internal object BluetoothAudioRouteSelector {
+    @RequiresApi(Build.VERSION_CODES.P)
+    fun identity(device: AudioDeviceInfo) = HeadsetIdentity(
+        device.id, device.type, device.address, device.productName.toString()
+    )
+
     @RequiresApi(Build.VERSION_CODES.S)
-    fun communicationHeadset(audioManager: AudioManager): AudioDeviceInfo? {
-        val choices = audioManager.availableCommunicationDevices.filter {
+    fun availableHeadsets(audioManager: AudioManager): List<AudioDeviceInfo> =
+        audioManager.availableCommunicationDevices.filter {
             it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
                 it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
+        }
+
+    @RequiresApi(Build.VERSION_CODES.S)
+    fun communicationHeadset(audioManager: AudioManager): AudioDeviceInfo? {
+        val choices = availableHeadsets(audioManager)
+        if (HeadsetSelection.preferred != null) {
+            val selected = HeadsetSelection.resolve(choices.map(::identity)) ?: return null
+            return choices.singleOrNull { identity(it) == selected }
         }
         if (choices.isEmpty()) return null
 

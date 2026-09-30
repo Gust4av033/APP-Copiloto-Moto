@@ -20,6 +20,7 @@ import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.CopilotActions
 import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 import com.gust4av033.appcopilotomoto.presentation.components.ActionButton
+import com.gust4av033.appcopilotomoto.presentation.components.AudioDevicesCard
 import com.gust4av033.appcopilotomoto.presentation.components.ChoiceGroup
 import com.gust4av033.appcopilotomoto.presentation.components.SectionCard
 import com.gust4av033.appcopilotomoto.presentation.components.SessionStatus
@@ -44,6 +45,12 @@ fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -
     }
     SectionCard(stringResource(R.string.trip_audio_check)) {
         SupportingText(stringResource(R.string.trip_audio_check_hint))
+        if (state.audioDevices.musicVolume.isNotBlank()) {
+            Text(stringResource(R.string.devices_volume_levels, state.audioDevices.musicVolume,
+                state.audioDevices.communicationVolume))
+            SupportingText(stringResource(R.string.devices_communication_route,
+                state.audioDevices.communicationRoute.ifBlank { stringResource(R.string.devices_no_communication) }))
+        }
         if (state.tripActive && state.audioDuring.contains("Salida música prevista: Bluetooth SCO")) {
             SupportingText(stringResource(R.string.trip_sco_observed))
         } else if (state.tripActive && state.audioDuring.contains("Salida música prevista: Bluetooth LE")) {
@@ -99,6 +106,11 @@ private fun Metric(value: Int, label: String, modifier: Modifier) {
 fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
     SupportingText(stringResource(R.string.tests_intro))
     if (state.tripActive) SupportingText(stringResource(R.string.tests_trip_active))
+    AudioDevicesCard(state, actions)
+    SectionCard(stringResource(R.string.tests_volume_title)) {
+        SupportingText(stringResource(R.string.tests_volume_protocol))
+        SupportingText(stringResource(R.string.tests_volume_result_hint))
+    }
     SectionCard(stringResource(R.string.tests_audio)) {
         AudioComparison(state)
         SupportingText(stringResource(R.string.tests_audio_profile_hint))
@@ -107,6 +119,7 @@ fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
     }
     SectionCard(stringResource(R.string.tests_short_command)) {
         SupportingText(stringResource(R.string.tests_short_hint))
+        SupportingText(stringResource(R.string.devices_short_command_scope))
         ActionButton(
             stringResource(if (state.listening) R.string.listen_cancel else R.string.listen_start),
             enabled = state.canListen,
@@ -172,6 +185,7 @@ fun SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: 
         ChoiceGroup(state.inputs, state.inputId, !state.busy, actions.onInputChange)
         SupportingText(stringResource(R.string.settings_input_hint))
     }
+    AudioDevicesCard(state, actions)
     SectionCard(stringResource(R.string.settings_calls)) {
         SupportingText(stringResource(R.string.settings_calls_hint))
         ActionButton(stringResource(R.string.calls_enable), enabled = !state.busy, onClick = actions.onEnableNamedCalls)

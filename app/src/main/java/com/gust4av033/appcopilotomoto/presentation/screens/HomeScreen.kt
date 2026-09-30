@@ -49,6 +49,15 @@ fun HomeScreen(state: CopilotUiState, actions: CopilotActions, onNavigate: (Copi
         Text(stringResource(R.string.trip_activation, state.phraseLabel))
         val inputTitle = state.inputs.firstOrNull { it.id == state.inputId }?.titleRes
         if (inputTitle != null) SupportingText(stringResource(inputTitle))
+        if (state.audioDevices.supported && state.audioDevices.permissionGranted) {
+            SupportingText(stringResource(R.string.home_headset,
+                state.audioDevices.selectedLabel.ifBlank {
+                    state.audioDevices.automaticHeadset.ifBlank { stringResource(R.string.devices_auto_unresolved) }
+                }))
+            if (state.audioDevices.selectionMissing) {
+                Text(stringResource(R.string.devices_selection_lost), color = MaterialTheme.colorScheme.error)
+            }
+        }
         SupportingText(stringResource(if (state.assistantSelected) R.string.home_assistant_ready else R.string.home_assistant_optional))
         ActionButton(stringResource(R.string.home_configure), onClick = { onNavigate(CopilotScreen.SETTINGS) })
         ActionButton(

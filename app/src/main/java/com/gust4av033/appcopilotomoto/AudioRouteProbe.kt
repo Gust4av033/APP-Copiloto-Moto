@@ -52,6 +52,11 @@ class AudioRouteProbe(private val context: Context) {
                 }
             }
         } else inputs.firstOrNull()
+        if (HeadsetSelection.preferred != null) {
+            check(communication != null && bluetoothInput != null) {
+                "El casco elegido no tiene una entrada disponible. Volvé a elegirlo en Dispositivos de audio."
+            }
+        }
         val requested = bluetoothInput?.label() ?: "Micrófono predeterminado"
         val oldMode = audioManager.mode
         var switched = false
@@ -62,6 +67,9 @@ class AudioRouteProbe(private val context: Context) {
                 audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
                 if (communication != null) {
                     switched = audioManager.setCommunicationDevice(communication)
+                    if (HeadsetSelection.preferred != null) {
+                        check(switched) { "Android rechazó la ruta del casco elegido; no se midió otro micrófono." }
+                    }
                 }
             }
 

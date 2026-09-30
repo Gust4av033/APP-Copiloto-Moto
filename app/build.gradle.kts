@@ -41,4 +41,5 @@ dependencies {
     implementation(libs.activity.compose)
     implementation("com.github.msnilsen:openwakeword-android:0.1.2")
     debugImplementation(libs.compose.ui.tooling)
+    testImplementation("junit:junit:4.13.2")
 }

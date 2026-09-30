@@ -4,12 +4,16 @@ import android.Manifest
 import android.app.role.RoleManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.media.AudioAttributes
+import android.media.AudioDeviceInfo
+import android.media.AudioManager
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.provider.ContactsContract
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -19,6 +23,8 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.gust4av033.appcopilotomoto.presentation.CopilotActions
+import com.gust4av033.appcopilotomoto.presentation.AudioDeviceUi
+import com.gust4av033.appcopilotomoto.presentation.AudioDevicesUi
 import com.gust4av033.appcopilotomoto.presentation.CopilotApp
 import com.gust4av033.appcopilotomoto.presentation.CopilotScreen
 import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
@@ -31,6 +37,15 @@ class MainActivity : ComponentActivity() {
     private val worker = Executors.newSingleThreadExecutor()
     private val speech by lazy { AndroidSpeechToTextProvider(applicationContext) }
     private val media by lazy { MediaActionAdapter(applicationContext) }
+    private val audioManager by lazy { getSystemService(AudioManager::class.java) }
+    private var audioDevices by mutableStateOf(AudioDevicesUi())
+    private var audioDeviceMessage = ""
+    private val refreshDevicesTask = object : Runnable {
+        override fun run() {
+            refreshAudioDevices()
+            mainHandler.postDelayed(this, 1_000L)
+        }
+    }
     private var wakeProvider: WakeWordProvider? = null
     private var wakeResumeTask: Runnable? = null
     private var pendingSpeechStart: Runnable? = null
@@ -55,6 +70,13 @@ class MainActivity : ComponentActivity() {
     private var selectedScreen by mutableStateOf(CopilotScreen.HOME)
     private var result by mutableStateOf<AudioProbeResult?>(null)
     private var pendingAction: (() -> Unit)? = null
+
+    private val audioDevicePermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        audioDeviceMessage = if (granted) "" else getString(R.string.devices_permission_denied)
+        refreshAudioDevices()
+    }
 
     private val permissionRequest = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -144,6 +166,7 @@ class MainActivity : ComponentActivity() {
     private fun AppUi() {
         val state = CopilotUiState(
             tripActive = TripTestState.running,
+            restoringAudio = TripTestState.restoringAudio,
             measuring = running,
             listening = listening,
             wakeEnabled = wakeEnabled,
@@ -163,6 +186,7 @@ class MainActivity : ComponentActivity() {
             phraseLabel = wakePhrase.label,
             sensitivity = wakeSensitivity,
             inputId = tripAudioMode.name,
+            audioDevices = audioDevices,
             assistantSelected = isSelectedAssistant(),
             assistantMessage = assistantMessage,
             voiceMessage = voiceMessage,
@@ -186,7 +210,14 @@ class MainActivity : ComponentActivity() {
             onScreenChange = { selectedScreen = it },
             actions = CopilotActions(
                 onToggleTrip = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
-                onRefreshAudio = { audioDiagnostic = media.audioRouteDiagnostic() },
+                onRefreshAudio = {
+                    audioDiagnostic = runCatching { media.audioRouteDiagnostic() }
+                        .getOrDefault(getString(R.string.devices_read_error))
+                    refreshAudioDevices()
+                },
+                onRefreshDevices = ::requestDeviceRefresh,
+                onSelectHeadset = ::selectHeadset,
+                onOpenAudioControls = ::openAudioControls,
                 onSelectAssistant = ::requestAssistantRole,
                 onToggleListening = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) },
                 onMeasure = ::requestProbe,
@@ -203,6 +234,110 @@ class MainActivity : ComponentActivity() {
                 }
             )
         )
+    }
+
+    private fun audioBusy() = TripTestState.running || TripTestState.restoringAudio ||
+        running || listening || wakeEnabled || wakeTransition
+
+    private fun requestDeviceRefresh() {
+        audioDeviceMessage = ""
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+            audioDevicePermission.launch(Manifest.permission.BLUETOOTH_CONNECT)
+        } else refreshAudioDevices()
+    }
+
+    private fun selectHeadset(id: Int?) {
+        if (audioBusy() || Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        if (checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) return
+        val outcome = runCatching {
+            val device = id?.let { requested ->
+                BluetoothAudioRouteSelector.availableHeadsets(audioManager).singleOrNull { it.id == requested }
+                    ?: error(getString(R.string.devices_selection_lost))
+            }
+            // Solo configura la próxima captura; no abre micrófonos ni cambia música.
+            HeadsetSelection.select(device?.let(BluetoothAudioRouteSelector::identity))
+            result = null
+            message = getString(R.string.devices_probe_again)
+        }
+        audioDeviceMessage = outcome.exceptionOrNull()?.message.orEmpty()
+        refreshAudioDevices()
+    }
+
+    private fun openAudioControls() {
+        if (audioBusy()) return
+        val panel = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) Settings.Panel.ACTION_VOLUME
+            else Settings.ACTION_SOUND_SETTINGS
+        val outcome = runCatching { startActivity(Intent(panel)) }
+        if (outcome.isFailure) {
+            runCatching { startActivity(Intent(Settings.ACTION_SOUND_SETTINGS)) }.onFailure {
+                audioDeviceMessage = getString(R.string.devices_panel_error)
+                refreshAudioDevices()
+            }
+        }
+    }
+
+    private fun refreshAudioDevices() {
+        val preferred = HeadsetSelection.preferred
+        val supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+        val granted = !supported ||
+            checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        val initial = AudioDevicesUi(
+            supported = supported, permissionGranted = granted,
+            selectedId = preferred?.id, selectedLabel = preferred?.name.orEmpty(),
+            message = audioDeviceMessage
+        )
+        if (!supported || !granted) {
+            audioDevices = initial
+            return
+        }
+        audioDevices = runCatching {
+            val headsets = BluetoothAudioRouteSelector.availableHeadsets(audioManager)
+            val resolved = BluetoothAudioRouteSelector.communicationHeadset(audioManager)
+            val outputs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                runCatching {
+                    audioManager.getAudioDevicesForAttributes(
+                        AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build()
+                    ).map(::audioDeviceLabel).distinct().joinToString("\n")
+                }.getOrDefault("")
+            } else ""
+            initial.copy(
+                headsets = headsets.map { AudioDeviceUi(it.id, audioDeviceLabel(it)) },
+                selectedLabel = preferred?.let { chosen ->
+                    headsets.singleOrNull { BluetoothAudioRouteSelector.identity(it) == chosen }
+                        ?.let(::audioDeviceLabel) ?: chosen.name
+                }.orEmpty(),
+                selectionMissing = preferred != null && resolved == null,
+                automaticHeadset = if (preferred == null) resolved?.let(::audioDeviceLabel).orEmpty() else "",
+                communicationRoute = audioManager.communicationDevice?.let(::audioDeviceLabel).orEmpty(),
+                musicOutput = outputs,
+                musicVolume = media.musicVolume(),
+                communicationVolume = "${audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)}"
+            )
+        }.getOrElse { initial.copy(message = getString(R.string.devices_read_error)) }
+    }
+
+    private fun audioDeviceLabel(device: AudioDeviceInfo): String {
+        val profile = when (device.type) {
+            AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> getString(R.string.devices_profile_sco)
+            AudioDeviceInfo.TYPE_BLUETOOTH_A2DP -> "A2DP"
+            AudioDeviceInfo.TYPE_BLE_HEADSET -> getString(R.string.devices_profile_le)
+            AudioDeviceInfo.TYPE_BUILTIN_SPEAKER -> getString(R.string.devices_phone_speaker)
+            AudioDeviceInfo.TYPE_BUILTIN_EARPIECE -> getString(R.string.devices_phone_earpiece)
+            else -> getString(R.string.devices_profile_other, device.type)
+        }
+        return getString(R.string.devices_device_label, device.productName, profile, device.id)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        mainHandler.removeCallbacks(refreshDevicesTask)
+        mainHandler.post(refreshDevicesTask)
+    }
+
+    override fun onPause() {
+        mainHandler.removeCallbacks(refreshDevicesTask)
+        super.onPause()
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -274,6 +409,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestProbe() {
+        if (audioBusy()) return
         requestAudioPermissions(::startProbe)
     }
 
@@ -305,6 +441,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestTripPermissions() {
+        if (audioBusy()) return
         val required = mutableListOf(Manifest.permission.RECORD_AUDIO)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) required += Manifest.permission.BLUETOOTH_CONNECT
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) required += Manifest.permission.POST_NOTIFICATIONS
@@ -316,6 +453,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startTripTest() {
+        if (audioBusy()) return
         val intent = Intent(this, TripVoiceService::class.java).setAction(TripVoiceService.ACTION_START)
             .putExtra(TripVoiceService.EXTRA_PHRASE, wakePhrase.name)
             .putExtra(TripVoiceService.EXTRA_SENSITIVITY, wakeSensitivity)
@@ -334,7 +472,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startProbe() {
-        if (running) return
+        if (audioBusy()) return
         result = null
         running = true
         message = "Escuchando cinco segundos…"
@@ -349,6 +487,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startVoiceTest() {
+        if (audioBusy()) return
         startVoiceCommand(fromWake = false)
     }
 
@@ -444,7 +583,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startWakeTest() {
-        if (wakeEnabled || wakeTransition || listening || running) return
+        if (audioBusy()) return
         wakeEnabled = true
         wakeTransition = true
         wakeDetections = 0
@@ -575,6 +714,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        mainHandler.removeCallbacks(refreshDevicesTask)
         wakeResumeTask?.let(mainHandler::removeCallbacks)
         wakeResumeTask = null
         wakeCycle++

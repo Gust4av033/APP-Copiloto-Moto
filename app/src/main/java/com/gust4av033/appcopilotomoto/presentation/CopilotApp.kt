@@ -145,6 +145,44 @@ private val PreviewState = CopilotUiState(
     callMessage = "Las llamadas necesitan permisos de teléfono y contactos."
 )
 
+private val PreviewDevices = AudioDevicesUi(
+    supported = true, permissionGranted = true,
+    headsets = listOf(AudioDeviceUi(11, "Y12 Pro · SCO clásico · ID 11"),
+        AudioDeviceUi(22, "Skullcandy · SCO clásico · ID 22")),
+    selectedId = 11, selectedLabel = "Y12 Pro · SCO clásico · ID 11",
+    musicOutput = "Y12 Pro · A2DP · ID 12",
+    musicVolume = "7/15", communicationVolume = "10/15"
+)
+
+@Preview(name = "Dispositivos: dos cascos", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Preview(name = "Dispositivos: texto grande", showBackground = true, widthDp = 360, heightDp = 800, locale = "es", fontScale = 1.5f)
+@Composable
+private fun DevicesPreview() { DeviceCardPreview(PreviewDevices) }
+
+@Preview(name = "Dispositivos: sesión activa", showBackground = true, widthDp = 360, heightDp = 800, locale = "es", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun ActiveDevicesPreview() {
+    DeviceCardPreview(PreviewDevices.copy(communicationRoute = "Y12 Pro · SCO clásico · ID 11"), active = true)
+}
+
+@Preview(name = "Dispositivos: casco desconectado", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Composable
+private fun MissingDevicesPreview() {
+    DeviceCardPreview(PreviewDevices.copy(selectionMissing = true,
+        headsets = PreviewDevices.headsets.filter { it.id == 22 }))
+}
+
+@Composable
+private fun DeviceCardPreview(devices: AudioDevicesUi, active: Boolean = false) {
+    CopilotTheme {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+            com.gust4av033.appcopilotomoto.presentation.components.AudioDevicesCard(
+                PreviewState.copy(tripActive = active, audioDevices = devices), CopilotActions()
+            )
+        }
+    }
+}
+
 @Preview(name = "Inicio día", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
 @Preview(name = "Inicio noche", showBackground = true, widthDp = 360, heightDp = 800, locale = "es", uiMode = Configuration.UI_MODE_NIGHT_YES)
 @Preview(name = "Inicio texto grande", showBackground = true, widthDp = 360, heightDp = 800, locale = "es", fontScale = 1.5f)

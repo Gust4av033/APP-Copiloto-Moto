@@ -14,6 +14,26 @@ enum class CopilotScreen(val titleRes: Int, val iconRes: Int, val inMainNavigati
 data class ChoiceUi(val id: String, val titleRes: Int)
 
 @Immutable
+data class AudioDeviceUi(val id: Int, val label: String)
+
+/** Lecturas pasivas del sistema; una ruta de comunicación no demuestra la entrada grabada. */
+@Immutable
+data class AudioDevicesUi(
+    val supported: Boolean = false,
+    val permissionGranted: Boolean = false,
+    val headsets: List<AudioDeviceUi> = emptyList(),
+    val selectedId: Int? = null,
+    val selectedLabel: String = "",
+    val selectionMissing: Boolean = false,
+    val automaticHeadset: String = "",
+    val communicationRoute: String = "",
+    val musicOutput: String = "",
+    val musicVolume: String = "",
+    val communicationVolume: String = "",
+    val message: String = ""
+)
+
+@Immutable
 data class TripMetricsUi(
     val detections: Int = 0,
     val manualCommands: Int = 0,
@@ -40,6 +60,7 @@ data class ProbeUi(
 @Immutable
 data class CopilotUiState(
     val tripActive: Boolean = false,
+    val restoringAudio: Boolean = false,
     val measuring: Boolean = false,
     val listening: Boolean = false,
     val wakeEnabled: Boolean = false,
@@ -51,6 +72,7 @@ data class CopilotUiState(
     val phraseLabel: String = "Alexa",
     val sensitivity: Float = 80f,
     val inputId: String = "BLUETOOTH",
+    val audioDevices: AudioDevicesUi = AudioDevicesUi(),
     val phrases: List<ChoiceUi> = listOf(
         ChoiceUi("ALEXA", R.string.phrase_alexa),
         ChoiceUi("HEY_JARVIS", R.string.phrase_jarvis)
@@ -73,9 +95,9 @@ data class CopilotUiState(
     val fixedContact: String? = null,
     val probe: ProbeUi? = null
 ) {
-    val busy: Boolean get() = tripActive || measuring || listening || wakeEnabled || wakeTransition
-    val canListen: Boolean get() = !measuring && !wakeEnabled && !wakeTransition && !tripActive
-    val canToggleWake: Boolean get() = !tripActive && !measuring &&
+    val busy: Boolean get() = tripActive || restoringAudio || measuring || listening || wakeEnabled || wakeTransition
+    val canListen: Boolean get() = !measuring && !wakeEnabled && !wakeTransition && !tripActive && !restoringAudio
+    val canToggleWake: Boolean get() = !tripActive && !restoringAudio && !measuring &&
         (wakeEnabled || (!listening && !wakeTransition))
 }
 
@@ -83,6 +105,9 @@ data class CopilotUiState(
 data class CopilotActions(
     val onToggleTrip: () -> Unit = {},
     val onRefreshAudio: () -> Unit = {},
+    val onRefreshDevices: () -> Unit = {},
+    val onSelectHeadset: (Int?) -> Unit = {},
+    val onOpenAudioControls: () -> Unit = {},
     val onSelectAssistant: () -> Unit = {},
     val onToggleListening: () -> Unit = {},
     val onMeasure: () -> Unit = {},

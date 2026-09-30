@@ -30,6 +30,7 @@ import java.util.concurrent.Executors
 /** Estado de diagnóstico; las escrituras se hacen en el hilo principal. */
 object TripTestState {
     var running by mutableStateOf(false)
+    var restoringAudio by mutableStateOf(false)
     var status by mutableStateOf("Iniciá la sesión de prueba con la app abierta.")
     var lastCommandResult by mutableStateOf("Aún no hay órdenes en esta sesión.")
     var detections by mutableStateOf(0)
@@ -568,7 +569,9 @@ class TripVoiceService : Service() {
                 it.id == selected.id && it.type == selected.type
             }
             val expected = BluetoothAudioRouteSelector.communicationHeadset(audioManager)
-            connected && (expected == null || expected.id == selected.id)
+            connected && if (HeadsetSelection.preferred != null) {
+                expected?.id == selected.id
+            } else (expected == null || expected.id == selected.id)
         }.getOrDefault(false)
     }
 
@@ -595,6 +598,7 @@ class TripVoiceService : Service() {
         active = false
         stopMonitoringHardware()
         closing = true
+        TripTestState.restoringAudio = true
         callPending = false
         armed = false
         generation++
@@ -659,6 +663,7 @@ class TripVoiceService : Service() {
             else -> reason
         }
         closing = false
+        TripTestState.restoringAudio = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
