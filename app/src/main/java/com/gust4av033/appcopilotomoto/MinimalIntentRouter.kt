@@ -3,7 +3,9 @@ package com.gust4av033.appcopilotomoto
 import java.text.Normalizer
 import java.util.Locale
 
-enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, VOLUME_UP, VOLUME_DOWN, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, UNKNOWN }
+enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, UNKNOWN }
+
+data class VolumeRequest(val amount: Int, val percent: Boolean)
 
 /** Las órdenes claras pasan por reglas locales; una frase desconocida no ejecuta nada. */
 object MinimalIntentRouter {
@@ -12,6 +14,37 @@ object MinimalIntentRouter {
             .replace(Regex("\\p{Mn}+"), "")
             .replace(Regex("[^a-z0-9 ]"), " ")
             .replace(Regex("\\s+"), " ").trim()
+
+    /** Porcentaje explícito (0-100) o índice del control de Android (0-15). */
+    fun requestedVolume(transcript: String): VolumeRequest? {
+        val text = normalize(transcript)
+        val percent = transcript.contains('%') || text.endsWith(" por ciento") || text.endsWith(" porciento")
+        val withoutPercent = text.removeSuffix(" por ciento").removeSuffix(" porciento")
+        val number = Regex("^(?:(?:pon|pone|poner|ajusta|ajustar|fija|establece) )?(?:el )?volumen(?: (?:a|al|en))? ([a-z0-9 ]+)$")
+            .matchEntire(withoutPercent)?.groupValues?.get(1)?.trim() ?: return null
+        val words = mapOf(
+            "cero" to 0, "uno" to 1, "un" to 1, "dos" to 2, "tres" to 3,
+            "cuatro" to 4, "cinco" to 5, "seis" to 6, "siete" to 7,
+            "ocho" to 8, "nueve" to 9, "diez" to 10, "once" to 11,
+            "doce" to 12, "trece" to 13, "catorce" to 14, "quince" to 15,
+            "veinte" to 20, "treinta" to 30, "cuarenta" to 40,
+            "cincuenta" to 50, "sesenta" to 60, "setenta" to 70,
+            "ochenta" to 80, "noventa" to 90, "cien" to 100, "ciento" to 100
+        )
+        val value = number.toIntOrNull() ?: words[number] ?: run {
+            val parts = number.split(" y ")
+            val tens = words[parts.first()]
+            val ones = words[parts.last()]
+            if (parts.size == 2 && tens != null && tens in 20..90 && tens % 10 == 0 &&
+                ones != null && ones in 1..9) {
+                tens + ones
+            } else if (number.startsWith("veinti")) {
+                words[number.removePrefix("veinti")]?.plus(20)
+            } else null
+        } ?: return null
+        if (value !in 0..(if (percent) 100 else 15)) return null
+        return VolumeRequest(value, percent)
+    }
 
     fun requestedContact(transcript: String): String? {
         val spoken = normalize(transcript)
@@ -30,6 +63,7 @@ object MinimalIntentRouter {
             normalized in setOf("confirmar llamada", "confirma llamada", "llamar ahora") -> TestIntent.CONFIRM_CALL
             normalized in setOf("llamar", "hacer llamada", "llamar al contacto", "llama al contacto") -> TestIntent.CALL_SELECTED
             requestedContact(transcript) != null -> TestIntent.CALL_NAMED
+            requestedVolume(transcript) != null -> TestIntent.VOLUME_SET
             normalized in setOf("subir volumen", "sube volumen", "sube el volumen", "subir el volumen", "mas volumen", "volumen mas alto") -> TestIntent.VOLUME_UP
             normalized in setOf("bajar volumen", "baja volumen", "baja el volumen", "bajar el volumen", "menos volumen", "volumen mas bajo") -> TestIntent.VOLUME_DOWN
             normalized in setOf("siguiente cancion", "siguiente pista", "pon la siguiente", "pasa a la siguiente", "salta la cancion", "siguiente", "next") -> TestIntent.MEDIA_NEXT
