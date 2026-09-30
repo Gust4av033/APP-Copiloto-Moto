@@ -3,6 +3,8 @@ package com.gust4av033.appcopilotomoto
 import android.Manifest
 import android.app.role.RoleManager
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
@@ -14,6 +16,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.ContactsContract
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,6 +33,7 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotScreen
 import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 import com.gust4av033.appcopilotomoto.presentation.ProbeUi
 import com.gust4av033.appcopilotomoto.presentation.TripMetricsUi
+import com.gust4av033.appcopilotomoto.presentation.VoiceRouteUi
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
@@ -171,6 +175,7 @@ class MainActivity : ComponentActivity() {
         val state = CopilotUiState(
             tripActive = TripTestState.running,
             restoringAudio = TripTestState.restoringAudio,
+            commandReady = TripTestState.commandReady,
             measuring = running,
             listening = listening,
             wakeEnabled = wakeEnabled,
@@ -190,6 +195,7 @@ class MainActivity : ComponentActivity() {
             phraseLabel = wakePhrase.label,
             sensitivity = wakeSensitivity,
             inputId = tripAudioMode.name,
+            audioCaptureGeneration = TripTestState.audioCaptureGeneration,
             audioDevices = audioDevices,
             assistantSelected = isSelectedAssistant(),
             assistantMessage = assistantMessage,
@@ -215,6 +221,16 @@ class MainActivity : ComponentActivity() {
             actions = CopilotActions(
                 onToggleTrip = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
                 onManualTripCommand = ::requestManualTripCommand,
+                onCopyDiagnostics = { report ->
+                    getSystemService(ClipboardManager::class.java).setPrimaryClip(
+                        ClipData.newPlainText(getString(R.string.report_title),
+                            "${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}\n" +
+                                "${java.time.Instant.now()}\n$report")
+                    )
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                        Toast.makeText(this@MainActivity, R.string.report_copied, Toast.LENGTH_SHORT).show()
+                    }
+                },
                 onRefreshAudio = {
                     audioDiagnostic = runCatching { media.audioRouteDiagnostic() }
                         .getOrDefault(getString(R.string.devices_read_error))
@@ -330,6 +346,12 @@ class MainActivity : ComponentActivity() {
                 selectionMissing = preferred != null && resolved == null,
                 automaticHeadset = if (preferred == null) resolved?.let(::audioDeviceLabel).orEmpty() else "",
                 communicationRoute = audioManager.communicationDevice?.let(::audioDeviceLabel).orEmpty(),
+                voiceRoute = when (audioManager.communicationDevice?.type) {
+                    null -> VoiceRouteUi.NONE
+                    AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> VoiceRouteUi.SCO
+                    AudioDeviceInfo.TYPE_BLE_HEADSET -> VoiceRouteUi.LE
+                    else -> VoiceRouteUi.OTHER
+                },
                 musicOutput = outputs,
                 musicVolume = media.musicVolume(),
                 communicationVolume = "${audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)}"

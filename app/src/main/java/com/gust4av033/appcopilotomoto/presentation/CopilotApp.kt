@@ -115,7 +115,8 @@ fun CopilotApp(
                         }
                         Text(stringResource(R.string.ui_brand), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Text(stringResource(selectedScreen.titleRes), style = MaterialTheme.typography.headlineLarge, modifier = Modifier.semantics { heading() })
-                        Text(stringResource(R.string.ui_phase), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.ui_phase) + " · " + stringResource(R.string.ui_revision),
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.size(4.dp))
                         when (selectedScreen) {
                             CopilotScreen.HOME -> HomeScreen(state, actions, navigate)
@@ -225,4 +226,34 @@ private fun TestsPreview() {
 @Composable
 private fun SettingsPreview() {
     CopilotApp(PreviewState, CopilotScreen.SETTINGS, {}, CopilotActions())
+}
+
+@Preview(name = "Botón: Inicio", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Composable
+private fun ButtonHomePreview() {
+    CopilotApp(PreviewState.copy(inputId = "BUTTON", audioDevices = PreviewDevices), CopilotScreen.HOME, {}, CopilotActions())
+}
+
+@Preview(name = "Botón: Viaje noche", showBackground = true, widthDp = 360, heightDp = 800,
+    locale = "es", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Botón: Viaje texto grande", showBackground = true, widthDp = 360, heightDp = 800,
+    locale = "es", fontScale = 1.5f)
+@Composable
+private fun ButtonTripPreview() {
+    CopilotApp(PreviewState.copy(inputId = "BUTTON", tripActive = true, commandReady = true,
+        tripStatus = "Esperando el botón del casco. Música por la salida normal; micrófono cerrado.",
+        audioDevices = PreviewDevices), CopilotScreen.TRIP, {}, CopilotActions())
+}
+
+@Preview(name = "Restaurando audio", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Composable
+private fun RestoringPreview() {
+    CopilotApp(PreviewState.copy(inputId = "BUTTON", restoringAudio = true,
+        tripStatus = "Restaurando música…", audioDevices = PreviewDevices), CopilotScreen.HOME, {}, CopilotActions())
+}
+
+@Preview(name = "Botón: Ajustes", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Composable
+private fun ButtonSettingsPreview() {
+    CopilotApp(PreviewState.copy(inputId = "BUTTON", audioDevices = PreviewDevices), CopilotScreen.SETTINGS, {}, CopilotActions())
 }

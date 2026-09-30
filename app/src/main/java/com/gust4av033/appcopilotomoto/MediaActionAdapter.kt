@@ -42,7 +42,7 @@ class MediaActionAdapter(context: Context) {
             check(bluetoothCommunicationSelected()) { "Ruta de voz Bluetooth no disponible; volumen intacto." }
             AudioManager.STREAM_VOICE_CALL
         } else AudioManager.STREAM_MUSIC
-        val minimum = audioManager.getStreamMinVolume(stream)
+        val minimum = minimumVolume(stream)
         val maximum = audioManager.getStreamMaxVolume(stream)
         val target = if (request.percent) {
             minimum + ((maximum - minimum) * request.amount + 50) / 100
@@ -86,7 +86,7 @@ class MediaActionAdapter(context: Context) {
             // En el S22+ con Y12, adjustStreamVolume(VOICE_CALL) no movió 15/15.
             // Pedir el índice concreto permite distinguir un bloqueo de Android
             // de una variación que el casco no reproduce de forma audible.
-            val minimum = audioManager.getStreamMinVolume(stream)
+            val minimum = minimumVolume(stream)
             val target = (before + direction).coerceIn(minimum, maximum)
             audioManager.setStreamVolume(stream, target, 0)
         } else {
@@ -101,6 +101,10 @@ class MediaActionAdapter(context: Context) {
             stream = stream
         )
     }
+
+    fun minimumVolume(stream: Int): Int = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        audioManager.getStreamMinVolume(stream)
+    } else if (stream == AudioManager.STREAM_VOICE_CALL) 1 else 0
 
     fun commandVolumeStatus(change: VolumeAdjustment? = null): String {
         val music = musicVolume()

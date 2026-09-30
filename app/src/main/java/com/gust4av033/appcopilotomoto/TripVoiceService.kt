@@ -31,6 +31,7 @@ import java.util.concurrent.Executors
 object TripTestState {
     var running by mutableStateOf(false)
     var restoringAudio by mutableStateOf(false)
+    var commandReady by mutableStateOf(false)
     var status by mutableStateOf("Iniciá la sesión de prueba con la app abierta.")
     var lastCommandResult by mutableStateOf("Aún no hay órdenes en esta sesión.")
     var detections by mutableStateOf(0)
@@ -125,6 +126,10 @@ class TripVoiceService : Service() {
     private var closing = false
     private var callPending = false
     private var armed = false
+        set(value) {
+            field = value
+            TripTestState.commandReady = value
+        }
     private var wakeAudioMode = WakeAudioMode.BLUETOOTH
     private data class PendingVolumeCommand(
         val intent: TestIntent,
@@ -297,7 +302,7 @@ class TripVoiceService : Service() {
         val change = action.getOrNull()
         val atLimit = change != null && when (pending.intent) {
             TestIntent.VOLUME_UP -> change.before >= change.maximum
-            TestIntent.VOLUME_DOWN -> change.before <= audioManager.getStreamMinVolume(change.stream)
+            TestIntent.VOLUME_DOWN -> change.before <= media.minimumVolume(change.stream)
             TestIntent.VOLUME_SET -> change.after == change.before && !change.fixed
             else -> false
         }

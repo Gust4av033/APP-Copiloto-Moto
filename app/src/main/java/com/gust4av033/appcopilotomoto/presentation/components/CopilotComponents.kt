@@ -31,13 +31,13 @@ import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.ChoiceUi
 
 @Composable
-fun SessionStatus(active: Boolean) {
+fun SessionStatus(active: Boolean, restoring: Boolean = false) {
     Surface(
         color = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.small
     ) {
         Text(
-            stringResource(if (active) R.string.trip_active else R.string.trip_stopped),
+            stringResource(if (restoring) R.string.session_restoring else if (active) R.string.trip_active else R.string.trip_stopped),
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
             style = MaterialTheme.typography.titleLarge
         )
@@ -86,7 +86,10 @@ fun ChoiceGroup(options: List<ChoiceUi>, selectedId: String, enabled: Boolean, o
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RadioButton(selected = selectedId == option.id, enabled = enabled, onClick = null)
-                Text(stringResource(option.titleRes), modifier = Modifier.padding(start = 12.dp))
+                Column(Modifier.weight(1f).padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(option.titleRes), style = MaterialTheme.typography.titleSmall)
+                    option.descriptionRes?.let { SupportingText(stringResource(it)) }
+                }
             }
         }
     }

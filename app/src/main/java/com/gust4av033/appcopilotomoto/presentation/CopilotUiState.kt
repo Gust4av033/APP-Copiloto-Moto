@@ -11,7 +11,9 @@ enum class CopilotScreen(val titleRes: Int, val iconRes: Int, val inMainNavigati
 }
 
 @Immutable
-data class ChoiceUi(val id: String, val titleRes: Int)
+data class ChoiceUi(val id: String, val titleRes: Int, val descriptionRes: Int? = null)
+
+enum class VoiceRouteUi { NONE, SCO, LE, OTHER }
 
 @Immutable
 data class AudioDeviceUi(val id: Int, val label: String)
@@ -29,6 +31,7 @@ data class AudioDevicesUi(
     val selectionMissing: Boolean = false,
     val automaticHeadset: String = "",
     val communicationRoute: String = "",
+    val voiceRoute: VoiceRouteUi = VoiceRouteUi.NONE,
     val musicOutput: String = "",
     val musicVolume: String = "",
     val communicationVolume: String = "",
@@ -63,6 +66,7 @@ data class ProbeUi(
 data class CopilotUiState(
     val tripActive: Boolean = false,
     val restoringAudio: Boolean = false,
+    val commandReady: Boolean = false,
     val measuring: Boolean = false,
     val listening: Boolean = false,
     val wakeEnabled: Boolean = false,
@@ -74,15 +78,16 @@ data class CopilotUiState(
     val phraseLabel: String = "Alexa",
     val sensitivity: Float = 80f,
     val inputId: String = "BLUETOOTH",
+    val audioCaptureGeneration: Long = 0,
     val audioDevices: AudioDevicesUi = AudioDevicesUi(),
     val phrases: List<ChoiceUi> = listOf(
         ChoiceUi("ALEXA", R.string.phrase_alexa),
         ChoiceUi("HEY_JARVIS", R.string.phrase_jarvis)
     ),
     val inputs: List<ChoiceUi> = listOf(
-        ChoiceUi("BLUETOOTH", R.string.input_headset),
-        ChoiceUi("BUTTON", R.string.input_button_quality),
-        ChoiceUi("PHONE_WAKE", R.string.input_phone_test)
+        ChoiceUi("BLUETOOTH", R.string.input_headset, R.string.mode_voice_detail),
+        ChoiceUi("BUTTON", R.string.input_button_quality, R.string.mode_button_detail),
+        ChoiceUi("PHONE_WAKE", R.string.input_phone_test, R.string.trip_phone_wake_trial)
     ),
     val assistantSelected: Boolean = false,
     val assistantMessage: String = "",
@@ -98,6 +103,9 @@ data class CopilotUiState(
     val fixedContact: String? = null,
     val probe: ProbeUi? = null
 ) {
+    val buttonMode: Boolean get() = inputId == "BUTTON"
+    val canStartTrip: Boolean get() = !busy && !audioDevices.selectionMissing
+    val canRequestTripCommand: Boolean get() = tripActive && commandReady && !restoringAudio
     val busy: Boolean get() = tripActive || restoringAudio || measuring || listening || wakeEnabled || wakeTransition
     val canListen: Boolean get() = !measuring && !wakeEnabled && !wakeTransition && !tripActive && !restoringAudio
     val canToggleWake: Boolean get() = !tripActive && !restoringAudio && !measuring &&
@@ -108,6 +116,7 @@ data class CopilotUiState(
 data class CopilotActions(
     val onToggleTrip: () -> Unit = {},
     val onManualTripCommand: () -> Unit = {},
+    val onCopyDiagnostics: (String) -> Unit = {},
     val onRefreshAudio: () -> Unit = {},
     val onRefreshDevices: () -> Unit = {},
     val onSelectHeadset: (Int?) -> Unit = {},

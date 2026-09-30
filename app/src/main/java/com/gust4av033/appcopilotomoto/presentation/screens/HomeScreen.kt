@@ -23,6 +23,7 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotActions
 import com.gust4av033.appcopilotomoto.presentation.CopilotScreen
 import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 import com.gust4av033.appcopilotomoto.presentation.components.ActionButton
+import com.gust4av033.appcopilotomoto.presentation.components.ActivationSummary
 import com.gust4av033.appcopilotomoto.presentation.components.SectionCard
 import com.gust4av033.appcopilotomoto.presentation.components.SessionStatus
 import com.gust4av033.appcopilotomoto.presentation.components.SupportingText
@@ -31,22 +32,23 @@ import com.gust4av033.appcopilotomoto.presentation.upcomingModules
 @Composable
 fun HomeScreen(state: CopilotUiState, actions: CopilotActions, onNavigate: (CopilotScreen) -> Unit) {
     SectionCard(stringResource(R.string.home_copilot)) {
-        SessionStatus(state.tripActive)
+        SessionStatus(state.tripActive, state.restoringAudio)
+        ActivationSummary(state)
         SupportingText(state.tripStatus)
         ActionButton(
             stringResource(if (state.tripActive) R.string.home_open_trip else R.string.trip_start),
-            enabled = state.tripActive || !state.busy,
+            enabled = state.tripActive || state.canStartTrip,
             primary = true,
             onClick = {
                 if (!state.tripActive) actions.onToggleTrip()
                 onNavigate(CopilotScreen.TRIP)
             }
         )
-        if (state.busy && !state.tripActive) SupportingText(stringResource(R.string.home_test_active))
-        SupportingText(stringResource(R.string.home_voice_hint, state.phraseLabel))
+        if (state.restoringAudio) SupportingText(stringResource(R.string.devices_restoring))
+        else if (state.busy && !state.tripActive) SupportingText(stringResource(R.string.home_test_active))
     }
     SectionCard(stringResource(R.string.home_setup)) {
-        Text(stringResource(R.string.trip_activation, state.phraseLabel))
+        if (!state.buttonMode) Text(stringResource(R.string.trip_activation, state.phraseLabel))
         val inputTitle = state.inputs.firstOrNull { it.id == state.inputId }?.titleRes
         if (inputTitle != null) SupportingText(stringResource(inputTitle))
         if (state.audioDevices.supported && state.audioDevices.permissionGranted) {
@@ -58,7 +60,11 @@ fun HomeScreen(state: CopilotUiState, actions: CopilotActions, onNavigate: (Copi
                 Text(stringResource(R.string.devices_selection_lost), color = MaterialTheme.colorScheme.error)
             }
         }
-        SupportingText(stringResource(if (state.assistantSelected) R.string.home_assistant_ready else R.string.home_assistant_optional))
+        SupportingText(stringResource(if (state.assistantSelected) R.string.home_assistant_ready
+            else if (state.buttonMode) R.string.home_assistant_required else R.string.home_assistant_optional))
+        if (state.buttonMode && !state.assistantSelected) {
+            ActionButton(stringResource(R.string.assistant_select), enabled = !state.busy, onClick = actions.onSelectAssistant)
+        }
         ActionButton(stringResource(R.string.home_configure), onClick = { onNavigate(CopilotScreen.SETTINGS) })
         ActionButton(
             stringResource(if (state.busy && !state.tripActive) R.string.home_open_test else R.string.home_check_headset),

@@ -6,11 +6,34 @@ La base visual avanza en paralelo con la validación de fase 0. Inicio reúne el
 
 - Audio y pruebas de campo: `feature/fase-0-audio-bluetooth` (incluye los cambios de 0.3).
 - Interfaz: `feature/ui-base-compose`, creada desde el commit `1f01daabd6f17c0be53da3f4a94f6ce67af6c98c` de la rama de audio.
-- Estado integrado para esta entrega: audio y UI coincidían en `eae37dcc9bbc917f5d92b383330e932ebcbce128`. Incluye restauración de música al cerrar, asociación automática de casco, volumen sobre `STREAM_MUSIC`, supervisión de desconexiones y comprobación del micrófono de Alexa mediante una API pública. La tarjeta de dispositivos amplía esa base.
+- La primera tarjeta de dispositivos partió de `eae37dcc9bbc917f5d92b383330e932ebcbce128`. La actualización UI audio 02 parte de `e6419d5c88872ccaa27e163d274fd1eb2df25145`, como se detalla abajo.
 - Acuerdo del chat 0.1: Alexa sigue como activación principal; los toques cortos del Y12 siguen disponibles para siguiente/anterior canción y la pulsación larga queda como respaldo.
 - Continúa pendiente validar el volumen bajo al iniciar el viaje, la calidad de Bluetooth, activaciones y estabilidad en el S22+ con el Y12. Esta UI no cierra fase 0.
 
 El Documento 03 propone Compose y separación de presentación/runtime. Aunque la UI completa aparece más adelante en el plan original, el acuerdo actual permite adelantar esta base para apoyar las pruebas y moldear la presentación del producto. Mi Moto, preparación e historial tienen espacios informativos marcados como próximos; sus funciones, navegación, SOS, cuentas y memoria siguen pendientes.
+
+## Actualización UI audio 02 — 30 septiembre 2026
+
+Base publicada: `e6419d5c88872ccaa27e163d274fd1eb2df25145`, compartida por audio y UI antes de esta entrega. Incluye modo botón con espera de ruta Bluetooth hasta tres segundos, recuperación de música tras fallos y volumen por nivel/porcentaje. La modificación del audio sigue perteneciendo a 0.1: en voz desde el casco se ajusta Comunicación; en botón se ajusta Música al restaurar la ruta. Esta UI no asegura que Comunicación sea audible en el S22+.
+
+- Inicio y Viaje muestran el modo elegido. Botón no pide decir Alexa, y explica que la captura se abre temporalmente para la orden. Ajustes muestra primero el modo, con una explicación por opción; frase y sensibilidad aparecen para los modos de voz.
+- El estado de restauración se presenta explícitamente. Una selección de casco perdida impide iniciar desde Inicio/Viaje, manteniendo disponible detener una sesión activa.
+- El botón manual de Viaje solo está disponible cuando el servicio está preparado. `TripTestState.commandReady` observa el mismo valor de `armed`; no modifica las decisiones de la ruta, los tiempos ni el procesamiento de órdenes.
+- Música y Comunicación se muestran por separado. La guía de volumen y los pasos de prueba dependen del modo. En botón, Comunicación 15/15 no se interpreta como fallo de Música. Se conserva la distinción entre índice Android, sonido observado y solicitud enviada.
+- Las indicaciones de SCO/LE usan un valor estructurado obtenido de la ruta actual, en lugar de buscar texto dentro de una captura anterior. Antes/Durante/Después quedan identificados como capturas; Durante corresponde al regreso a la espera.
+- Los perfiles y las observaciones manuales se despliegan a pedido para reducir texto permanente. En Pruebas se puede indicar cambio audible y recuperación musical, y copiar diagnóstico, última orden, métricas y observaciones al portapapeles. Las respuestas empiezan sin comprobar y se reinician al iniciar otra sesión o cambiar modo/casco. No hay envío externo ni grabación de audio.
+- La cabecera muestra `UI audio 02` para comprobar qué interfaz se instaló. Se añaden previews para modo botón, noche, texto grande y restauración.
+
+### Verificación específica en S22+
+
+1. Confirmar `UI audio 02` en la cabecera. En Ajustes elegir Botón; Inicio no debe indicar decir Alexa. Al volver a Voz deben reaparecer frase y sensibilidad.
+2. Iniciar viaje en Botón. Mientras se prepara/restaura la ruta, Pedir una orden queda deshabilitado. Al estar listo permite una orden; durante esa orden vuelve a bloquearse. Detener permanece disponible.
+3. Probar desde el casco con pantalla apagada/bloqueada y desde Viaje/notificación. Probar `volumen a 6`, `volumen al 40 por ciento`, siguiente/anterior, cancelar y silencio. Verificar Música y sonido al recuperar la ruta; no inferir falla porque Comunicación permanezca 15/15.
+4. En Pruebas registrar las dos observaciones y copiar el diagnóstico. Pegar en un editor y comprobar niveles, configuración actual, capturas, última medición y métricas. Rotar/cambiar de pantalla: conservar observaciones; iniciar otra sesión o cambiar modo/casco: reiniciarlas.
+5. Detener y esperar la restauración antes de cambiar casco. Una selección desaparecida debe impedir iniciar hasta corregirla. Comprobar que ambos modos mantienen la lógica de audio de 0.1.
+6. Revisar temas claro/oscuro y fuente grande, incluidos los selectores, niveles y botones. La revisión visual y Bluetooth requieren el teléfono; preparar previews o compilar no equivale a haberlos validado físicamente.
+
+Verificación local de esta actualización: APK generado con `assembleDebug`, ocho pruebas existentes aprobadas (seis de identidad de casco y dos de interpretación de volumen) y `lintDebug` sin errores. Se corrigieron tres llamadas a `getStreamMinVolume` procedentes de la base: se usa la API desde Android 9 y un mínimo compatible para Android 8. La ruta de cálculo del S22+ se conserva. La compilación se ejecutó desde cero y se repitieron las tareas después de los ajustes finales. No se ha ejecutado la revisión visual en el teléfono ni una prueba Bluetooth nueva en esta entrega.
 
 ## Pantallas
 
@@ -110,7 +133,7 @@ La entrega sincronizada con Inicio y los espacios de próximos módulos también
 - Los selectores y el acceso a controles de Android se bloquean durante sesión, restauración del audio, escucha, detector o medición. Los callbacks también comprueban el bloqueo. Actualizar dispositivos solo consulta el sistema.
 - La Activity consulta pasivamente rutas y niveles cada segundo mientras está visible; detiene la actualización en `onPause`. Al volver de Android se actualiza la lectura. No abre micrófonos.
 - Se separan salida de música **prevista** por Android, ruta de comunicación actual, casco solicitado y entrada real de la última medición. Esta última no se presenta como entrada del STT o de Alexa; el viaje mantiene su comprobación de 0.1. Al cambiar de casco se borra la medición anterior.
-- Las órdenes de volumen siguen modificando `STREAM_MUSIC`. La tarjeta muestra música y comunicación por separado sin prometer ganancia acústica. Pruebas explica cómo distinguir «cambia nivel, no sonido» de «no cambia el nivel».
+- Desde `e6419d5`, las órdenes de voz desde el casco modifican Comunicación y las del modo botón modifican Música tras restaurar la ruta. La tarjeta muestra ambos niveles sin prometer ganancia acústica. Pruebas distingue «cambia nivel, no sonido» de «no cambia el nivel».
 - Para elegir dónde suena otra app, usar **Salida multimedia** del panel rápido del Galaxy. El botón abre el panel público de volumen, con alternativa a Ajustes de sonido; no usa una API oculta para controlar la salida de otra app.
 - Una ruta de comunicación selecciona entrada y salida asociadas. La combinación «micrófono Y12 / música Skullcandy en A2DP» no se garantiza: observar la ruta durante el viaje. La orden corta fuera del viaje sigue usando la entrada que decide Android; la medición y el detector sirven para comprobar el casco explícito.
 
