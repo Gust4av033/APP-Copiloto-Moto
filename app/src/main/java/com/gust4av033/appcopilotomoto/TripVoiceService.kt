@@ -116,6 +116,7 @@ class TripVoiceService : Service() {
     private var consecutiveFailures = 0
     private val recentDetections = ArrayDeque<Long>()
     private var active = false
+    private var closing = false
     private var callPending = false
     private var armed = false
     private var wakeAudioMode = WakeAudioMode.BLUETOOTH
@@ -143,7 +144,7 @@ class TripVoiceService : Service() {
             stopSelf(startId)
             return START_NOT_STICKY
         }
-        if (active || callPending) return START_NOT_STICKY
+        if (active || callPending || closing) return START_NOT_STICKY
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             TripTestState.status = "Falta permiso de micrófono para iniciar la sesión."
             stopSelf(startId)
@@ -325,8 +326,12 @@ class TripVoiceService : Service() {
                 TripTestState.status = "$source: reconocedor listo; decí música, volumen o ‘llama a [nombre]’."
                 updateNotification("$source · reconocedor listo; decí la orden")
             }
-        }, shouldResumePlayback = { heard ->
-            heard?.let(MinimalIntentRouter::resolve) != TestIntent.MEDIA_PAUSE
+        }, playbackResumePolicy = { heard ->
+            when (heard?.let(MinimalIntentRouter::resolve)) {
+                TestIntent.MEDIA_PAUSE -> PlaybackResumePolicy.KEEP_PAUSED
+                TestIntent.STOP_SESSION -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
+                else -> PlaybackResumePolicy.NOW
+            }
         }) { outcome ->
             if (!active || cycle != generation) return@listenOnce
             val heard = outcome.getOrNull()
@@ -454,8 +459,10 @@ class TripVoiceService : Service() {
                     if (active && generation == cycle && state == SpeechCaptureState.READY) {
                         TripTestState.status = "Confirmación lista: decí ‘confirmar llamada’ o ‘cancelar’."
                     }
-                }, shouldResumePlayback = { heard ->
-                    MinimalIntentRouter.resolve(heard.orEmpty()) != TestIntent.CONFIRM_CALL
+                }, playbackResumePolicy = { heard ->
+                    if (MinimalIntentRouter.resolve(heard.orEmpty()) == TestIntent.CONFIRM_CALL) {
+                        PlaybackResumePolicy.KEEP_PAUSED
+                    } else PlaybackResumePolicy.NOW
                 }) { answer ->
                     if (!active || detector !== provider || generation != cycle) return@listenOnce
                     pendingTask?.let(mainHandler::removeCallbacks)
@@ -519,7 +526,9 @@ class TripVoiceService : Service() {
     }
 
     private fun stopSession(reason: String) {
+        if (closing) return
         active = false
+        closing = true
         callPending = false
         armed = false
         generation++
@@ -527,30 +536,65 @@ class TripVoiceService : Service() {
         if (callPromptLazy.isInitialized()) callPrompt.cancel()
         pendingTask?.let(mainHandler::removeCallbacks)
         pendingTask = null
-        if (speechLazy.isInitialized()) speech.cancel()
+        // Conserva la intención de reproducción mientras se libera SCO. Una pausa pedida por
+        // el usuario no aparece aquí y permanece pausada.
+        val pausedBySpeech = if (speechLazy.isInitialized()) speech.cancel(resumePlayback = false) else false
         val previous = detector
         detector = null
+        val pausedForRoute = if (previous != null) {
+            runCatching { media.pauseIfPlaying() }.getOrDefault(false)
+        } else false
+        val resumeAfterRoute = pausedBySpeech || pausedForRoute
         val audioCaptureGeneration = TripTestState.audioCaptureGeneration
-        if (previous != null) worker.execute {
-            runCatching { previous.close() }
-            mainHandler.post {
-                if (generation == stoppedGeneration) captureRestoredAudio(audioCaptureGeneration, 0)
-            }
-        }
         TripTestState.running = false
         TripTestState.markRunning(this, false)
-        TripTestState.status = reason
-        stopForeground(STOP_FOREGROUND_REMOVE)
-        stopSelf()
+        TripTestState.status = "$reason Restaurando audio del casco…"
+        // El servicio conserva su ruta y su notificación hasta terminar close() y verificar
+        // la salida de música. No cerrar el servicio antes de limpiar setCommunicationDevice().
+        if (previous != null) {
+            worker.execute {
+                val released = runCatching { previous.close() }
+                mainHandler.post {
+                    if (generation == stoppedGeneration && closing) {
+                        captureRestoredAudio(audioCaptureGeneration, stoppedGeneration, 0,
+                            resumeAfterRoute, reason, released.exceptionOrNull())
+                    }
+                }
+            }
+        } else {
+            captureRestoredAudio(audioCaptureGeneration, stoppedGeneration, 0,
+                resumeAfterRoute, reason, null)
+        }
     }
 
-    /** El cambio SCO → A2DP puede llegar después de close(); conserva la lectura final estable. */
-    private fun captureRestoredAudio(captureGeneration: Long, attempt: Int) {
-        if (TripTestState.audioCaptureGeneration != captureGeneration || TripTestState.running) return
+    private fun captureRestoredAudio(
+        captureGeneration: Long,
+        stoppedGeneration: Int,
+        attempt: Int,
+        resumeAfterRoute: Boolean,
+        reason: String,
+        closeError: Throwable?
+    ) {
+        if (!closing || generation != stoppedGeneration ||
+            TripTestState.audioCaptureGeneration != captureGeneration) return
         TripTestState.audioAfter = media.audioRouteDiagnostic()
-        if (attempt < 6) {
-            mainHandler.postDelayed({ captureRestoredAudio(captureGeneration, attempt + 1) }, 1_000L)
+        val routeReady = media.isMediaRouteReady()
+        if (attempt < 8 && (!routeReady || attempt == 0)) {
+            mainHandler.postDelayed({
+                captureRestoredAudio(captureGeneration, stoppedGeneration, attempt + 1,
+                    resumeAfterRoute, reason, closeError)
+            }, 1_000L)
+            return
         }
+        if (resumeAfterRoute) runCatching { media.resumePlayback() }
+        TripTestState.status = when {
+            closeError != null -> "$reason No se pudo liberar completamente el audio: ${closeError.message}."
+            !routeReady -> "$reason La salida de música aún no volvió a la ruta normal; revisá Audio del casco."
+            else -> reason
+        }
+        closing = false
+        stopForeground(STOP_FOREGROUND_REMOVE)
+        stopSelf()
     }
 
     private fun createChannel() {
