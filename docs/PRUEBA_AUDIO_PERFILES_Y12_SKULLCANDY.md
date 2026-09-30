@@ -17,13 +17,13 @@ La entrada del teléfono oye en silencio, pero no resulta usable para activar AP
 | Volumen propio del casco, límite multimedia y ajustes de sonido del Galaxy | Podrían cambiar la intensidad percibida según el dispositivo y el perfil | Se prueban por separado con la moto detenida; no se modifican automáticamente en APP |
 | Efecto de ganancia desde APP | Útil para audio reproducido por la propia APP | La música la reproduce otra app y su sesión de audio no pertenece a APP; el efecto global sobre la mezcla está obsoleto |
 
-APP elige ahora la ruta de comunicación relacionada con la salida multimedia observada cuando Android la informa, incluida una ruta LE Audio si es la que corresponde. Si hay varios cascos conectados y la elección es ambigua, no se elige uno arbitrariamente. El diagnóstico muestra qué rutas Bluetooth de entrada están disponibles; la prueba de micrófono confirma la entrada real. APP no promete calidad alta solo porque aparezca LE Audio.
+APP elige ahora la ruta de comunicación relacionada con la salida multimedia observada cuando Android la informa, incluida una ruta LE Audio si es la que corresponde. Si hay varios cascos conectados y la elección es ambigua, no se elige uno arbitrariamente. El diagnóstico muestra qué rutas de comunicación Bluetooth ofrece Android; la prueba de micrófono confirma la entrada real. APP no promete calidad alta solo porque aparezca LE Audio.
 
 ## Protocolo estacionario
 
 1. Conectar **un casco por vez**. Repetir con Y12 Pro y con cada Skullcandy.
 2. Usar el mismo teléfono, reproductor, canción y nivel multimedia. Anotar también el nivel propio del casco, si existe.
-3. Antes de iniciar, capturar «Salida música prevista» y «Entradas casco disponibles» en Pruebas y diagnóstico.
+3. Antes de iniciar, capturar «Salida música prevista» y «Rutas casco disponibles» en Pruebas y diagnóstico.
 4. Iniciar Modo Viaje con «Casco para activación y orden». Esperar a que indique «Esperando Alexa» y anotar «Ruta comunicación», «Salida música prevista», Música y Comunicación.
 5. Con la sesión terminada y la moto detenida, ejecutar la medición de cinco segundos y anotar «Entrada real». Probar varias activaciones y una orden sencilla, comprobando en el reproductor si se ejecutó.
 6. Comparar intensidad y claridad percibidas antes, durante y después; registrar si aparece LE Audio en la salida durante la espera o si sigue SCO. Detener y verificar que la música continúa sonando.
