@@ -44,3 +44,9 @@ Con la moto detenida: reproducir una canción, iniciar viaje, detener desde la a
 - Mantener presionado el botón del Y12 Pro activa la alternativa de asistente. El reporte confirma la activación con pulsación larga, pero no cuantifica órdenes ejecutadas por esa vía ni sustituye el uso de toques cortos para cambiar pista.
 - El usuario confirmó que al detener desde la notificación o desde el botón de la app la sesión se cierra y la canción continúa sonando. Junto con la prueba por voz, queda validada en esta salida la recuperación audible de música en las tres vías de cierre.
 - Pendiente: comprobar la ruta final A2DP, probar que «pausa» siga pausada al cerrar y comparar volumen/calidad durante la espera de Alexa. No se modifica volumen automáticamente.
+
+## Intensidad y calidad durante la espera de Alexa
+
+El usuario aclara que el nivel de volumen numérico se mantiene, pero al iniciar Modo Viaje la música pierde intensidad percibida y calidad. La lectura registrada durante la espera mostró salida prevista Bluetooth SCO, frente a A2DP antes de iniciar. Subir música a 15/15 produjo una mejora apenas perceptible; no se compensará elevando niveles automáticamente.
+
+Se hará una comparación estacionaria con la misma canción y el mismo volumen: modo casco (Alexa y orden por Y12 Pro) frente a «Prueba A2DP: Alexa con teléfono, orden con casco». En este segundo modo se verificará que la salida durante la espera quede en A2DP y que Alexa detecte la voz con la posición real del teléfono. El casco volverá a SCO temporalmente para recibir cada orden; la detección por teléfono en ruta aún no está validada. La pulsación larga del Y12 Pro queda como respaldo, pero el usuario considera inseguro depender de mantener el botón presionado mientras conduce.
