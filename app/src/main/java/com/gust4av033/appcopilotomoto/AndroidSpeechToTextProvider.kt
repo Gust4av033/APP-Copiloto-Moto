@@ -16,6 +16,7 @@ import android.speech.SpeechRecognizer
 import java.util.Locale
 
 enum class SpeechCaptureState { READY, SPEECH_ONSET }
+enum class PlaybackResumePolicy { NOW, AFTER_ROUTE_RESTORED, KEEP_PAUSED }
 
 /** Reconoce una sola orden, en el dispositivo, tras pulsar el botón de prueba. */
 class AndroidSpeechToTextProvider(private val context: Context) {
@@ -32,10 +33,11 @@ class AndroidSpeechToTextProvider(private val context: Context) {
     private var generation = 0
     private var audioFocusGranted = false
     private var playbackPauseRequested = false
+    private var playbackResumeDeferred = false
 
     fun listenOnce(
         onState: (SpeechCaptureState) -> Unit = {},
-        shouldResumePlayback: (String?) -> Boolean = { true },
+        playbackResumePolicy: (String?) -> PlaybackResumePolicy = { PlaybackResumePolicy.NOW },
         onResult: (Result<String>) -> Unit
     ) {
         cancel()
@@ -84,7 +86,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                         else -> "Error de reconocimiento local"
                     }
                     val diagnostic = "$detail (código $error). STT listo: ${if (ready) "sí" else "no"}; inicio de voz marcado: ${if (speechOnset) "sí" else "no"}; entradas activas: $activeInputs; pausa multimedia: ${if (pauseRequestedForSession) "solicitada" else "no solicitada"}; foco: ${if (focusGrantedForSession) "concedido" else "no concedido"}."
-                    finish(Result.failure(IllegalStateException(diagnostic)), session, shouldResumePlayback, onResult)
+                    finish(Result.failure(IllegalStateException(diagnostic)), session, playbackResumePolicy, onResult)
                 }
                 override fun onResults(results: Bundle?) {
                     val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
@@ -92,7 +94,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                     val value = if (heard.isBlank()) {
                         Result.failure(IllegalStateException("No se entendió la orden."))
                     } else Result.success(heard)
-                    finish(value, session, shouldResumePlayback, onResult)
+                    finish(value, session, playbackResumePolicy, onResult)
                 }
             })
             val locale = Locale.getDefault().takeIf { it.language == "es" } ?: Locale.forLanguageTag("es-ES")
@@ -119,13 +121,18 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         }
     }
 
-    fun cancel() {
+    /** Devuelve si APP pausó música; el servicio puede reanudarla tras restaurar la ruta. */
+    fun cancel(resumePlayback: Boolean = true): Boolean {
         generation++
         recognizer?.cancel()
         recognizer?.destroy()
         recognizer = null
         releaseAudioFocus()
-        resumePlaybackIfNeeded()
+        val pausedByApp = playbackPauseRequested || playbackResumeDeferred
+        playbackPauseRequested = false
+        playbackResumeDeferred = false
+        if (resumePlayback && pausedByApp) resumePlayback()
+        return pausedByApp
     }
 
     private fun activeInputDevices(): String = runCatching {
@@ -142,12 +149,9 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         }.distinct().joinToString().ifBlank { "no informadas" }
     }.getOrDefault("no informadas")
 
-    private fun resumePlaybackIfNeeded() {
-        if (playbackPauseRequested) {
-            playbackPauseRequested = false
-            // PLAY es idempotente; se evita si otra reproducción sigue activa.
-            runCatching { if (!audioManager.isMusicActive) media.resumePlayback() }
-        }
+    private fun resumePlayback() {
+        // PLAY es idempotente; se evita si otra reproducción sigue activa.
+        runCatching { if (!audioManager.isMusicActive) media.resumePlayback() }
     }
 
     private fun releaseAudioFocus() {
@@ -160,7 +164,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
     private fun finish(
         result: Result<String>,
         session: Int,
-        shouldResumePlayback: (String?) -> Boolean,
+        playbackResumePolicy: (String?) -> PlaybackResumePolicy,
         callback: (Result<String>) -> Unit
     ) {
         if (session != generation) return
@@ -168,11 +172,19 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         recognizer?.destroy()
         recognizer = null
         releaseAudioFocus()
-        if (runCatching { shouldResumePlayback(result.getOrNull()) }.getOrDefault(true)) {
-            resumePlaybackIfNeeded()
-        } else {
-            // La orden Pausar es la intención final del usuario, aunque esta captura haya pausado música.
-            playbackPauseRequested = false
+        val policy = runCatching { playbackResumePolicy(result.getOrNull()) }
+            .getOrDefault(PlaybackResumePolicy.NOW)
+        when (policy) {
+            PlaybackResumePolicy.NOW -> {
+                val shouldResume = playbackPauseRequested
+                playbackPauseRequested = false
+                if (shouldResume) resumePlayback()
+            }
+            PlaybackResumePolicy.AFTER_ROUTE_RESTORED -> {
+                playbackResumeDeferred = playbackPauseRequested
+                playbackPauseRequested = false
+            }
+            PlaybackResumePolicy.KEEP_PAUSED -> playbackPauseRequested = false
         }
         callback(result)
     }
