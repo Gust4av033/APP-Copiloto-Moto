@@ -47,6 +47,18 @@ fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -
                 onClick = actions.onManualTripCommand)
         }
     }
+    state.pendingAppName?.let { name ->
+        SectionCard(stringResource(R.string.trip_pending_app)) {
+            Text(name, style = MaterialTheme.typography.titleMedium)
+            SupportingText(stringResource(R.string.trip_pending_app_hint))
+            ActionButton(stringResource(R.string.trip_open_app),
+                enabled = state.tripActive && state.pendingAppToken != null,
+                onClick = { state.pendingAppToken?.let(actions.onOpenPendingApp) })
+            ActionButton(stringResource(R.string.trip_cancel_app),
+                enabled = state.tripActive && state.pendingAppToken != null,
+                onClick = { state.pendingAppToken?.let(actions.onCancelPendingApp) })
+        }
+    }
     SectionCard(stringResource(R.string.trip_last_result)) {
         SupportingText(state.lastCommandResult.ifBlank { stringResource(R.string.no_command_result) })
     }

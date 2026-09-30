@@ -28,11 +28,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import java.util.concurrent.Executors
+import java.util.UUID
 
 /** Estado de diagnóstico; las escrituras se hacen en el hilo principal. */
 object TripTestState {
     var running by mutableStateOf(false)
     var restoringAudio by mutableStateOf(false)
+    var pendingAppName by mutableStateOf<String?>(null)
+    var pendingAppToken by mutableStateOf<String?>(null)
+    internal var pendingAppTarget: AppTarget? = null
+    internal var pendingAppExpiresAtMs = 0L
     var status by mutableStateOf("Iniciá la sesión de prueba con la app abierta.")
     var lastCommandResult by mutableStateOf("Aún no hay órdenes en esta sesión.")
     var detections by mutableStateOf(0)
@@ -101,6 +106,9 @@ class TripVoiceService : Service() {
         const val ACTION_STOP = "com.gust4av033.appcopilotomoto.STOP_TRIP_TEST"
         const val ACTION_MANUAL_COMMAND = "com.gust4av033.appcopilotomoto.MANUAL_TRIP_COMMAND"
         const val ACTION_SILENCE = "com.gust4av033.appcopilotomoto.SILENCE_TRIP_SPEECH"
+        const val ACTION_APP_OPENED = "com.gust4av033.appcopilotomoto.PENDING_APP_OPENED"
+        const val ACTION_CANCEL_APP = "com.gust4av033.appcopilotomoto.CANCEL_PENDING_APP"
+        const val EXTRA_APP_TOKEN = "app_token"
         const val EXTRA_PHRASE = "phrase"
         const val EXTRA_SENSITIVITY = "sensitivity"
         const val EXTRA_AUDIO_MODE = "audio_mode"
@@ -139,7 +147,10 @@ class TripVoiceService : Service() {
         val wakeAt: Long
     )
     private var pendingVolumeCommand: PendingVolumeCommand? = null
-    private var pendingApp: AppTarget? = null
+    private val appRequests = PendingAppLaunch<AppTarget>()
+    private val pendingApp: AppTarget? get() = appRequests.current?.target
+    private var appExpirationTask: Runnable? = null
+    private var appLaunchPendingIntent: PendingIntent? = null
     private var resumeAfterButtonRoute = false
     private var providerFactory: (() -> WakeWordProvider)? = null
     private var phoneListener: PhoneStateListener? = null
@@ -148,6 +159,25 @@ class TripVoiceService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_APP_OPENED) {
+            val token = intent.getStringExtra(EXTRA_APP_TOKEN)
+            val label = pendingApp?.label
+            if (active && token != null && clearPendingApp(token)) {
+                TripTestState.actions++
+                TripTestState.save(this)
+                TripTestState.lastCommandResult = "Solicitud de apertura de $label enviada; el viaje sigue activo."
+                updateNotification("Aplicación abierta · viaje activo")
+            } else if (!active) stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_CANCEL_APP) {
+            val token = intent.getStringExtra(EXTRA_APP_TOKEN)
+            if (active && token != null && clearPendingApp(token)) {
+                TripTestState.lastCommandResult = "Apertura de aplicación cancelada; el viaje sigue activo."
+                updateNotification("Apertura cancelada · viaje activo")
+            } else if (!active) stopSelf(startId)
+            return START_NOT_STICKY
+        }
         if (intent?.action == ACTION_SILENCE) {
             val silenced = callPromptLazy.isInitialized() && callPrompt.cancel()
             if (active && silenced) {
@@ -191,7 +221,7 @@ class TripVoiceService : Service() {
         wakeAudioMode = runCatching {
             WakeAudioMode.valueOf(intent.getStringExtra(EXTRA_AUDIO_MODE) ?: WakeAudioMode.BLUETOOTH.name)
         }.getOrDefault(WakeAudioMode.BLUETOOTH)
-        pendingApp = null
+        clearPendingApp()
         createChannel()
         try {
             val notice = buildNotification(if (wakeAudioMode == WakeAudioMode.BUTTON) {
@@ -494,8 +524,7 @@ class TripVoiceService : Service() {
             val cancelledApp = intent == TestIntent.CANCEL && pendingApp != null
             // Una orden nueva reemplaza cualquier apertura que aún estaba pendiente.
             if (intent != TestIntent.OPEN_APP) {
-                pendingApp = null
-                getSystemService(NotificationManager::class.java).cancel(APP_NOTIFICATION_ID)
+                clearPendingApp()
             }
             if (intent == TestIntent.VOLUME_UP || intent == TestIntent.VOLUME_DOWN ||
                 intent == TestIntent.VOLUME_SET) {
@@ -527,9 +556,9 @@ class TripVoiceService : Service() {
                 return@listenOnce
             }
             if (intent == TestIntent.OPEN_APP) {
-                getSystemService(NotificationManager::class.java).cancel(APP_NOTIFICATION_ID)
+                clearPendingApp()
                 val found = actions.prepareApp(command)
-                pendingApp = found.getOrNull()
+                found.getOrNull()?.let(::preparePendingApp)
                 TripTestState.status = if (pendingApp != null) {
                     "$source: Encontré ${pendingApp?.label}. Tocá el aviso emergente para abrirla."
                 } else {
@@ -538,7 +567,6 @@ class TripVoiceService : Service() {
                 }
                 TripTestState.lastCommandResult = TripTestState.status
                 TripTestState.save(this)
-                pendingApp?.let(::showAppPrompt)
                 updateNotification(if (pendingApp != null) "Aplicación lista: ${pendingApp?.label}" else "Aplicación no encontrada")
                 schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 100L else 2_000L) {
                     if (active && detector === provider && cycle == generation) startDetector(provider)
@@ -828,14 +856,13 @@ class TripVoiceService : Service() {
         if (closing) return
         active = false
         stopPhoneMonitoring()
-        getSystemService(NotificationManager::class.java).cancel(APP_NOTIFICATION_ID)
         stopMonitoringHardware()
         closing = true
         TripTestState.restoringAudio = true
         callPending = false
         armed = false
         pendingVolumeCommand = null
-        pendingApp = null
+        clearPendingApp()
         generation++
         val stoppedGeneration = generation
         if (callPromptLazy.isInitialized()) callPrompt.cancel()
@@ -914,17 +941,67 @@ class TripVoiceService : Service() {
         )
     }
 
-    private fun showAppPrompt(target: AppTarget) {
-        val launch = PendingIntent.getActivity(this, 5, target.launchIntent,
+    private fun clearPendingApp(token: String? = null): Boolean {
+        if (!appRequests.clear(token)) return false
+        cleanAppPrompt()
+        return true
+    }
+
+    private fun cleanAppPrompt() {
+        appExpirationTask?.let(mainHandler::removeCallbacks)
+        appExpirationTask = null
+        appLaunchPendingIntent?.cancel()
+        appLaunchPendingIntent = null
+        TripTestState.pendingAppTarget = null
+        TripTestState.pendingAppExpiresAtMs = 0L
+        TripTestState.pendingAppName = null
+        TripTestState.pendingAppToken = null
+        getSystemService(NotificationManager::class.java).cancel(APP_NOTIFICATION_ID)
+    }
+
+    private fun preparePendingApp(target: AppTarget) {
+        val request = appRequests.prepare(target, UUID.randomUUID().toString(), SystemClock.elapsedRealtime())
+        TripTestState.pendingAppTarget = target
+        TripTestState.pendingAppExpiresAtMs = request.expiresAtMs
+        TripTestState.pendingAppName = target.label
+        TripTestState.pendingAppToken = request.token
+        val expiration = Runnable {
+            if (appRequests.expire(request.token, SystemClock.elapsedRealtime())) {
+                cleanAppPrompt()
+                TripTestState.lastCommandResult = "La apertura de ${target.label} venció; podés pedirla otra vez."
+                updateNotification("Apertura vencida · viaje activo")
+            }
+        }
+        appExpirationTask = expiration
+        // Independiente del temporizador de voz: vencer un aviso nunca interrumpe la escucha.
+        mainHandler.postDelayed(expiration, PendingAppLaunch.VALIDITY_MS)
+        showAppPrompt(request)
+    }
+
+    private fun showAppPrompt(request: PendingAppLaunch.Request<AppTarget>) {
+        val target = request.target
+        val launch = PendingIntent.getActivity(this, 5,
+            Intent(this, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_PENDING_APP)
+                .setData(Uri.parse("appcopiloto://launch/${request.token}"))
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                .putExtra(EXTRA_APP_TOKEN, request.token),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        appLaunchPendingIntent = launch
+        val cancel = PendingIntent.getService(this, 6,
+            Intent(this, TripVoiceService::class.java).setAction(ACTION_CANCEL_APP)
+                .setData(Uri.parse("appcopiloto://pending/${request.token}"))
+                .putExtra(EXTRA_APP_TOKEN, request.token),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notice = Notification.Builder(this, APP_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setContentTitle("Abrir ${target.label}")
-            .setContentText("Tocá para abrir la aplicación.")
+            .setContentText("Tocá para abrir. Disponible durante 30 segundos.")
             .setContentIntent(launch)
+            .setDeleteIntent(cancel)
             .setAutoCancel(true)
-            .setTimeoutAfter(30_000L)
+            .setTimeoutAfter(PendingAppLaunch.VALIDITY_MS)
             .addAction(android.R.drawable.ic_menu_view, "Abrir ${target.label}", launch)
+            .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancelar", cancel)
             .build()
         runCatching { getSystemService(NotificationManager::class.java).notify(APP_NOTIFICATION_ID, notice) }
     }
@@ -947,9 +1024,9 @@ class TripVoiceService : Service() {
             notice.addAction(android.R.drawable.ic_btn_speak_now, "Escuchar orden", listen)
         }
         pendingApp?.let { target ->
-            val launch = PendingIntent.getActivity(this, 3, target.launchIntent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            notice.addAction(android.R.drawable.ic_menu_view, "Abrir ${target.label}", launch)
+            appLaunchPendingIntent?.let { launch ->
+                notice.addAction(android.R.drawable.ic_menu_view, "Abrir ${target.label}", launch)
+            }
         }
         if (callPromptLazy.isInitialized() && callPrompt.isAnnouncing()) {
             val silence = PendingIntent.getService(this, 4,
@@ -967,6 +1044,7 @@ class TripVoiceService : Service() {
     }
 
     override fun onDestroy() {
+        clearPendingApp()
         stopMonitoringHardware()
         if (active) stopSession("Sesión interrumpida por Android; iniciá una nueva prueba.")
         worker.shutdown()

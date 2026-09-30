@@ -13,7 +13,7 @@ Rama de trabajo: `feature/fase-1-intent-router`. Reúne comandos, UI, recuperaci
 
 ## Abrir aplicaciones
 
-Con APP visible, la orden abre la aplicación encontrada. En la sesión de viaje, APP publica un aviso emergente **Abrir [nombre]**, separado de la notificación silenciosa del viaje. Android controla su presentación: habilitá avisos emergentes del canal Abrir aplicaciones. También conserva la acción en la notificación del viaje. Android restringe abrir una pantalla desde un servicio en segundo plano; esta entrega requiere tocar esa acción. El inventario local se limita a los accesos que Android publica al lanzador en el perfil actual. Las apps sin acceso de lanzador, deshabilitadas o instaladas solo en otro perfil no aparecerán. La lista no se envía ni se guarda.
+Con APP visible, la orden abre la aplicación encontrada. En la sesión de viaje, APP publica un aviso emergente **Abrir [nombre]**, separado de la notificación silenciosa del viaje. Android controla su presentación: habilitá avisos emergentes del canal Abrir aplicaciones. También conserva la acción en la notificación del viaje. Viaje muestra la aplicación pendiente con botones Abrir y Cancelar. Descartar el aviso, cancelar o esperar 30 segundos elimina la solicitud y sus accesos. Abrir envía la solicitud a través del ejecutor y retira la tarjeta; una orden nueva reemplaza lo que estaba pendiente. Android restringe abrir una pantalla desde un servicio en segundo plano; esta entrega requiere tocar esa acción. El inventario local se limita a los accesos que Android publica al lanzador en el perfil actual. Las apps sin acceso de lanzador, deshabilitadas o instaladas solo en otro perfil no aparecerán. La lista no se envía ni se guarda.
 
 Esta acción no es navegación ni controla la aplicación abierta. La integración con Waze corresponde a Fase 2.
 
@@ -32,3 +32,17 @@ Protocolo de regresión: `docs/PRUEBA_LLAMADAS_Y_AVISO_APPS.md`.
 5. Comprobar que música, volumen y detener sesión siguen funcionando. Si probás una llamada con confirmación hablada, tocá **Silencio** durante el anuncio: debe detener la voz, cancelar la llamada y dejar la sesión esperando otra activación.
 
 La compilación y las pruebas locales verifican las reglas y el código Android. El comportamiento del botón, del casco, de la notificación y de las aplicaciones instaladas requiere esta prueba en el teléfono para validar el comportamiento físico. «Silencio» pronunciado durante el anuncio aún no puede reconocerse porque el micrófono de órdenes está cerrado mientras habla; la acción de notificación permite interrumpirlo en esta etapa.
+
+
+## Regresión de solicitudes de apps
+
+1. Pedir una app y abrirla desde el aviso: verificar la app correcta, desaparición de la solicitud y continuidad del viaje. Repetir usando Abrir en la tarjeta de Viaje.
+2. Pedir una app y cancelar desde el aviso, la tarjeta o por voz: ambos accesos deben desaparecer sin detener la sesión.
+3. Descartar el aviso deslizándolo: la tarjeta y el acceso de la notificación del viaje deben desaparecer.
+4. Esperar 30 segundos: la solicitud vence; pedir música inmediatamente antes del vencimiento para verificar que su temporizador no interrumpe el STT.
+5. Pedir una segunda app mientras la primera está pendiente: un aviso o callback de la primera no puede cancelar ni abrir la segunda.
+6. Detener viaje con una apertura pendiente: no debe quedar un acceso válido para abrirla.
+
+Una solicitud de apertura enviada no confirma que otra app haya mostrado su pantalla correctamente.
+
+Validación del avance: `:app:clean :app:testDebugUnitTest :app:assembleDebug` correctos; 22 pruebas, 0 fallos y 0 errores. Verificación de avisos y Bluetooth pendiente en el S22+.

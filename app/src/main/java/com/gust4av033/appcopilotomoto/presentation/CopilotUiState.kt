@@ -69,6 +69,8 @@ data class CopilotUiState(
     val wakeTransition: Boolean = false,
     val tripStatus: String = "",
     val lastCommandResult: String = "",
+    val pendingAppName: String? = null,
+    val pendingAppToken: String? = null,
     val metrics: TripMetricsUi = TripMetricsUi(),
     val phraseId: String = "ALEXA",
     val phraseLabel: String = "Alexa",
@@ -110,6 +112,8 @@ data class CopilotUiState(
 data class CopilotActions(
     val onToggleTrip: () -> Unit = {},
     val onManualTripCommand: () -> Unit = {},
+    val onCancelPendingApp: (String) -> Unit = {},
+    val onOpenPendingApp: (String) -> Unit = {},
     val onRefreshAudio: () -> Unit = {},
     val onRefreshDevices: () -> Unit = {},
     val onSelectHeadset: (Int?) -> Unit = {},

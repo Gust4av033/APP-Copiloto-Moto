@@ -33,6 +33,7 @@ import com.gust4av033.appcopilotomoto.presentation.TripMetricsUi
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
+    companion object { const val ACTION_OPEN_PENDING_APP = "com.gust4av033.appcopilotomoto.OPEN_PENDING_APP" }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     private val speech by lazy { AndroidSpeechToTextProvider(applicationContext) }
@@ -182,6 +183,8 @@ class MainActivity : ComponentActivity() {
             wakeTransition = wakeTransition,
             tripStatus = TripTestState.status,
             lastCommandResult = TripTestState.lastCommandResult,
+            pendingAppName = TripTestState.pendingAppName,
+            pendingAppToken = TripTestState.pendingAppToken,
             metrics = TripMetricsUi(
                 detections = TripTestState.detections,
                 manualCommands = TripTestState.manualCommands,
@@ -222,6 +225,8 @@ class MainActivity : ComponentActivity() {
             actions = CopilotActions(
                 onToggleTrip = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
                 onManualTripCommand = ::requestManualTripCommand,
+                onCancelPendingApp = ::cancelPendingApp,
+                onOpenPendingApp = ::openPendingApp,
                 onRefreshAudio = {
                     audioDiagnostic = runCatching { media.audioRouteDiagnostic() }
                         .getOrDefault(getString(R.string.devices_read_error))
@@ -432,6 +437,12 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleAssistantInvocation(incoming: Intent?) {
+        if (incoming?.action == ACTION_OPEN_PENDING_APP) {
+            setIntent(Intent(this, MainActivity::class.java))
+            selectedScreen = CopilotScreen.TRIP
+            incoming.getStringExtra(TripVoiceService.EXTRA_APP_TOKEN)?.let(::openPendingApp)
+            return
+        }
         val source = when (incoming?.action) {
             Intent.ACTION_ASSIST -> "ASSIST"
             Intent.ACTION_VOICE_COMMAND -> "VOICE_COMMAND"
@@ -522,6 +533,35 @@ class MainActivity : ComponentActivity() {
         }.onFailure {
             TripTestState.status = "No se pudo abrir la orden: ${it.message ?: it.javaClass.simpleName}"
         }
+    }
+
+    private fun openPendingApp(token: String) {
+        val target = TripTestState.pendingAppTarget
+        if (!TripTestState.running || TripTestState.pendingAppToken != token || target == null ||
+            SystemClock.elapsedRealtime() >= TripTestState.pendingAppExpiresAtMs) {
+            return
+        }
+        actions.openAppFromActivity(target).fold(
+            onSuccess = {
+                runCatching {
+                    startService(Intent(this, TripVoiceService::class.java)
+                        .setAction(TripVoiceService.ACTION_APP_OPENED)
+                        .putExtra(TripVoiceService.EXTRA_APP_TOKEN, token))
+                }
+            },
+            onFailure = {
+                TripTestState.lastCommandResult = "No se pudo abrir ${target.label}: ${it.message}."
+            }
+        )
+    }
+
+    private fun cancelPendingApp(token: String) {
+        if (!TripTestState.running) return
+        runCatching {
+            startService(Intent(this, TripVoiceService::class.java)
+                .setAction(TripVoiceService.ACTION_CANCEL_APP)
+                .putExtra(TripVoiceService.EXTRA_APP_TOKEN, token))
+        }.onFailure { TripTestState.lastCommandResult = "No se pudo cancelar la apertura: ${it.message}." }
     }
 
     private fun stopTripTest() {
