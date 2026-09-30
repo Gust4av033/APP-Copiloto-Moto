@@ -46,6 +46,8 @@ fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -
         SupportingText(stringResource(R.string.trip_audio_check_hint))
         if (state.tripActive && state.audioDuring.contains("Salida música prevista: Bluetooth SCO")) {
             SupportingText(stringResource(R.string.trip_sco_observed))
+        } else if (state.tripActive && state.audioDuring.contains("Salida música prevista: Bluetooth LE")) {
+            SupportingText(stringResource(R.string.trip_le_observed))
         }
         if (state.inputId == "PHONE_WAKE") {
             SupportingText(stringResource(R.string.trip_phone_wake_trial))
@@ -99,6 +101,7 @@ fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
     if (state.tripActive) SupportingText(stringResource(R.string.tests_trip_active))
     SectionCard(stringResource(R.string.tests_audio)) {
         AudioComparison(state)
+        SupportingText(stringResource(R.string.tests_audio_profile_hint))
         SupportingText(state.audioDiagnostic)
         ActionButton(stringResource(R.string.audio_refresh), onClick = actions.onRefreshAudio)
     }
