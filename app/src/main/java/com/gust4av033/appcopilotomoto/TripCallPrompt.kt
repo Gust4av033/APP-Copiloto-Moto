@@ -9,7 +9,7 @@ import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 
-/** Anuncia el destinatario antes de permitir la confirmación por voz. */
+/** Anuncia una acción antes de abrir la escucha de confirmación. */
 class TripCallPrompt(private val context: Context) {
     private val handler = Handler(Looper.getMainLooper())
     private var engine: TextToSpeech? = null
@@ -19,7 +19,13 @@ class TripCallPrompt(private val context: Context) {
 
     fun isAnnouncing(): Boolean = announcing
 
-    fun announce(name: String, onFinished: (Boolean) -> Unit) {
+    fun announce(name: String, onFinished: (Boolean) -> Unit) = speak(
+        "Llamar a $name. Después del tono, di confirmar llamada o cancelar.", onFinished)
+
+    fun announceApp(name: String, onFinished: (Boolean) -> Unit) = speak(
+        "Abrir $name. Después del tono, di uno para abrir o dos para cancelar.", onFinished)
+
+    private fun speak(text: String, onFinished: (Boolean) -> Unit) {
         cancel()
         val cycle = ++generation
         announcing = true
@@ -44,8 +50,7 @@ class TripCallPrompt(private val context: Context) {
                         handler.post { finish(cycle, false, onFinished) }
                     }
                 })
-                val text = "Llamar a $name. Después del tono, di confirmar llamada o cancelar."
-                if (speaker.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), "trip-call-$cycle") != TextToSpeech.SUCCESS) {
+                if (speaker.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), "trip-prompt-$cycle") != TextToSpeech.SUCCESS) {
                     finish(cycle, false, onFinished)
                 }
             }
@@ -74,3 +79,4 @@ class TripCallPrompt(private val context: Context) {
         return wasAnnouncing
     }
 }
+

@@ -1,6 +1,7 @@
 package com.gust4av033.appcopilotomoto
 
 import android.Manifest
+import android.app.KeyguardManager
 import android.app.role.RoleManager
 import android.content.Intent
 import android.content.ClipData
@@ -17,10 +18,13 @@ import android.os.SystemClock
 import android.provider.ContactsContract
 import android.provider.Settings
 import android.widget.Toast
+import android.view.WindowManager
+import androidx.lifecycle.Lifecycle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -157,9 +161,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private var keepScreenOnDuringTrip by mutableStateOf(true)
+    // La apertura por voz requiere una Activity visible y el teléfono desbloqueado.
+    private val voiceAppOpener: (String) -> Boolean = { token ->
+        lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
+            !getSystemService(KeyguardManager::class.java).isKeyguardLocked &&
+            openPendingApp(token)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         TripTestState.restore(this)
+        keepScreenOnDuringTrip = getSharedPreferences("ui_settings", MODE_PRIVATE)
+            .getBoolean("keep_screen_on_during_trip", true)
         tripCallContact = TripCallContactStore.load(this)
         tripAudioMode = runCatching {
             WakeAudioMode.valueOf(getSharedPreferences("ui_settings", MODE_PRIVATE)
@@ -183,6 +197,7 @@ class MainActivity : ComponentActivity() {
     private fun AppUi() {
         val state = CopilotUiState(
             tripActive = TripTestState.running,
+            keepScreenOnDuringTrip = keepScreenOnDuringTrip,
             restoringAudio = TripTestState.restoringAudio,
             commandReady = TripTestState.commandReady,
             callPhase = TripTestState.callPhase,
@@ -230,6 +245,12 @@ class MainActivity : ComponentActivity() {
                     it.sampleCount, it.rmsDbfs, it.peakDbfs, it.warning)
             }
         )
+        DisposableEffect(state.tripActive, state.keepScreenOnDuringTrip) {
+            if (state.tripActive && state.keepScreenOnDuringTrip) {
+                window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            } else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+        }
         CopilotApp(
             state = state,
             selectedScreen = selectedScreen,
@@ -238,7 +259,12 @@ class MainActivity : ComponentActivity() {
                 onToggleTrip = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
                 onManualTripCommand = ::requestManualTripCommand,
                 onCancelPendingApp = ::cancelPendingApp,
-                onOpenPendingApp = ::openPendingApp,
+                onOpenPendingApp = { openPendingApp(it) },
+                onKeepScreenOnChange = { enabled ->
+                    keepScreenOnDuringTrip = enabled
+                    getSharedPreferences("ui_settings", MODE_PRIVATE).edit()
+                        .putBoolean("keep_screen_on_during_trip", enabled).apply()
+                },
                 onCopyDiagnostics = { report ->
                     getSystemService(ClipboardManager::class.java).setPrimaryClip(
                         ClipData.newPlainText(getString(R.string.report_title),
@@ -392,6 +418,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        TripTestState.openPendingAppFromVoice = voiceAppOpener
         refreshAppCatalog()
         mainHandler.removeCallbacks(refreshDevicesTask)
         mainHandler.post(refreshDevicesTask)
@@ -419,7 +446,14 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun releaseVoiceAppOpener() {
+        if (TripTestState.openPendingAppFromVoice === voiceAppOpener) {
+            TripTestState.openPendingAppFromVoice = null
+        }
+    }
+
     override fun onPause() {
+        releaseVoiceAppOpener()
         mainHandler.removeCallbacks(refreshDevicesTask)
         super.onPause()
     }
@@ -563,22 +597,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun openPendingApp(token: String) {
+    private fun openPendingApp(token: String): Boolean {
         val target = TripTestState.pendingAppTarget
         if (!TripTestState.running || TripTestState.pendingAppToken != token || target == null ||
             SystemClock.elapsedRealtime() >= TripTestState.pendingAppExpiresAtMs) {
-            return
+            return false
         }
-        actions.openAppFromActivity(target).fold(
+        return actions.openAppFromActivity(target).fold(
             onSuccess = {
+                // Impide otra apertura mientras el servicio recibe la confirmación.
+                TripTestState.pendingAppExpiresAtMs = 0L
                 runCatching {
                     startService(Intent(this, TripVoiceService::class.java)
                         .setAction(TripVoiceService.ACTION_APP_OPENED)
                         .putExtra(TripVoiceService.EXTRA_APP_TOKEN, token))
                 }
+                true
             },
             onFailure = {
                 TripTestState.lastCommandResult = "No se pudo abrir ${target.label}: ${it.message}."
+                false
             }
         )
     }
@@ -839,6 +877,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        releaseVoiceAppOpener()
+        window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         mainHandler.removeCallbacks(refreshDevicesTask)
         wakeResumeTask?.let(mainHandler::removeCallbacks)
         wakeResumeTask = null
@@ -854,3 +894,4 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 }
+

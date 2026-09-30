@@ -40,6 +40,7 @@ object TripTestState {
     var pendingAppToken by mutableStateOf<String?>(null)
     internal var pendingAppTarget: AppTarget? = null
     internal var pendingAppExpiresAtMs = 0L
+    internal var openPendingAppFromVoice: ((String) -> Boolean)? = null
     var commandReady by mutableStateOf(false)
     var callPhase by mutableStateOf(TripCallPhase.NONE)
     var status by mutableStateOf("Iniciá la sesión de prueba con la app abierta.")
@@ -165,6 +166,7 @@ class TripVoiceService : Service() {
     private var pendingVolumeCommand: PendingVolumeCommand? = null
     private val appRequests = PendingAppLaunch<AppTarget>()
     private val pendingApp: AppTarget? get() = appRequests.current?.target
+    private var appChoiceToken: String? = null
     private var appExpirationTask: Runnable? = null
     private var appLaunchPendingIntent: PendingIntent? = null
     private var resumeAfterButtonRoute = false
@@ -195,6 +197,13 @@ class TripVoiceService : Service() {
             return START_NOT_STICKY
         }
         if (intent?.action == ACTION_SILENCE) {
+            appChoiceToken?.let { token ->
+                clearPendingApp(token)
+                TripTestState.status = "Apertura de aplicación cancelada; esperando activación."
+                TripTestState.lastCommandResult = TripTestState.status
+                updateNotification("Apertura cancelada · viaje activo")
+                return START_NOT_STICKY
+            }
             val silenced = callPromptLazy.isInitialized() && callPrompt.cancel()
             if (active && silenced) {
                 pendingTask?.let(mainHandler::removeCallbacks)
@@ -354,7 +363,7 @@ class TripVoiceService : Service() {
         resumeAfterButtonRoute = false
         armed = true
         TripTestState.audioDuring = media.audioRouteDiagnostic()
-        TripTestState.status = "Esperando ‘${provider.phrase}’ con pantalla apagada… ${inputCheck.getOrNull().orEmpty()}"
+        TripTestState.status = "Esperando ‘${provider.phrase}’; viaje activo… ${inputCheck.getOrNull().orEmpty()}"
         updateNotification("Esperando ‘${provider.phrase}’")
     }
 
@@ -526,7 +535,7 @@ class TripVoiceService : Service() {
         }, playbackResumePolicy = { heard ->
             when (heard?.let(MinimalIntentRouter::resolve)) {
                 TestIntent.MEDIA_PAUSE -> PlaybackResumePolicy.KEEP_PAUSED
-                TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
+                TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.OPEN_APP -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 TestIntent.STOP_SESSION -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 else -> if (wakeAudioMode == WakeAudioMode.BUTTON) {
                     PlaybackResumePolicy.AFTER_ROUTE_RESTORED
@@ -577,7 +586,7 @@ class TripVoiceService : Service() {
                 val found = actions.prepareApp(command)
                 found.getOrNull()?.let(::preparePendingApp)
                 TripTestState.status = if (pendingApp != null) {
-                    "$source: Encontré ${pendingApp?.label}. Tocá el aviso emergente para abrirla."
+                    "$source: Encontré ${pendingApp?.label}. Escuchá la confirmación: uno para abrir o dos para cancelar."
                 } else {
                     TripTestState.failures++
                     "$source: ${found.exceptionOrNull()?.message ?: "No se encontró la aplicación."}"
@@ -585,7 +594,9 @@ class TripVoiceService : Service() {
                 TripTestState.lastCommandResult = TripTestState.status
                 TripTestState.save(this)
                 updateNotification(if (pendingApp != null) "Aplicación lista: ${pendingApp?.label}" else "Aplicación no encontrada")
-                schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 100L else 2_000L) {
+                val request = appRequests.current
+                if (request != null) requestAppChoice(provider, cycle, request)
+                else schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 100L else 2_000L) {
                     if (active && detector === provider && cycle == generation) startDetector(provider)
                 }
                 return@listenOnce
@@ -658,6 +669,106 @@ class TripVoiceService : Service() {
                     else if (intent != TestIntent.UNKNOWN && outcome.isSuccess) 2_000L else 3_500L
                 schedule(delay) { if (active && detector === provider && cycle == generation) startDetector(provider) }
             }
+        }
+    }
+
+    private fun isCurrentAppChoice(provider: WakeWordProvider, cycle: Int, token: String): Boolean =
+        active && detector === provider && generation == cycle && appChoiceToken == token &&
+            appRequests.current?.let { it.token == token && SystemClock.elapsedRealtime() < it.expiresAtMs } == true
+
+    private fun requestAppChoice(provider: WakeWordProvider, cycle: Int, request: PendingAppLaunch.Request<AppTarget>) {
+        val token = request.token
+        appChoiceToken = token
+        TripTestState.status = "Anunciando ${request.target.label}: uno para abrir o dos para cancelar…"
+        runCatching {
+            callPrompt.announceApp(request.target.label) { announced ->
+                if (!isCurrentAppChoice(provider, cycle, token)) return@announceApp
+                if (!announced) {
+                    finishAppChoice(provider, cycle, token, "No se pudo anunciar la app; la apertura quedó pendiente en el aviso.")
+                    return@announceApp
+                }
+                schedule(300L) {
+                    if (!isCurrentAppChoice(provider, cycle, token)) return@schedule
+                    TripTestState.status = "Abriendo confirmación: esperá el tono y decí uno o dos."
+                    updateNotification("Confirmación: 1 abrir · 2 cancelar")
+                    schedule(12_000L) {
+                        if (isCurrentAppChoice(provider, cycle, token)) {
+                            finishAppChoice(provider, cycle, token, "No se recibió una confirmación; la app no se abrió.")
+                        }
+                    }
+                    speech.listenOnce(onState = { state ->
+                        if (isCurrentAppChoice(provider, cycle, token) && state == SpeechCaptureState.READY) {
+                            val input = speech.activeInputDescription()
+                            if (wakeAudioMode == WakeAudioMode.BUTTON && input.contains("micrófono del teléfono") &&
+                                !input.contains("Bluetooth")) {
+                                finishAppChoice(provider, cycle, token, "Android abrió el micrófono del teléfono; no se confirmó la apertura.")
+                            } else {
+                                TripTestState.status = "Confirmación lista: uno para abrir ${request.target.label}; dos para cancelar."
+                                playHandoffTone()
+                            }
+                        }
+                    }, playbackResumePolicy = { PlaybackResumePolicy.AFTER_ROUTE_RESTORED }) { answer ->
+                        if (!isCurrentAppChoice(provider, cycle, token)) return@listenOnce
+                        val heard = answer.getOrNull()
+                        if (heard != null) TripTestState.recognized++
+                        if (heard?.let(MinimalIntentRouter::resolve) == TestIntent.STOP_SESSION) {
+                            stopSession("Sesión detenida durante la confirmación de aplicación.")
+                            return@listenOnce
+                        }
+                        when (AppChoiceRouter.resolve(heard)) {
+                            AppChoice.OPEN -> {
+                                val opener = TripTestState.openPendingAppFromVoice
+                                val opened = runCatching { opener?.invoke(token) == true }.getOrDefault(false)
+                                val result = if (opened) "Solicitud de apertura de ${request.target.label} enviada por voz; viaje activo."
+                                    else if (opener == null) "Para abrir por voz, APP debe estar visible y el teléfono desbloqueado. La apertura sigue en el aviso."
+                                    else "No se pudo abrir ${request.target.label} por voz. Revisá que APP esté visible y el teléfono desbloqueado, o usá el aviso."
+                                finishAppChoice(provider, cycle, token, result)
+                            }
+                            AppChoice.CANCEL -> finishAppChoice(provider, cycle, token,
+                                "Apertura de ${request.target.label} cancelada por voz; viaje activo.", cancelRequest = true)
+                            AppChoice.UNKNOWN -> finishAppChoice(provider, cycle, token,
+                                "No se reconoció uno o dos; la app no se abrió. La solicitud sigue en el aviso.")
+                        }
+                        TripTestState.save(this)
+                    }
+                }
+            }
+            updateNotification("Anunciando ${request.target.label} · Silencio disponible")
+        }.onFailure {
+            if (isCurrentAppChoice(provider, cycle, token)) {
+                finishAppChoice(provider, cycle, token, "No se pudo iniciar la confirmación; la apertura sigue en el aviso.")
+            }
+        }
+    }
+
+    private fun finishAppChoice(provider: WakeWordProvider, cycle: Int, token: String,
+        message: String, cancelRequest: Boolean = false) {
+        if (!isCurrentAppChoice(provider, cycle, token)) return
+        appChoiceToken = null
+        pendingTask?.let(mainHandler::removeCallbacks)
+        pendingTask = null
+        callPrompt.cancel()
+        resumeAfterButtonRoute = speech.cancel(resumePlayback = false) || resumeAfterButtonRoute
+        if (cancelRequest) clearPendingApp(token)
+        TripTestState.status = message
+        TripTestState.lastCommandResult = message
+        updateNotification(if (cancelRequest) "Apertura cancelada · viaje activo" else "Confirmación terminada · viaje activo")
+        schedule(300L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+    }
+
+    /** Abrir, descartar, vencer o detener cancela también su confirmación por voz. */
+    private fun cancelAppChoice() {
+        if (appChoiceToken == null) return
+        appChoiceToken = null
+        val cycle = ++generation
+        pendingTask?.let(mainHandler::removeCallbacks)
+        pendingTask = null
+        if (callPromptLazy.isInitialized()) callPrompt.cancel()
+        if (speechLazy.isInitialized()) {
+            resumeAfterButtonRoute = speech.cancel(resumePlayback = false) || resumeAfterButtonRoute
+        }
+        detector?.let { provider ->
+            if (active) schedule(300L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
         }
     }
 
@@ -966,6 +1077,7 @@ class TripVoiceService : Service() {
     }
 
     private fun cleanAppPrompt() {
+        cancelAppChoice()
         appExpirationTask?.let(mainHandler::removeCallbacks)
         appExpirationTask = null
         appLaunchPendingIntent?.cancel()
@@ -991,7 +1103,7 @@ class TripVoiceService : Service() {
             }
         }
         appExpirationTask = expiration
-        // Independiente del temporizador de voz: vencer un aviso nunca interrumpe la escucha.
+        // El vencimiento solo interrumpe la confirmación de esta misma solicitud.
         mainHandler.postDelayed(expiration, PendingAppLaunch.VALIDITY_MS)
         showAppPrompt(request)
     }
@@ -1013,7 +1125,7 @@ class TripVoiceService : Service() {
         val notice = Notification.Builder(this, APP_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setContentTitle("Abrir ${target.label}")
-            .setContentText("Tocá para abrir. Disponible durante 30 segundos.")
+            .setContentText("Tras el anuncio: 1 abrir · 2 cancelar. Aviso disponible 30 segundos.")
             .setContentIntent(launch)
             .setDeleteIntent(cancel)
             .setAutoCancel(true)
@@ -1069,3 +1181,4 @@ class TripVoiceService : Service() {
         super.onDestroy()
     }
 }
+

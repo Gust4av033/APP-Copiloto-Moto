@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -38,6 +39,9 @@ fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommands: (
         SessionStatus(state.tripActive, state.restoringAudio, state.callPhase)
         ActivationSummary(state)
         SupportingText(state.tripStatus)
+        if (state.tripActive && state.keepScreenOnDuringTrip) {
+            SupportingText(stringResource(R.string.trip_screen_on_hint))
+        }
         ActionButton(
             stringResource(if (state.tripActive) R.string.trip_stop else R.string.trip_start),
             enabled = state.tripActive || state.canStartTrip,
@@ -201,6 +205,13 @@ fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
 @Composable
 fun SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommands: () -> Unit, onOpenTests: () -> Unit) {
     if (state.busy) SupportingText(stringResource(R.string.settings_busy))
+    SectionCard(stringResource(R.string.settings_screen_on)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.settings_screen_on_toggle), modifier = Modifier.weight(1f))
+            Switch(checked = state.keepScreenOnDuringTrip, onCheckedChange = actions.onKeepScreenOnChange)
+        }
+        SupportingText(stringResource(R.string.settings_screen_on_hint))
+    }
     SectionCard(stringResource(R.string.settings_input)) {
         ChoiceGroup(state.inputs, state.inputId, !state.busy, actions.onInputChange)
         if (state.buttonMode) SupportingText(stringResource(R.string.trip_button_hint))
@@ -251,3 +262,4 @@ private fun AudioComparison(state: CopilotUiState) {
     SupportingText(stringResource(R.string.audio_during, state.audioDuring))
     SupportingText(stringResource(R.string.audio_after, state.audioAfter))
 }
+

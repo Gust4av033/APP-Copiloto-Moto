@@ -67,6 +67,7 @@ data class ProbeUi(
 @Immutable
 data class CopilotUiState(
     val tripActive: Boolean = false,
+    val keepScreenOnDuringTrip: Boolean = true,
     val restoringAudio: Boolean = false,
     val commandReady: Boolean = false,
     val callPhase: TripCallPhase = TripCallPhase.NONE,
@@ -124,6 +125,7 @@ data class CopilotUiState(
 /** La Activity adapta estas acciones al runtime existente. Los previews usan callbacks vacíos. */
 data class CopilotActions(
     val onToggleTrip: () -> Unit = {},
+    val onKeepScreenOnChange: (Boolean) -> Unit = {},
     val onManualTripCommand: () -> Unit = {},
     val onCancelPendingApp: (String) -> Unit = {},
     val onOpenPendingApp: (String) -> Unit = {},
@@ -144,3 +146,4 @@ data class CopilotActions(
     val onChooseContact: () -> Unit = {},
     val onClearContact: () -> Unit = {}
 )
+
