@@ -34,6 +34,12 @@ APP actualiza la lectura «Después» durante los segundos posteriores al cierre
 
 ## Corrección para repetir la prueba
 
-El cierre conserva el servicio hasta liberar el detector, limpiar la selección de comunicación y observar el retorno de la salida multimedia. Si APP había pausado una canción para escuchar o para cambiar de ruta, la reanuda al final. La orden explícita «pausa» permanece pausada. La espera está acotada a ocho segundos y muestra diagnóstico si no se confirma la restauración; aún requiere validación real con S22+ y Y12.
+El cierre conserva el servicio hasta liberar el detector, limpiar la selección de comunicación y observar el retorno de la salida multimedia. Si APP había pausado una canción para escuchar o para cambiar de ruta, la reanuda al final. La orden explícita «pausa» permanece pausada. La espera está acotada a ocho segundos y muestra diagnóstico si no se confirma la restauración; requiere completar la validación real con S22+ y Y12.
 
 Con la moto detenida: reproducir una canción, iniciar viaje, detener desde la app y comprobar sonido sin reiniciar; repetir diciendo «detener sesión». Revisar «Audio del casco»: salida prevista A2DP y modo normal. También probar una pausa por voz antes de detener para verificar que la app no reproduzca contra la intención del usuario. No ajustar 15/15 automáticamente.
+
+## Validación posterior con Y12 Pro (reporte del usuario)
+
+- Al decir «detener sesión», la canción vuelve a escucharse sin tener que iniciar otro viaje. Queda validada en esta prueba la recuperación del sonido tras el cierre por voz.
+- Mantener presionado el botón del Y12 Pro activa la alternativa de asistente. El reporte confirma la activación con pulsación larga, pero no cuantifica órdenes ejecutadas por esa vía ni sustituye el uso de toques cortos para cambiar pista.
+- Pendiente: repetir el cierre desde la app o la notificación, comprobar la ruta final A2DP, probar que «pausa» siga pausada al cerrar y comparar el volumen/calidad durante la espera de Alexa. No se modifica volumen automáticamente.
