@@ -369,8 +369,10 @@ class MainActivity : ComponentActivity() {
                     // El motor puede confundir música o ruido con voz: no es una orden reconocida.
                     SpeechCaptureState.SPEECH_ONSET -> Unit
                 }
-            }, shouldResumePlayback = { heard ->
-                heard?.let(MinimalIntentRouter::resolve) != TestIntent.MEDIA_PAUSE
+            }, playbackResumePolicy = { heard ->
+                if (heard?.let(MinimalIntentRouter::resolve) == TestIntent.MEDIA_PAUSE) {
+                    PlaybackResumePolicy.KEEP_PAUSED
+                } else PlaybackResumePolicy.NOW
             }) { outcome ->
                 if (!listening) return@listenOnce
                 listening = false
