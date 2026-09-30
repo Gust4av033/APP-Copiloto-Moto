@@ -38,6 +38,12 @@ Para comparar Y12 Pro con Skullcandy, detené primero la sesión, elegí la sali
 
 Registrar para cada casco: salida elegida por Android; ruta de comunicación e ID; entrada real de la prueba de cinco segundos; música antes/durante/después; comunicación antes/durante/después; nivel tras cada orden; variación audible (sí/no); claridad (1–5); activaciones y órdenes correctas (de diez). La prueba de cinco segundos verifica su propia grabación, no sustituye la observación de Alexa durante la sesión.
 
+## Cuando Skullcandy no aparece en «Elegir casco»
+
+«Elegir casco» enumera únicamente las rutas Bluetooth que Android permite seleccionar para comunicación (SCO o LE). Un dispositivo puede estar conectado para música A2DP y faltar en esa lista. En **Dispositivos de audio → Actualizar dispositivos**, comparar las tres lecturas: cascos elegibles para voz, salidas Bluetooth detectadas y micrófonos Bluetooth detectados. La salida de música prevista representa solo la ruta actual de reproducción, no todos los dispositivos conectados.
+
+Si Skullcandy aparece como salida y no como entrada, comprobar en los ajustes Bluetooth del Galaxy que esté conectado también para **Llamadas**. Si aparece como entrada pero no en «Elegir casco», Android no lo ofrece a `setCommunicationDevice` en ese momento: desconectar temporalmente el Y12 Pro, volver a conectar Skullcandy, actualizar y repetir. Si no aparece en ninguna lista, verificar su conexión en Android. APP no añade una salida A2DP al selector de voz como si fuera un micrófono; registrar las tres lecturas y el resultado del panel multimedia para identificar qué perfil expuso el S22+.
+
 ## Ajustes del Galaxy a comprobar sin cambiar APP
 
 - Verificar en **Ajustes → Sonidos y vibración → Volumen → Límite de volumen multimedia** si hay un límite activo. Comparar solo si efectivamente está habilitado; 15/15 por sí solo no demuestra que exista.
