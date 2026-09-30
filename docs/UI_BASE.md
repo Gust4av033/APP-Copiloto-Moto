@@ -1,132 +1,51 @@
-# Base UI de APP Copiloto Moto
+# UI de APP Copiloto Moto · Fase 1
 
-La base visual avanza en paralelo con la validación de fase 0. Inicio reúne el estado actual y la preparación previa; Viaje concentra la sesión; Ajustes reúne la configuración. Pruebas sigue disponible desde estas pantallas. Esta organización prepara el crecimiento del producto mientras se valida el flujo de audio.
-
-## Punto de partida
-
-- Audio y pruebas de campo: `feature/fase-0-audio-bluetooth` (incluye los cambios de 0.3).
-- Interfaz: `feature/ui-base-compose`, creada desde el commit `1f01daabd6f17c0be53da3f4a94f6ce67af6c98c` de la rama de audio.
-- Estado integrado para esta entrega: audio y UI coincidían en `eae37dcc9bbc917f5d92b383330e932ebcbce128`. Incluye restauración de música al cerrar, asociación automática de casco, volumen sobre `STREAM_MUSIC`, supervisión de desconexiones y comprobación del micrófono de Alexa mediante una API pública. La tarjeta de dispositivos amplía esa base.
-- Acuerdo del chat 0.1: Alexa sigue como activación principal; los toques cortos del Y12 siguen disponibles para siguiente/anterior canción y la pulsación larga queda como respaldo.
-- Continúa pendiente validar el volumen bajo al iniciar el viaje, la calidad de Bluetooth, activaciones y estabilidad en el S22+ con el Y12. Esta UI no cierra fase 0.
-
-El Documento 03 propone Compose y separación de presentación/runtime. Aunque la UI completa aparece más adelante en el plan original, el acuerdo actual permite adelantar esta base para apoyar las pruebas y moldear la presentación del producto. Mi Moto, preparación e historial tienen espacios informativos marcados como próximos; sus funciones, navegación, SOS, cuentas y memoria siguen pendientes.
+Todo el trabajo de fase 1 se concentra en `feature/fase-1-intent-router`. Esta entrega integra las mejoras previas de `feature/ui-base-compose` con el núcleo vigente de llamadas, captura por botón y apertura de apps. La rama de UI queda como antecedente; las próximas mejoras continúan en fase 1.
 
 ## Pantallas
 
 | Pantalla | Contenido |
 | --- | --- |
-| Inicio | Estado real, iniciar/abrir el viaje, configuración actual, acceso a pruebas y módulos próximos. |
-| Viaje | Estado real de la sesión, iniciar/detener, última orden, comparación automática de audio desplegable, guía breve y métricas. |
-| Pruebas | Dispositivos de audio, protocolo de comparación de volumen/cascos, diagnóstico de niveles, orden corta, medición de micrófono, detector con APP visible y selección de asistente para Y12. |
-| Ajustes | Frases con modelo disponible, sensibilidad, entrada de activación, selección de casco y configuración de llamadas existente. |
+| Inicio | Estado real del viaje, modo de activación, preparación del casco, apertura pendiente de app y accesos a configuración, comandos y pruebas. |
+| Viaje | Iniciar/detener, orden manual cuando el servicio está listo, espera por llamada y recuperación, app pendiente, última orden interpretada y resultado, niveles separados de Música/Comunicación, capturas y métricas. |
+| Comandos | Guía según modo, comprobación local de una frase sin ejecución, catálogo real de aplicaciones con búsqueda y bloques de 20 resultados. |
+| Ajustes | Modo, frase/sensibilidad cuando corresponde, casco, permisos/contacto de llamadas y accesos a comandos y pruebas. |
+| Pruebas | Dispositivos, observaciones manuales y diagnóstico copiable, comparación de volumen, orden corta, medición del micrófono, detector y asistente. |
 
-La navegación inferior contiene Inicio, Viaje y Ajustes. Cambiar de pantalla no inicia ni detiene audio. Pruebas recuerda si se abrió desde Inicio, Viaje o Ajustes y vuelve a esa pantalla; Atrás desde las pantallas principales vuelve a Inicio. Durante una sesión aparece un acceso permanente para volver a Viaje desde otras pantallas. El diagnóstico de niveles puede consultarse durante el viaje; las pruebas que abren el micrófono y los cambios de configuración quedan bloqueados cuando el runtime ya está ocupado.
+La navegación principal sigue siendo Inicio, Viaje y Ajustes. Comandos y Pruebas recuerdan su pantalla de origen. Cambiar de pantalla conserva la sesión y no abre una captura. Durante el viaje queda disponible el acceso de regreso a Viaje. Mi Moto, Preparar viaje y Mis viajes continúan marcados como próximos: todavía requieren sus datos y funciones.
 
-## Preparación visual de próximos módulos
+## Correspondencia con el núcleo vigente
 
-| Módulo previsto | Espacio preparado | Dependencias pendientes |
-| --- | --- | --- |
-| Mi Moto | Ficha descriptiva en Inicio y entrada en el catálogo visual. | Modelo de motocicleta, almacenamiento y reglas de kilometraje/mantenimiento. |
-| Preparar viaje | Ficha descriptiva en Inicio y entrada en el catálogo visual. | Destino, proveedores de navegación, contexto, clima y autonomía. |
-| Mis viajes | Ficha descriptiva en Inicio y entrada en el catálogo visual. | Registro real de viajes, repositorio y cálculo de resúmenes. |
+- El modo botón no pide Alexa: explica la apertura temporal del micrófono, la restauración de música y la cancelación automática de una captura sin respuesta a los 15 segundos. La orden manual se habilita a partir de `armed`, observado como `commandReady`; queda deshabilitada mientras se procesa, llama o recupera el viaje.
+- El estado de llamada y recuperación se publica explícitamente desde el servicio. Se presenta en Inicio, Viaje y el acceso permanente; no se deduce leyendo textos de diagnóstico.
+- Las tarjetas de app conservan Abrir/Cancelar con el token de la solicitud visible. El servicio mantiene su validación, reemplazo por una orden nueva, vencimiento a los 30 segundos y cancelación al descartar el aviso. La UI no abre automáticamente una app desde segundo plano.
+- Comandos consulta el catálogo existente. Buscar no abre apps ni graba audio. La comprobación de frases usa `MinimalIntentRouter`; interpretar una app o contacto no confirma instalación, permisos o destinatario.
+- Música y Comunicación muestran índices separados de Android. La indicación SCO/LE procede del tipo de dispositivo de comunicación actual. Una ruta seleccionada no demuestra qué micrófono usa el STT ni la calidad acústica.
+- La selección de casco conocida como perdida impide iniciar el viaje. La configuración y otras capturas siguen bloqueadas durante sesión, restauración y pruebas de audio.
+- El diagnóstico copiable añade modelo/Android, fecha, configuración, lecturas, última orden, métricas y observaciones manuales. Las observaciones se reinician al cambiar de sesión, modo o casco.
+- Se conserva la recuperación de llamadas, el manejo de música pausada y las solicitudes pendientes del núcleo de fase 1. Las lecturas de volumen mínimo se protegen para Android 26/27, donde `getStreamMinVolume` aún no existe.
 
-Estas fichas son informativas y no ejecutan acciones. El catálogo `UpcomingModules.kt` define títulos, iconos y descripciones; no representa disponibilidad ni activa servicios. Cuando un módulo tenga datos y acciones reales, su pantalla podrá entrar como ruta propia y reutilizar los componentes de esta base. La configuración actual del copiloto permanece en Ajustes; voz, personalidad, seguridad y memoria podrán incorporarse por su alcance aprobado.
-
-No se muestran kilómetros, ETA, nivel de combustible, clima, recorridos ni contactos de emergencia de ejemplo en la aplicación. Los previews continúan usando ejemplos aislados para el diseño.
-
-## Organización del código
-
-| Archivo o carpeta | Responsabilidad |
-| --- | --- |
-| `presentation/CopilotUiState.kt` | Snapshot de datos, opciones y contrato de acciones. Sin acceso a micrófono, contactos ni servicios. |
-| `presentation/CopilotApp.kt` | Navegación, conservación de scroll por pantalla y previews aislados. |
-| `presentation/UpcomingModules.kt` | Catálogo informativo de módulos previstos, separado del estado de capacidades reales. |
-| `presentation/screens/` | Contenido de Inicio, Viaje, Pruebas y Ajustes. |
-| `presentation/components/` | Tarjetas, botones y selectores reutilizables. |
-| `presentation/theme/` | Paleta clara/oscura según el sistema. |
-| `res/values/ui_strings.xml` | Textos nuevos de la interfaz, preparados para traducción. |
-| `MainActivity.AppUi()` | Puente pequeño entre los datos/acciones actuales y Compose. |
-
-El estado de sesión continúa perteneciendo a `TripVoiceService`/`TripTestState`. La pantalla recibe un snapshot y callbacks; no crea proveedores. La selección manual se añade al selector Bluetooth compartido; la medición y el monitor del viaje rechazan una selección explícita desaparecida. No se añaden permisos ni dependencias de ejecución. JUnit se añade solo para comprobar la identidad de la selección en pruebas locales.
-
-Durante lint se encontraron tres errores ya presentes en la base: dos llamadas de API 31 dentro de `selectHeadset()` y la falta de una declaración de telefonía opcional en el manifiesto. Se documentó el requisito de API de ese método, cuyos llamadores ya verifican Android 12, y se declaró `android.hardware.telephony` como opcional. Son declaraciones de compatibilidad; no cambian la selección de ruta ni los comandos.
-
-Pantalla seleccionada, frase, sensibilidad y entrada se restauran mediante el estado guardado de la Activity. Scroll y expansión de detalles usan estado guardado de Compose. Esto cubre recreaciones de pantalla; todavía no es una configuración persistente con DataStore. Las llamadas siguen usando el almacenamiento existente para el contacto fijo.
-
-Los textos de estado y errores que genera el runtime siguen llegando en español desde fase 0. Su futura internacionalización corresponde a esa capa. No se muestran conectividad, GPS, batería o datos de moto simulados.
-
-## Coordinación con el trabajo de audio
-
-1. Los cambios visuales se concentran en `presentation/` y recursos.
-2. Las correcciones de audio siguen en `feature/fase-0-audio-bluetooth`. Al incorporar nuevas señales, actualizar únicamente el puente `AppUi()` y el contrato de estado necesario.
-3. Antes de probar juntos cambios nuevos de audio y UI, integrar la última rama de audio en la rama de UI y resolver explícitamente cualquier conflicto de `MainActivity`.
-4. El PR de UI apunta a `feature/fase-0-audio-bluetooth`. Validar primero en el teléfono; integrar en `main` según el cierre del trabajo de fase 0.
-
-No se asume sincronización automática entre chats. Este archivo registra el punto de partida y las reglas para que ambos trabajos puedan retomarse desde el código publicado.
-
-## Abrir esta rama en Android Studio
-
-Desde la terminal en la raíz del proyecto:
+## Abrir y verificar
 
 ```bash
 git fetch origin
-git switch feature/ui-base-compose
-git pull --ff-only origin feature/ui-base-compose
+git switch feature/fase-1-intent-router
+git pull --ff-only origin feature/fase-1-intent-router
+./gradlew :app:assembleDebug :app:lintDebug :app:testDebugUnitTest
 ```
 
-Sincronizar Gradle y ejecutar `app` en el S22+. Los previews están en `CopilotApp.kt`: Inicio, Viaje, día, noche, sesión activa, Pruebas, Ajustes y texto grande. Sus callbacks no hacen llamadas ni abren el micrófono.
+Los previews de `CopilotApp.kt` incluyen día/noche, texto grande, voz/botón, dos cascos, selección perdida, restauración, app pendiente, catálogo y llamada/recuperación. Sus callbacks no ejecutan acciones.
 
-## Verificación en el teléfono
+### Revisión en S22+ con el casco
 
-- Recorrer Inicio, Viaje y Ajustes; verificar que Viaje conserva el estado de la sesión.
-- Abrir Pruebas desde cada pantalla y volver: respetar la pantalla de origen.
-- Durante una sesión, comprobar el acceso visible de regreso a Viaje en Inicio, Pruebas y Ajustes.
-- Abrir la comparación de audio en Viaje: usar las mismas lecturas automáticas de Pruebas, antes/durante/después.
-- Revisar las fichas de módulos próximos: son informativas y no muestran datos de un viaje o motocicleta ficticios.
-- Abrir detalles de métricas, cambiar de pestaña y volver: conservar expansión y scroll.
-- Cambiar frase/sensibilidad/entrada con la sesión detenida y girar el teléfono: conservar las selecciones.
-- Iniciar una sesión: mostrar estado real, permitir detener desde Viaje y bloquear cambios de configuración.
-- Ir a Pruebas durante la sesión: consultar niveles y comprobar que las otras pruebas no pueden abrir otro micrófono.
-- Cancelar una orden manual y detener la prueba de activación: conservar sus controles existentes.
-- Probar tema claro/oscuro y tamaño grande de texto sin recortes en botones y opciones.
-- Comprobar Alexa, toques cortos del Y12, pulsación de respaldo y volumen antes/después de iniciar sesión. La validación de Bluetooth requiere hardware real.
+1. Abrir Comandos desde Inicio, Viaje y Ajustes; volver al origen. Buscar una app con acentos o distinta capitalización, probar cero coincidencias y mostrar más resultados. Girar el teléfono y comprobar la conservación de búsqueda.
+2. Escribir “volumen al 40 por ciento”, “por favor, pasa de canción”, “abre [app]” y una frase desconocida. Comprobar interpretación sin ejecución.
+3. Iniciar modo botón: pedir una orden, comprobar que no permite enviar otra durante el procesamiento y esperar 15 segundos sin hablar. Revisar recuperación y nueva habilitación.
+4. Pedir abrir una app. Revisar la misma solicitud en Inicio/Viaje/Comandos, abrir o cancelar, dejar vencer y comprobar que una solicitud antigua no afecta una nueva. Seguir también `PRUEBA_LLAMADAS_Y_AVISO_APPS.md`.
+5. Confirmar una llamada: revisar “Viaje en espera · llamada”, después “Recuperando viaje” y finalmente la espera normal. Detener durante la recuperación y comprobar que no se reactiva. La acción Silencio de la notificación interrumpe el anuncio del contacto.
+6. Comparar Música/Comunicación y sonido audible, copiar el diagnóstico y repetir con el otro casco después de detener. Ver `PRUEBA_AUDIO_PERFILES_Y12_SKULLCANDY.md`.
+7. Revisar tema claro/oscuro y texto grande. La compilación y las pruebas locales no sustituyen la revisión visual ni la validación de llamadas, audio y avisos en el teléfono.
 
-Compilación y análisis local:
+## Validación de esta entrega
 
-```bash
-./gradlew :app:assembleDebug :app:lintDebug
-```
-
-La primera entrega de esta base pasó `assembleDebug` y `lintDebug`, con cero errores de lint. Persisten advertencias del prototipo, entre ellas compatibilidad de las bibliotecas nativas ONNX con páginas de 16 KB y actualizaciones de dependencias disponibles. No se actualizaron motores ni librerías en esta entrega. La revisión visual en el S22+ y las pruebas de Bluetooth siguen pendientes.
-
-La entrega sincronizada con Inicio y los espacios de próximos módulos también pasó `clean`, `assembleDebug` y `lintDebug`: cero errores, 22 advertencias y 8 sugerencias del prototipo. Se comprobó que `TripVoiceService` coincide con la fase 0 vigente y que los métodos de voz/audio/llamadas de la Activity se conservaron. La nueva navegación requiere revisión en el teléfono.
-
-## Tarjeta de dispositivos sobre el avance de 0.1
-
-- Ajustes y Pruebas muestran los cascos que Android ofrece como dispositivos de comunicación, con nombre, perfil SCO/LE e ID temporal. Bluetooth conectado para música no implica que exista un micrófono disponible.
-- Automático conserva la asociación con la salida multimedia de 0.1 y evita escoger arbitrariamente ante ambigüedad. Una selección explícita usa un casco concreto en el viaje, en el detector visible y en la medición. Elegirlo no abre una captura ni cambia el modo de audio por sí mismo.
-- La preferencia se comparte en memoria entre Activity y servicio, sobrevive a recreaciones de la Activity y vuelve a Automático si Android termina el proceso. No se guardan IDs temporales permanentemente. Si desaparece o cambia la identidad del dispositivo, se pide volver a elegir; no se cambia al otro casco.
-- Los selectores y el acceso a controles de Android se bloquean durante sesión, restauración del audio, escucha, detector o medición. Los callbacks también comprueban el bloqueo. Actualizar dispositivos solo consulta el sistema.
-- La Activity consulta pasivamente rutas y niveles cada segundo mientras está visible; detiene la actualización en `onPause`. Al volver de Android se actualiza la lectura. No abre micrófonos.
-- Se separan salida de música **prevista** por Android, ruta de comunicación actual, casco solicitado y entrada real de la última medición. Esta última no se presenta como entrada del STT o de Alexa; el viaje mantiene su comprobación de 0.1. Al cambiar de casco se borra la medición anterior.
-- Las órdenes de volumen siguen modificando `STREAM_MUSIC`. La tarjeta muestra música y comunicación por separado sin prometer ganancia acústica. Pruebas explica cómo distinguir «cambia nivel, no sonido» de «no cambia el nivel».
-- Para elegir dónde suena otra app, usar **Salida multimedia** del panel rápido del Galaxy. El botón abre el panel público de volumen, con alternativa a Ajustes de sonido; no usa una API oculta para controlar la salida de otra app.
-- Una ruta de comunicación selecciona entrada y salida asociadas. La combinación «micrófono Y12 / música Skullcandy en A2DP» no se garantiza: observar la ruta durante el viaje. La orden corta fuera del viaje sigue usando la entrada que decide Android; la medición y el detector sirven para comprobar el casco explícito.
-
-Fuentes de API: [AudioManager](https://developer.android.com/reference/android/media/AudioManager) y [Settings.Panel](https://developer.android.com/reference/android/provider/Settings.Panel).
-
-### Comprobación de esta entrega en S22+
-
-1. Detener toda sesión/prueba. Abrir Ajustes → Dispositivos de audio y conceder Bluetooth si falta.
-2. Conectar Y12 Pro y Skullcandy. Elegir Y12 y ejecutar la medición de cinco segundos desde Pruebas. Anotar entrada real y advertencias.
-3. Iniciar el viaje, verificar el casco de comunicación y el estado de Alexa. Cambiar de pantalla: los selectores deben quedar bloqueados.
-4. Probar bajar/subir desde un nivel medio; comprobar números y variación audible por separado.
-5. Detener el viaje y verificar restauración de música. Cambiar la salida multimedia de Android, seleccionar Skullcandy y repetir con la misma canción.
-6. Desconectar el casco elegido dejando el otro conectado: mostrar selección perdida y evitar iniciar en otro micrófono. Durante el viaje se conserva el cierre por pérdida de ruta.
-7. Volver a Automático y comprobar el comportamiento previo de asociación/ambigüedad. Girar el teléfono: conservar selección si el proceso continúa vivo.
-8. Revisar texto grande y tema claro/oscuro. Los previews incluyen dos cascos, sesión activa y selección desconectada; no ejecutan audio.
-
-Las pruebas locales de identidad cubren selección explícita con dos cascos, desconexión sin sustitución, reutilización de ID por otra dirección/perfil/nombre y retorno a Automático. La calidad acústica, las rutas reales y la revisión visual requieren S22+ y hardware conectado.
-
-Verificación de la tarjeta: `clean :app:assembleDebug :app:lintDebug :app:testDebugUnitTest` completó correctamente. Seis pruebas aprobadas; lint: cero errores, 23 advertencias y 8 sugerencias. Se corrigió el requisito de API de la lectura de direcciones Bluetooth, incluida una comprobación procedente de 0.1. No se actualizan motores de voz. Las advertencias del prototipo y la recomendación de centralizar la dependencia de pruebas siguen registradas por lint. Revisión visual y validación Bluetooth pendientes en el teléfono.
+`assembleDebug` y `testDebugUnitTest` completaron correctamente: 22 pruebas, cero fallos y cero errores. También se verificaron los recursos XML y la limpieza del diff. `lintDebug` no pudo completarse: faltan dependencias de AndroidTest y `lint-gradle:31.13.2` en la caché; la red de este entorno no permite descargarlas. Una ejecución limitada a fuentes de la app llegó a compilar Kotlin, pero quedó bloqueada por la misma falta del motor de lint. No se cambiaron dependencias ni la configuración de lint del proyecto. Quedan pendientes lint completo, revisión visual y validación en el S22+ con el casco.

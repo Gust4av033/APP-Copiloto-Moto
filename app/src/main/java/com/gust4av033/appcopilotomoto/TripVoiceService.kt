@@ -30,6 +30,8 @@ import androidx.compose.runtime.setValue
 import java.util.concurrent.Executors
 import java.util.UUID
 
+enum class TripCallPhase { NONE, CALL, RECOVERING }
+
 /** Estado de diagnóstico; las escrituras se hacen en el hilo principal. */
 object TripTestState {
     var running by mutableStateOf(false)
@@ -38,8 +40,11 @@ object TripTestState {
     var pendingAppToken by mutableStateOf<String?>(null)
     internal var pendingAppTarget: AppTarget? = null
     internal var pendingAppExpiresAtMs = 0L
+    var commandReady by mutableStateOf(false)
+    var callPhase by mutableStateOf(TripCallPhase.NONE)
     var status by mutableStateOf("Iniciá la sesión de prueba con la app abierta.")
     var lastCommandResult by mutableStateOf("Aún no hay órdenes en esta sesión.")
+    var lastRoutedCommand by mutableStateOf<RoutedCommand?>(null)
     var detections by mutableStateOf(0)
     var manualCommands by mutableStateOf(0)
     var recognized by mutableStateOf(0)
@@ -71,6 +76,7 @@ object TripTestState {
 
     fun reset(context: Context) {
         lastCommandResult = "Aún no hay órdenes en esta sesión."
+        lastRoutedCommand = null
         detections = 0
         manualCommands = 0
         recognized = 0
@@ -138,7 +144,17 @@ class TripVoiceService : Service() {
     private var active = false
     private var closing = false
     private var callPending = false
+        set(value) {
+            field = value
+            TripTestState.callPhase = if (value) TripCallPhase.CALL
+                else TripCallPhase.NONE
+        }
     private var armed = false
+        set(value) {
+            field = value
+            TripTestState.commandReady = value
+            if (value) TripTestState.callPhase = TripCallPhase.NONE
+        }
     private var wakeAudioMode = WakeAudioMode.BLUETOOTH
     private data class PendingVolumeCommand(
         val command: RoutedCommand,
@@ -349,7 +365,7 @@ class TripVoiceService : Service() {
         val change = action.getOrNull()
         val atLimit = change != null && when (pending.command.intent) {
             TestIntent.VOLUME_UP -> change.before >= change.maximum
-            TestIntent.VOLUME_DOWN -> change.before <= audioManager.getStreamMinVolume(change.stream)
+            TestIntent.VOLUME_DOWN -> change.before <= media.minimumVolume(change.stream)
             TestIntent.VOLUME_SET -> change.after == change.before && !change.fixed
             else -> false
         }
@@ -520,6 +536,7 @@ class TripVoiceService : Service() {
             if (!active || cycle != generation) return@listenOnce
             val heard = outcome.getOrNull()
             val command = heard?.let(MinimalIntentRouter::route) ?: RoutedCommand(TestIntent.UNKNOWN)
+            TripTestState.lastRoutedCommand = if (heard != null) command else null
             val intent = command.intent
             val cancelledApp = intent == TestIntent.CANCEL && pendingApp != null
             // Una orden nueva reemplaza cualquier apertura que aún estaba pendiente.
@@ -769,6 +786,7 @@ class TripVoiceService : Service() {
     private fun resumeAfterCall(cycle: Int) {
         if (!active || !callPending || generation != cycle) return
         callPending = false
+        TripTestState.callPhase = TripCallPhase.RECOVERING
         stopPhoneMonitoring()
         consecutiveFailures = 0
         recentDetections.clear()

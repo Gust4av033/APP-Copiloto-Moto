@@ -37,6 +37,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.gust4av033.appcopilotomoto.R
+import com.gust4av033.appcopilotomoto.TripCallPhase
+import com.gust4av033.appcopilotomoto.MinimalIntentRouter
+import com.gust4av033.appcopilotomoto.presentation.screens.CommandsScreen
 import com.gust4av033.appcopilotomoto.presentation.screens.HomeScreen
 import com.gust4av033.appcopilotomoto.presentation.screens.SettingsScreen
 import com.gust4av033.appcopilotomoto.presentation.screens.TestsScreen
@@ -51,18 +54,18 @@ fun CopilotApp(
     actions: CopilotActions
 ) {
     // Las rutas secundarias conservan su origen; navegar no toca el runtime.
-    var testsParentName by rememberSaveable { mutableStateOf(CopilotScreen.SETTINGS.name) }
-    val testsParent = runCatching { CopilotScreen.valueOf(testsParentName) }.getOrDefault(CopilotScreen.SETTINGS)
+    var secondaryParentName by rememberSaveable { mutableStateOf(CopilotScreen.SETTINGS.name) }
+    val secondaryParent = runCatching { CopilotScreen.valueOf(secondaryParentName) }.getOrDefault(CopilotScreen.SETTINGS)
     val navigate: (CopilotScreen) -> Unit = { screen ->
-        if (screen == CopilotScreen.TESTS && selectedScreen != CopilotScreen.TESTS) {
-            testsParentName = selectedScreen.name
+        if (!screen.inMainNavigation && selectedScreen.inMainNavigation) {
+            secondaryParentName = selectedScreen.name
         }
         onScreenChange(screen)
     }
     val navigateBack: () -> Unit = {
-        navigate(if (selectedScreen == CopilotScreen.TESTS) testsParent else CopilotScreen.HOME)
+        navigate(if (!selectedScreen.inMainNavigation) secondaryParent else CopilotScreen.HOME)
     }
-    val mainSelection = if (selectedScreen == CopilotScreen.TESTS) testsParent else selectedScreen
+    val mainSelection = if (!selectedScreen.inMainNavigation) secondaryParent else selectedScreen
     if (!LocalInspectionMode.current) {
         BackHandler(enabled = selectedScreen != CopilotScreen.HOME, onBack = navigateBack)
     }
@@ -77,7 +80,11 @@ fun CopilotApp(
                                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text(stringResource(R.string.trip_active), modifier = Modifier.weight(1f),
+                                Text(stringResource(when (state.callPhase) {
+                                    TripCallPhase.CALL -> R.string.session_call
+                                    TripCallPhase.RECOVERING -> R.string.session_call_recovering
+                                    TripCallPhase.NONE -> R.string.trip_active
+                                }), modifier = Modifier.weight(1f),
                                     style = MaterialTheme.typography.labelLarge)
                                 TextButton(onClick = { navigate(CopilotScreen.TRIP) }) {
                                     Text(stringResource(R.string.home_open_trip))
@@ -108,20 +115,26 @@ fun CopilotApp(
                         Modifier.widthIn(max = 680.dp).fillMaxWidth().padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        if (selectedScreen == CopilotScreen.TESTS) {
+                        if (!selectedScreen.inMainNavigation) {
                             TextButton(onClick = navigateBack) {
-                                Text(stringResource(R.string.back_to_screen, stringResource(testsParent.titleRes)))
+                                Text(stringResource(R.string.back_to_screen, stringResource(secondaryParent.titleRes)))
                             }
                         }
                         Text(stringResource(R.string.ui_brand), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                         Text(stringResource(selectedScreen.titleRes), style = MaterialTheme.typography.headlineLarge, modifier = Modifier.semantics { heading() })
-                        Text(stringResource(R.string.ui_phase), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.ui_phase) + " · " + stringResource(R.string.ui_revision),
+                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Spacer(Modifier.size(4.dp))
                         when (selectedScreen) {
                             CopilotScreen.HOME -> HomeScreen(state, actions, navigate)
-                            CopilotScreen.TRIP -> TripScreen(state, actions) { navigate(CopilotScreen.TESTS) }
+                            CopilotScreen.TRIP -> TripScreen(state, actions,
+                                onOpenCommands = { navigate(CopilotScreen.COMMANDS) },
+                                onOpenTests = { navigate(CopilotScreen.TESTS) })
+                            CopilotScreen.COMMANDS -> CommandsScreen(state, actions)
                             CopilotScreen.TESTS -> TestsScreen(state, actions)
-                            CopilotScreen.SETTINGS -> SettingsScreen(state, actions) { navigate(CopilotScreen.TESTS) }
+                            CopilotScreen.SETTINGS -> SettingsScreen(state, actions,
+                                onOpenCommands = { navigate(CopilotScreen.COMMANDS) },
+                                onOpenTests = { navigate(CopilotScreen.TESTS) })
                         }
                     }
                 }
@@ -225,4 +238,71 @@ private fun TestsPreview() {
 @Composable
 private fun SettingsPreview() {
     CopilotApp(PreviewState, CopilotScreen.SETTINGS, {}, CopilotActions())
+}
+
+@Preview(name = "Botón: Inicio", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Composable
+private fun ButtonHomePreview() {
+    CopilotApp(PreviewState.copy(inputId = "BUTTON", audioDevices = PreviewDevices), CopilotScreen.HOME, {}, CopilotActions())
+}
+
+@Preview(name = "Botón: Viaje noche", showBackground = true, widthDp = 360, heightDp = 800,
+    locale = "es", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Botón: Viaje texto grande", showBackground = true, widthDp = 360, heightDp = 800,
+    locale = "es", fontScale = 1.5f)
+@Composable
+private fun ButtonTripPreview() {
+    CopilotApp(PreviewState.copy(inputId = "BUTTON", tripActive = true, commandReady = true,
+        tripStatus = "Esperando el botón del casco. Música por la salida normal; micrófono cerrado.",
+        audioDevices = PreviewDevices), CopilotScreen.TRIP, {}, CopilotActions())
+}
+
+@Preview(name = "Restaurando audio", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Composable
+private fun RestoringPreview() {
+    CopilotApp(PreviewState.copy(inputId = "BUTTON", restoringAudio = true,
+        tripStatus = "Restaurando música…", audioDevices = PreviewDevices), CopilotScreen.HOME, {}, CopilotActions())
+}
+
+@Preview(name = "Botón: Ajustes", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Composable
+private fun ButtonSettingsPreview() {
+    CopilotApp(PreviewState.copy(inputId = "BUTTON", audioDevices = PreviewDevices), CopilotScreen.SETTINGS, {}, CopilotActions())
+}
+
+@Preview(name = "Fase 1: aplicación preparada", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Preview(name = "Fase 1: aplicación texto grande", showBackground = true, widthDp = 360, heightDp = 800,
+    locale = "es", fontScale = 1.5f)
+@Composable
+private fun PreparedAppPreview() {
+    CopilotApp(PreviewState.copy(inputId = "BUTTON", tripActive = true, commandReady = true,
+        pendingAppName = "Spotify", pendingAppToken = "preview", lastTripCommand = MinimalIntentRouter.route("abre Spotify").toCommandUi(),
+        lastCommandResult = "Encontré Spotify. Tocá la acción de la notificación para abrirla.",
+        audioDevices = PreviewDevices), CopilotScreen.TRIP, {}, CopilotActions())
+}
+
+
+@Preview(name = "Comandos: aplicaciones", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Preview(name = "Comandos: texto grande", showBackground = true, widthDp = 360, heightDp = 800,
+    locale = "es", fontScale = 1.5f)
+@Composable
+private fun CommandsPreview() {
+    CopilotApp(PreviewState.copy(inputId = "BUTTON", appCatalogMessage = "3 accesos disponibles.",
+        appCommands = listOf("abre Spotify", "abre Waze", "abre YouTube Music")),
+        CopilotScreen.COMMANDS, {}, CopilotActions())
+}
+
+@Preview(name = "Viaje: llamada", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Composable
+private fun CallPreview() {
+    CopilotApp(PreviewState.copy(tripActive = true, inputId = "BUTTON", callPhase = TripCallPhase.CALL,
+        tripStatus = "Viaje en espera durante la llamada."), CopilotScreen.TRIP, {}, CopilotActions())
+}
+
+@Preview(name = "Inicio: recuperar llamada", showBackground = true, widthDp = 360, heightDp = 800,
+    locale = "es", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Composable
+private fun CallRecoveryPreview() {
+    CopilotApp(PreviewState.copy(tripActive = true, inputId = "BUTTON", callPhase = TripCallPhase.RECOVERING,
+        tripStatus = "Llamada terminada; recuperando modo viaje…"), CopilotScreen.HOME, {}, CopilotActions())
 }

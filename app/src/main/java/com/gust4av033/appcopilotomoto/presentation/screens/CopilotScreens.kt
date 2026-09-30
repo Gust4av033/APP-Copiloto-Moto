@@ -19,7 +19,13 @@ import androidx.compose.ui.unit.dp
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.CopilotActions
 import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
+import com.gust4av033.appcopilotomoto.presentation.VoiceRouteUi
 import com.gust4av033.appcopilotomoto.presentation.components.ActionButton
+import com.gust4av033.appcopilotomoto.presentation.components.ActivationSummary
+import com.gust4av033.appcopilotomoto.presentation.components.AudioLevels
+import com.gust4av033.appcopilotomoto.presentation.components.DiagnosticsReportCard
+import com.gust4av033.appcopilotomoto.presentation.components.CommandInterpretation
+import com.gust4av033.appcopilotomoto.presentation.components.PendingAppCard
 import com.gust4av033.appcopilotomoto.presentation.components.AudioDevicesCard
 import com.gust4av033.appcopilotomoto.presentation.components.ChoiceGroup
 import com.gust4av033.appcopilotomoto.presentation.components.SectionCard
@@ -27,52 +33,47 @@ import com.gust4av033.appcopilotomoto.presentation.components.SessionStatus
 import com.gust4av033.appcopilotomoto.presentation.components.SupportingText
 
 @Composable
-fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -> Unit) {
+fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommands: () -> Unit, onOpenTests: () -> Unit) {
     SectionCard(stringResource(R.string.trip_session)) {
-        SessionStatus(state.tripActive)
-        Text(if (state.inputId == "BUTTON") stringResource(R.string.trip_activation_button)
-            else stringResource(R.string.trip_activation, state.phraseLabel))
+        SessionStatus(state.tripActive, state.restoringAudio, state.callPhase)
+        ActivationSummary(state)
         SupportingText(state.tripStatus)
         ActionButton(
             stringResource(if (state.tripActive) R.string.trip_stop else R.string.trip_start),
-            enabled = state.tripActive || !state.busy,
+            enabled = state.tripActive || state.canStartTrip,
             primary = true,
             onClick = actions.onToggleTrip
         )
+        if (state.audioDevices.selectionMissing) Text(stringResource(R.string.devices_selection_lost),
+            color = MaterialTheme.colorScheme.error)
         SupportingText(if (state.inputId == "BUTTON") stringResource(R.string.trip_button_hint)
             else stringResource(R.string.trip_y12_hint, state.phraseLabel))
         if (state.inputId == "BUTTON" && state.tripActive) {
             ActionButton(stringResource(R.string.trip_manual_command),
-                enabled = !state.restoringAudio,
+                enabled = state.canRequestTripCommand,
                 onClick = actions.onManualTripCommand)
+            SupportingText(stringResource(R.string.trip_command_timeout))
+            if (!state.canRequestTripCommand) SupportingText(stringResource(R.string.trip_wait_ready))
         }
     }
-    state.pendingAppName?.let { name ->
-        SectionCard(stringResource(R.string.trip_pending_app)) {
-            Text(name, style = MaterialTheme.typography.titleMedium)
-            SupportingText(stringResource(R.string.trip_pending_app_hint))
-            ActionButton(stringResource(R.string.trip_open_app),
-                enabled = state.tripActive && state.pendingAppToken != null,
-                onClick = { state.pendingAppToken?.let(actions.onOpenPendingApp) })
-            ActionButton(stringResource(R.string.trip_cancel_app),
-                enabled = state.tripActive && state.pendingAppToken != null,
-                onClick = { state.pendingAppToken?.let(actions.onCancelPendingApp) })
-        }
-    }
+    PendingAppCard(state, actions)
     SectionCard(stringResource(R.string.trip_last_result)) {
+        state.lastTripCommand?.let {
+            SupportingText(stringResource(R.string.command_interpreted))
+            CommandInterpretation(it)
+        }
         SupportingText(state.lastCommandResult.ifBlank { stringResource(R.string.no_command_result) })
     }
     SectionCard(stringResource(R.string.trip_audio_check)) {
         SupportingText(stringResource(R.string.trip_audio_check_hint))
+        AudioLevels(state)
         if (state.audioDevices.musicVolume.isNotBlank()) {
-            Text(stringResource(R.string.devices_volume_levels, state.audioDevices.musicVolume,
-                state.audioDevices.communicationVolume))
             SupportingText(stringResource(R.string.devices_communication_route,
                 state.audioDevices.communicationRoute.ifBlank { stringResource(R.string.devices_no_communication) }))
         }
-        if (state.tripActive && state.audioDuring.contains("Salida música prevista: Bluetooth SCO")) {
+        if (state.tripActive && state.audioDevices.voiceRoute == VoiceRouteUi.SCO) {
             SupportingText(stringResource(R.string.trip_sco_observed))
-        } else if (state.tripActive && state.audioDuring.contains("Salida música prevista: Bluetooth LE")) {
+        } else if (state.tripActive && state.audioDevices.voiceRoute == VoiceRouteUi.LE) {
             SupportingText(stringResource(R.string.trip_le_observed))
         }
         if (state.inputId == "PHONE_WAKE") {
@@ -86,11 +87,15 @@ fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -
         ActionButton(stringResource(R.string.open_tests), onClick = onOpenTests)
     }
     SectionCard(stringResource(R.string.trip_commands)) {
+        SupportingText(if (state.buttonMode) stringResource(R.string.commands_button_intro)
+            else stringResource(R.string.commands_voice_intro, state.phraseLabel))
         Text(stringResource(R.string.commands_music))
         Text(stringResource(R.string.commands_volume))
         Text(stringResource(R.string.commands_apps))
         Text(stringResource(R.string.commands_call))
+        Text(stringResource(R.string.commands_cancel))
         SupportingText(stringResource(R.string.commands_stop))
+        ActionButton(stringResource(R.string.home_view_commands), onClick = onOpenCommands)
     }
     SectionCard(stringResource(R.string.trip_results)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -126,18 +131,11 @@ private fun Metric(value: Int, label: String, modifier: Modifier) {
 fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
     SupportingText(stringResource(R.string.tests_intro))
     if (state.tripActive) SupportingText(stringResource(R.string.tests_trip_active))
-    SectionCard(stringResource(R.string.tests_apps_title)) {
-        SupportingText(state.appCatalogMessage)
-        ActionButton(stringResource(R.string.tests_apps_refresh), onClick = actions.onRefreshApps)
-        var appsVisible by rememberSaveable { mutableStateOf(false) }
-        TextButton(onClick = { appsVisible = !appsVisible }) {
-            Text(stringResource(if (appsVisible) R.string.tests_apps_hide else R.string.tests_apps_show))
-        }
-        if (appsVisible) state.appCommands.forEach { Text(it) }
-    }
     AudioDevicesCard(state, actions)
+    DiagnosticsReportCard(state, actions)
     SectionCard(stringResource(R.string.tests_volume_title)) {
-        SupportingText(stringResource(R.string.tests_volume_protocol))
+        SupportingText(if (state.buttonMode) stringResource(R.string.tests_volume_button_protocol)
+            else stringResource(R.string.tests_volume_voice_protocol, state.phraseLabel))
         SupportingText(stringResource(R.string.tests_volume_result_hint))
     }
     SectionCard(stringResource(R.string.tests_audio)) {
@@ -155,6 +153,10 @@ fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
             primary = true,
             onClick = actions.onToggleListening
         )
+        state.lastTestCommand?.let {
+            SupportingText(stringResource(R.string.command_interpreted))
+            CommandInterpretation(it)
+        }
         SupportingText(state.voiceMessage)
     }
     SectionCard(stringResource(R.string.tests_microphone)) {
@@ -173,7 +175,9 @@ fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
             probe.warning?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         }
     }
-    SectionCard(stringResource(R.string.tests_wake)) {
+    if (state.buttonMode) SectionCard(stringResource(R.string.tests_wake)) {
+        SupportingText(stringResource(R.string.tests_wake_button_mode))
+    } else SectionCard(stringResource(R.string.tests_wake)) {
         SupportingText(stringResource(R.string.tests_wake_hint, state.phraseLabel))
         ActionButton(
             stringResource(if (state.wakeEnabled) R.string.wake_stop else R.string.wake_start),
@@ -195,8 +199,12 @@ fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
 }
 
 @Composable
-fun SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: () -> Unit) {
+fun SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommands: () -> Unit, onOpenTests: () -> Unit) {
     if (state.busy) SupportingText(stringResource(R.string.settings_busy))
+    SectionCard(stringResource(R.string.settings_input)) {
+        ChoiceGroup(state.inputs, state.inputId, !state.busy, actions.onInputChange)
+        if (state.buttonMode) SupportingText(stringResource(R.string.trip_button_hint))
+    }
     if (state.inputId != "BUTTON") SectionCard(stringResource(R.string.settings_phrase)) {
         ChoiceGroup(state.phrases, state.phraseId, !state.busy, actions.onPhraseChange)
         SupportingText(stringResource(R.string.settings_phrase_hint))
@@ -209,10 +217,6 @@ fun SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: 
             enabled = !state.busy
         )
         SupportingText(stringResource(R.string.settings_sensitivity_hint))
-    }
-    SectionCard(stringResource(R.string.settings_input)) {
-        ChoiceGroup(state.inputs, state.inputId, !state.busy, actions.onInputChange)
-        SupportingText(stringResource(R.string.settings_input_hint))
     }
     AudioDevicesCard(state, actions)
     SectionCard(stringResource(R.string.settings_calls)) {
@@ -230,6 +234,10 @@ fun SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: 
         }
         SupportingText(state.callMessage)
     }
+    SectionCard(stringResource(R.string.home_command_core)) {
+        SupportingText(stringResource(R.string.home_command_core_hint))
+        ActionButton(stringResource(R.string.home_view_commands), onClick = onOpenCommands)
+    }
     SectionCard(stringResource(R.string.settings_test_tools)) {
         SupportingText(stringResource(R.string.settings_test_tools_hint))
         ActionButton(stringResource(R.string.open_tests), onClick = onOpenTests)
@@ -238,6 +246,7 @@ fun SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenTests: 
 
 @Composable
 private fun AudioComparison(state: CopilotUiState) {
+    SupportingText(stringResource(R.string.audio_snapshot_hint))
     SupportingText(stringResource(R.string.audio_before, state.audioBefore))
     SupportingText(stringResource(R.string.audio_during, state.audioDuring))
     SupportingText(stringResource(R.string.audio_after, state.audioAfter))

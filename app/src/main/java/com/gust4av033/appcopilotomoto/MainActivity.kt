@@ -3,6 +3,8 @@ package com.gust4av033.appcopilotomoto
 import android.Manifest
 import android.app.role.RoleManager
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
@@ -14,6 +16,7 @@ import android.os.Looper
 import android.os.SystemClock
 import android.provider.ContactsContract
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -30,6 +33,9 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotScreen
 import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 import com.gust4av033.appcopilotomoto.presentation.ProbeUi
 import com.gust4av033.appcopilotomoto.presentation.TripMetricsUi
+import com.gust4av033.appcopilotomoto.presentation.VoiceRouteUi
+import com.gust4av033.appcopilotomoto.presentation.CommandUi
+import com.gust4av033.appcopilotomoto.presentation.toCommandUi
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
@@ -69,6 +75,7 @@ class MainActivity : ComponentActivity() {
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
     private var appCatalogMessage by mutableStateOf("Buscando las aplicaciones que se pueden abrir…")
     private var appCommands by mutableStateOf<List<String>>(emptyList())
+    private var lastTestCommand by mutableStateOf<CommandUi?>(null)
     private var assistantMessage by mutableStateOf("Opcional: probá el botón del Y12 como acceso a una orden corta.")
     private var audioDiagnostic by mutableStateOf("Actualizá los niveles con la moto detenida y la sesión activa.")
     private var selectedScreen by mutableStateOf(CopilotScreen.HOME)
@@ -171,12 +178,14 @@ class MainActivity : ComponentActivity() {
         handleAssistantInvocation(intent)
     }
 
-    /** Único puente entre el runtime de fase 0 y las pantallas Compose. */
+    /** Único puente entre el runtime de fase 1 y las pantallas Compose. */
     @Composable
     private fun AppUi() {
         val state = CopilotUiState(
             tripActive = TripTestState.running,
             restoringAudio = TripTestState.restoringAudio,
+            commandReady = TripTestState.commandReady,
+            callPhase = TripTestState.callPhase,
             measuring = running,
             listening = listening,
             wakeEnabled = wakeEnabled,
@@ -185,6 +194,8 @@ class MainActivity : ComponentActivity() {
             lastCommandResult = TripTestState.lastCommandResult,
             pendingAppName = TripTestState.pendingAppName,
             pendingAppToken = TripTestState.pendingAppToken,
+            lastTripCommand = TripTestState.lastRoutedCommand?.toCommandUi(),
+            lastTestCommand = lastTestCommand,
             metrics = TripMetricsUi(
                 detections = TripTestState.detections,
                 manualCommands = TripTestState.manualCommands,
@@ -198,6 +209,7 @@ class MainActivity : ComponentActivity() {
             phraseLabel = wakePhrase.label,
             sensitivity = wakeSensitivity,
             inputId = tripAudioMode.name,
+            audioCaptureGeneration = TripTestState.audioCaptureGeneration,
             audioDevices = audioDevices,
             assistantSelected = isSelectedAssistant(),
             assistantMessage = assistantMessage,
@@ -227,6 +239,16 @@ class MainActivity : ComponentActivity() {
                 onManualTripCommand = ::requestManualTripCommand,
                 onCancelPendingApp = ::cancelPendingApp,
                 onOpenPendingApp = ::openPendingApp,
+                onCopyDiagnostics = { report ->
+                    getSystemService(ClipboardManager::class.java).setPrimaryClip(
+                        ClipData.newPlainText(getString(R.string.report_title),
+                            "${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}\n" +
+                                "${java.time.Instant.now()}\n$report")
+                    )
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                        Toast.makeText(this@MainActivity, R.string.report_copied, Toast.LENGTH_SHORT).show()
+                    }
+                },
                 onRefreshAudio = {
                     audioDiagnostic = runCatching { media.audioRouteDiagnostic() }
                         .getOrDefault(getString(R.string.devices_read_error))
@@ -343,6 +365,12 @@ class MainActivity : ComponentActivity() {
                 selectionMissing = preferred != null && resolved == null,
                 automaticHeadset = if (preferred == null) resolved?.let(::audioDeviceLabel).orEmpty() else "",
                 communicationRoute = audioManager.communicationDevice?.let(::audioDeviceLabel).orEmpty(),
+                voiceRoute = when (audioManager.communicationDevice?.type) {
+                    null -> VoiceRouteUi.NONE
+                    AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> VoiceRouteUi.SCO
+                    AudioDeviceInfo.TYPE_BLE_HEADSET -> VoiceRouteUi.LE
+                    else -> VoiceRouteUi.OTHER
+                },
                 musicOutput = outputs,
                 musicVolume = media.musicVolume(),
                 communicationVolume = "${audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)}"
@@ -594,6 +622,7 @@ class MainActivity : ComponentActivity() {
 
     private fun startVoiceCommand(fromWake: Boolean) {
         if (listening || running) return
+        lastTestCommand = null
         listening = true
         voiceMessage = "Esperando un momento antes de abrir el micrófono…"
         val start = SystemClock.elapsedRealtime()
@@ -618,6 +647,7 @@ class MainActivity : ComponentActivity() {
                 listening = false
                 val elapsed = SystemClock.elapsedRealtime() - start
                 val routed = outcome.getOrNull()?.let(MinimalIntentRouter::route)
+                lastTestCommand = routed?.toCommandUi()
                 val commandRecognized = routed?.intent != null && routed.intent != TestIntent.UNKNOWN
                 voiceMessage = outcome.fold(
                     onSuccess = { heard ->

@@ -29,15 +29,22 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.ChoiceUi
+import com.gust4av033.appcopilotomoto.TripCallPhase
 
 @Composable
-fun SessionStatus(active: Boolean) {
+fun SessionStatus(active: Boolean, restoring: Boolean = false, callPhase: TripCallPhase = TripCallPhase.NONE) {
     Surface(
         color = if (active) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
         shape = MaterialTheme.shapes.small
     ) {
         Text(
-            stringResource(if (active) R.string.trip_active else R.string.trip_stopped),
+            stringResource(when {
+                restoring -> R.string.session_restoring
+                callPhase == TripCallPhase.CALL -> R.string.session_call
+                callPhase == TripCallPhase.RECOVERING -> R.string.session_call_recovering
+                active -> R.string.trip_active
+                else -> R.string.trip_stopped
+            }),
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
             style = MaterialTheme.typography.titleLarge
         )
@@ -86,7 +93,10 @@ fun ChoiceGroup(options: List<ChoiceUi>, selectedId: String, enabled: Boolean, o
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RadioButton(selected = selectedId == option.id, enabled = enabled, onClick = null)
-                Text(stringResource(option.titleRes), modifier = Modifier.padding(start = 12.dp))
+                Column(Modifier.weight(1f).padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(stringResource(option.titleRes), style = MaterialTheme.typography.titleSmall)
+                    option.descriptionRes?.let { SupportingText(stringResource(it)) }
+                }
             }
         }
     }

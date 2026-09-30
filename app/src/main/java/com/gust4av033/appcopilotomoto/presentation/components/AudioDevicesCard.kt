@@ -10,6 +10,7 @@ import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -62,27 +63,30 @@ fun AudioDevicesCard(state: CopilotUiState, actions: CopilotActions) {
                 }
                 SupportingText(stringResource(R.string.devices_choice_hint))
             }
-            Text(stringResource(R.string.devices_connected_outputs))
-            SupportingText(devices.bluetoothOutputs.joinToString("\n").ifBlank {
-                stringResource(R.string.devices_no_bluetooth_output)
-            })
-            Text(stringResource(R.string.devices_connected_inputs))
-            SupportingText(devices.bluetoothInputs.joinToString("\n").ifBlank {
-                stringResource(R.string.devices_no_bluetooth_input)
-            })
-            SupportingText(stringResource(R.string.devices_profiles_hint))
             SupportingText(stringResource(R.string.devices_music_output,
                 devices.musicOutput.ifBlank { stringResource(R.string.devices_not_reported) }))
             SupportingText(stringResource(R.string.devices_communication_route,
                 devices.communicationRoute.ifBlank { stringResource(R.string.devices_no_communication) }))
-            if (devices.musicVolume.isNotBlank()) {
-                Text(stringResource(R.string.devices_volume_levels, devices.musicVolume, devices.communicationVolume))
-            }
-            SupportingText(stringResource(R.string.devices_volume_hint))
+            AudioLevels(state)
             if (state.inputId == "PHONE_WAKE") SupportingText(stringResource(R.string.trip_phone_wake_trial))
             state.probe?.let {
                 SupportingText(stringResource(R.string.devices_last_probe, it.actualInput))
                 SupportingText(stringResource(R.string.devices_probe_scope))
+            }
+            var profilesVisible by rememberSaveable { mutableStateOf(false) }
+            TextButton(onClick = { profilesVisible = !profilesVisible }) {
+                Text(stringResource(if (profilesVisible) R.string.devices_profiles_hide else R.string.devices_profiles_show))
+            }
+            if (profilesVisible) {
+                Text(stringResource(R.string.devices_connected_outputs))
+                SupportingText(devices.bluetoothOutputs.joinToString("\n").ifBlank {
+                    stringResource(R.string.devices_no_bluetooth_output)
+                })
+                Text(stringResource(R.string.devices_connected_inputs))
+                SupportingText(devices.bluetoothInputs.joinToString("\n").ifBlank {
+                    stringResource(R.string.devices_no_bluetooth_input)
+                })
+                SupportingText(stringResource(R.string.devices_profiles_hint))
             }
         }
         if (devices.message.isNotBlank()) Text(devices.message, color = MaterialTheme.colorScheme.error)

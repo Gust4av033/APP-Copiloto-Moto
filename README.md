@@ -1,6 +1,6 @@
 # APP Copiloto Moto
 
-Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta rama inicia la fase 1 sobre el prototipo de fase 0: reúne las órdenes en un Action Executor, amplía las frases de música y volumen, y descubre los accesos instalados para abrir aplicaciones por voz. **Pruebas** muestra los nombres de apps disponibles. El viaje y el audio Bluetooth siguen en validación con hardware real.
+Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta rama inicia la fase 1 sobre el prototipo de fase 0: reúne las órdenes en un Action Executor, amplía las frases de música y volumen, y descubre los accesos instalados para abrir aplicaciones por voz. **Comandos** reúne la guía, una comprobación de frases sin ejecución y los accesos de apps disponibles con búsqueda. Inicio y Viaje muestran las aperturas pendientes y los estados de llamada/recuperación. El viaje y el audio Bluetooth siguen en validación con hardware real.
 
 En Ajustes y Pruebas, **Dispositivos de audio** permite elegir el casco de comunicación o mantener Automático. Muestra salida musical prevista, ruta de voz, niveles y la última entrada medida por separado. La salida de música de otras apps se elige en Android. Los cambios y nuevas capturas quedan bloqueados durante el viaje y la restauración del audio. Ver el protocolo de comparación en `docs/PRUEBA_AUDIO_PERFILES_Y12_SKULLCANDY.md`.
 
@@ -29,13 +29,13 @@ La arquitectura prevista conserva límites entre `presentation`, `application`, 
 
 ## Documentación y trabajo en Git
 
-- `docs/UI_BASE.md`: alcance de la interfaz, estructura, coordinación con fase 0 y comprobaciones en el teléfono.
+- `docs/UI_BASE.md`: alcance de la interfaz, estructura, integración en fase 1 y comprobaciones en el teléfono.
 - `docs/FASE_0.md`: objetivo, validación y orden de implementación.
 - `docs/FASE_1.md`: primera entrega del núcleo de comandos y su prueba en el S22+.
 - `docs/referencias/`: documentos originales del proyecto. La especificación V4, los requisitos y la arquitectura son la línea base. El registro de modificaciones aprobadas complementa los documentos base según su regla de precedencia. Las indicaciones iniciales se conservan como antecedente.
-- `main` es la base estable. Para un cambio grande, crear una rama `feature/nombre`; probar en el teléfono y fusionar mediante PR. Borrar la rama temporal tras integrar.
+- `main` es la base estable. Todo el trabajo de fase 1, incluida la UI, se concentra en `feature/fase-1-intent-router`; probar en el teléfono antes de integrar mediante PR.
 - No incluir claves, tokens, firmados, `local.properties`, grabaciones personales ni datos de viajes en Git.
 
 ### Sincronizar cambios de GitHub
 
-En Android Studio: **Git > Pull** o `git pull origin main` desde la terminal del proyecto. Para subir cambios propios: **Commit** y luego **Push** (o `git add . && git commit -m "..." && git push`).
+En Android Studio: **Git > Pull** sobre `feature/fase-1-intent-router` o `git pull --ff-only origin feature/fase-1-intent-router` desde la terminal del proyecto. Para subir cambios propios: **Commit** y luego **Push** (o `git add . && git commit -m "..." && git push`).
