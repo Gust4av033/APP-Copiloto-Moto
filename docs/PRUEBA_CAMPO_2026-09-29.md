@@ -1,0 +1,27 @@
+# Prueba de campo — S22+ y Y12 — 2026-09-29
+
+Datos transcritos de las capturas enviadas por el usuario. Las pantallas corresponden a varios momentos y pruebas; no se asume que todos los contadores pertenezcan a un único intento ni que una solicitud enviada haya cambiado efectivamente la canción.
+
+## Audio del casco
+
+| Momento | Modo | Ruta comunicación | Salida música prevista | Música | Comunicación |
+| --- | --- | --- | --- | --- | --- |
+| Antes de iniciar | normal | otra ruta | Bluetooth A2DP | 12/15 | 15/15 |
+| Esperando Alexa | normal | Bluetooth SCO | Bluetooth SCO | 12/15 | 15/15 |
+| Después, captura inmediata | normal | Bluetooth SCO | Bluetooth SCO | 15/15 | 15/15 |
+| Lectura actual posterior | normal | otra ruta | Bluetooth A2DP | 11/15 | 15/15 |
+
+La ruta de música informada cambia de A2DP a SCO mientras APP espera Alexa, aunque el nivel de comunicación ya marca 15/15. La captura automática «Después» todavía mostró SCO y una actualización posterior mostró A2DP: la restauración de ruta es asíncrona. Esta evidencia explica la degradación de calidad por cambio de perfil, pero no mide por sí sola el volumen acústico del Y12. No se ajustarán niveles automáticamente sin otra comparación de sonido y ruta.
+
+## Reconocimiento y micrófono
+
+- Una captura de resultados muestra 24 activaciones por voz, 23 transcripciones, 20 solicitudes enviadas y 1 fallo registrado. Son contadores de etapas diferentes, no una tasa de aciertos ni confirmación de ejecución en la app musical.
+- En esa captura, la última orden tardó 1442 ms desde el inicio de la orden hasta STT listo y 5305 ms hasta el resultado. Otras capturas muestran resultados de 5281 ms y 4746 ms; incluyen esperas y habla, no solo procesamiento.
+- La medición de 5 segundos registró entrada real Bluetooth SCO, 80 000 muestras en 5058 ms, nivel medio −54 dBFS y pico −36 dBFS. Esta lectura sola no establece una tasa de activación con ruido de moto.
+- Una prueba de orden corta transcribió «cancelar cancelar» y lo rechazó por coincidencia exacta. Se añade ese caso como cancelación sin ejecutar acciones.
+- Las capturas de la prueba de activación con APP visible muestran 4 detecciones en un momento y una sesión detenida por «detener sesión» en otro. No se deduce de ellas cuántos intentos fueron pronunciados.
+- El resultado mostrado para Y12 es 0 órdenes; las capturas no validan aún la pulsación larga durante la sesión. Los toques cortos de pista son controles propios del casco y se verifican por el cambio real de canción.
+
+## Corrección y próxima prueba
+
+APP actualiza la lectura «Después» durante los segundos posteriores al cierre para esperar la restauración de A2DP. Se reconoce «cancelar cancelar» como cancelación segura. En el siguiente ensayo estacionario comparar sonido A2DP/SCO con la misma canción, verificar si la lectura final queda en A2DP y probar una activación y orden con ruido de motor. Durante el viaje registrar verbalmente o de memoria los fallos y revisar la pantalla únicamente al detenerse.
