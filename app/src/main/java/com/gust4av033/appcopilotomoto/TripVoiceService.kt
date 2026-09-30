@@ -11,6 +11,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.media.AudioDeviceInfo
+import android.media.AudioDeviceCallback
 import android.media.AudioManager
 import android.media.ToneGenerator
 import android.net.Uri
@@ -110,6 +111,10 @@ class TripVoiceService : Service() {
     private val callPromptLazy = lazy { TripCallPrompt(applicationContext) }
     private val callPrompt by callPromptLazy
     private val media by lazy { MediaActionAdapter(applicationContext) }
+    private val audioManager by lazy { getSystemService(AudioManager::class.java) }
+    private var deviceCallback: AudioDeviceCallback? = null
+    private var communicationListener: AudioManager.OnCommunicationDeviceChangedListener? = null
+    private var routeCheck: Runnable? = null
     private var detector: WakeWordProvider? = null
     private var generation = 0
     private var pendingTask: Runnable? = null
@@ -162,6 +167,11 @@ class TripVoiceService : Service() {
             return START_NOT_STICKY
         }
         active = true
+        val hardwareMonitor = runCatching { monitorHardware() }
+        if (hardwareMonitor.isFailure) {
+            stopSession("No se pudo observar el casco Bluetooth: ${hardwareMonitor.exceptionOrNull()?.message}.")
+            return START_NOT_STICKY
+        }
         TripTestState.running = true
         TripTestState.markRunning(this, true)
         TripTestState.reset(this)
@@ -225,7 +235,11 @@ class TripVoiceService : Service() {
             val reason = inputCheck.exceptionOrNull()?.message.orEmpty()
             if (reason.startsWith("No se pudo verificar") && retry < 4) {
                 schedule(1_000L) { armDetector(provider, cycle, retry + 1) }
-            } else stopSession("Modo experimental: $reason")
+            } else stopSession("${if (wakeAudioMode == WakeAudioMode.PHONE_WAKE) "Modo experimental" else "Micrófono del casco"}: $reason")
+            return
+        }
+        if (wakeAudioMode == WakeAudioMode.BLUETOOTH && !headsetRouteAvailable()) {
+            stopSession("El casco de voz cambió o se desconectó. Elegí el casco de música y reiniciá la sesión.")
             return
         }
         armed = true
@@ -348,7 +362,8 @@ class TripVoiceService : Service() {
             val elapsed = SystemClock.elapsedRealtime() - wakeAt
             TripTestState.lastLatencyMs = elapsed
             if (heard != null) TripTestState.recognized++
-            if (mediaAction?.isSuccess == true) TripTestState.actions++
+            val volumeChange = mediaAction?.getOrNull() as? VolumeAdjustment
+            if (mediaAction?.isSuccess == true && (volumeChange == null || volumeChange.after != volumeChange.before)) TripTestState.actions++
             if (outcome.isFailure || intent == TestIntent.UNKNOWN || mediaAction?.isFailure == true) {
                 TripTestState.failures++
                 consecutiveFailures++
@@ -406,11 +421,11 @@ class TripVoiceService : Service() {
                         TestIntent.MEDIA_PREVIOUS -> "Anterior canción"
                         TestIntent.MEDIA_PLAY -> "Reproducir"
                         TestIntent.MEDIA_PAUSE -> "Pausar"
-                        TestIntent.VOLUME_UP -> "Subir volumen (${media.commandVolumeStatus()})"
-                        TestIntent.VOLUME_DOWN -> "Bajar volumen (${media.commandVolumeStatus()})"
+                        TestIntent.VOLUME_UP -> "Subir volumen (${media.commandVolumeStatus(mediaAction?.getOrNull() as? VolumeAdjustment)})"
+                        TestIntent.VOLUME_DOWN -> "Bajar volumen (${media.commandVolumeStatus(mediaAction?.getOrNull() as? VolumeAdjustment)})"
                         else -> "Orden"
                     }
-                    if (mediaAction.isSuccess) "Escuché ‘$heard’; envié $command en $elapsed ms."
+                    if (mediaAction.isSuccess) "Escuché ‘$heard’; $command en $elapsed ms."
                     else "Escuché ‘$heard’, pero falló el envío de $command."
                 }
                 intent == TestIntent.CANCEL -> "Escuché ‘$heard’; orden cancelada."
@@ -518,6 +533,56 @@ class TripVoiceService : Service() {
         }
     }
 
+    private fun monitorHardware() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        val callback = object : AudioDeviceCallback() {
+            override fun onAudioDevicesAdded(addedDevices: Array<AudioDeviceInfo>) = queueRouteCheck()
+            override fun onAudioDevicesRemoved(removedDevices: Array<AudioDeviceInfo>) = queueRouteCheck()
+        }
+        deviceCallback = callback
+        audioManager.registerAudioDeviceCallback(callback, mainHandler)
+        val listener = AudioManager.OnCommunicationDeviceChangedListener { queueRouteCheck() }
+        communicationListener = listener
+        audioManager.addOnCommunicationDeviceChangedListener(mainExecutor, listener)
+    }
+
+    private fun queueRouteCheck() {
+        routeCheck?.let(mainHandler::removeCallbacks)
+        val task = Runnable {
+            routeCheck = null
+            if (active && armed && wakeAudioMode == WakeAudioMode.BLUETOOTH && !headsetRouteAvailable()) {
+                stopSession("Se perdió la ruta del casco. Sesión detenida para no escuchar con otro micrófono; seleccioná el casco y reiniciá.")
+            }
+        }
+        routeCheck = task
+        mainHandler.postDelayed(task, 1_200L)
+    }
+
+    private fun headsetRouteAvailable(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
+        return runCatching {
+            val selected = audioManager.communicationDevice ?: return@runCatching false
+            if (selected.type != AudioDeviceInfo.TYPE_BLUETOOTH_SCO &&
+                selected.type != AudioDeviceInfo.TYPE_BLE_HEADSET) return@runCatching false
+            val connected = audioManager.availableCommunicationDevices.any {
+                it.id == selected.id && it.type == selected.type
+            }
+            val expected = BluetoothAudioRouteSelector.communicationHeadset(audioManager)
+            connected && (expected == null || expected.id == selected.id)
+        }.getOrDefault(false)
+    }
+
+    private fun stopMonitoringHardware() {
+        routeCheck?.let(mainHandler::removeCallbacks)
+        routeCheck = null
+        deviceCallback?.let(audioManager::unregisterAudioDeviceCallback)
+        deviceCallback = null
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            communicationListener?.let(audioManager::removeOnCommunicationDeviceChangedListener)
+        }
+        communicationListener = null
+    }
+
     private fun schedule(delayMs: Long, action: () -> Unit) {
         pendingTask?.let(mainHandler::removeCallbacks)
         val task = Runnable { pendingTask = null; action() }
@@ -528,6 +593,7 @@ class TripVoiceService : Service() {
     private fun stopSession(reason: String) {
         if (closing) return
         active = false
+        stopMonitoringHardware()
         closing = true
         callPending = false
         armed = false
@@ -624,6 +690,7 @@ class TripVoiceService : Service() {
     }
 
     override fun onDestroy() {
+        stopMonitoringHardware()
         if (active) stopSession("Sesión interrumpida por Android; iniciá una nueva prueba.")
         worker.shutdown()
         super.onDestroy()
