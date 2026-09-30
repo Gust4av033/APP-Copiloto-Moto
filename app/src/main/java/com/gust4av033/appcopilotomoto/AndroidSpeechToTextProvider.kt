@@ -135,6 +135,9 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         return pausedByApp
     }
 
+    /** Lectura diagnóstica; Android puede ocultar la entrada de un reconocedor externo. */
+    fun activeInputDescription(): String = activeInputDevices()
+
     private fun activeInputDevices(): String = runCatching {
         audioManager.activeRecordingConfigurations.mapNotNull { configuration ->
             configuration.audioDevice?.let { device ->
