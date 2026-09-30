@@ -69,20 +69,20 @@ class OpenWakeWordProvider(
             .filter { it.clientAudioSource == MediaRecorder.AudioSource.VOICE_RECOGNITION }
             .mapNotNull { it.audioDevice }
         if (audioMode == WakeAudioMode.BLUETOOTH) {
-            if (inputs.isEmpty()) return "Alexa: Android no informó el micrófono activo."
+            if (inputs.isEmpty()) return "$phrase: Android no informó el micrófono activo."
             val selected = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audioManager.communicationDevice else null
             check(selected != null && inputs.all { input ->
                 input.type == selected.type &&
                     (Build.VERSION.SDK_INT < Build.VERSION_CODES.P ||
                         input.address.isBlank() || selected.address.isBlank() || input.address == selected.address)
-            }) { "Alexa usa otro micrófono distinto al casco seleccionado." }
-            return "Alexa: micrófono Bluetooth ${if (selected.type == AudioDeviceInfo.TYPE_BLE_HEADSET) "LE" else "SCO"} verificado."
+            }) { "$phrase usa otro micrófono distinto al casco seleccionado." }
+            return "$phrase: micrófono Bluetooth ${if (selected.type == AudioDeviceInfo.TYPE_BLE_HEADSET) "LE" else "SCO"} verificado."
         }
-        check(inputs.isNotEmpty()) { "No se pudo verificar la entrada de Alexa; probá el modo casco." }
+        check(inputs.isNotEmpty()) { "No se pudo verificar la entrada de $phrase; probá el modo casco." }
         check(inputs.all { it.type == AudioDeviceInfo.TYPE_BUILTIN_MIC }) {
-            "Alexa está usando Bluetooth u otra entrada; probá el modo casco."
+            "$phrase está usando Bluetooth u otra entrada; probá el modo casco."
         }
-        return "Alexa: micrófono del teléfono; órdenes: casco Bluetooth."
+        return "$phrase: micrófono del teléfono; órdenes: casco Bluetooth."
     }
 
     @RequiresApi(Build.VERSION_CODES.S)
