@@ -114,6 +114,15 @@ private fun Metric(value: Int, label: String, modifier: Modifier) {
 fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
     SupportingText(stringResource(R.string.tests_intro))
     if (state.tripActive) SupportingText(stringResource(R.string.tests_trip_active))
+    SectionCard(stringResource(R.string.tests_apps_title)) {
+        SupportingText(state.appCatalogMessage)
+        ActionButton(stringResource(R.string.tests_apps_refresh), onClick = actions.onRefreshApps)
+        var appsVisible by rememberSaveable { mutableStateOf(false) }
+        TextButton(onClick = { appsVisible = !appsVisible }) {
+            Text(stringResource(if (appsVisible) R.string.tests_apps_hide else R.string.tests_apps_show))
+        }
+        if (appsVisible) state.appCommands.forEach { Text(it) }
+    }
     AudioDevicesCard(state, actions)
     SectionCard(stringResource(R.string.tests_volume_title)) {
         SupportingText(stringResource(R.string.tests_volume_protocol))

@@ -37,8 +37,7 @@ class MainActivity : ComponentActivity() {
     private val worker = Executors.newSingleThreadExecutor()
     private val speech by lazy { AndroidSpeechToTextProvider(applicationContext) }
     private val media by lazy { MediaActionAdapter(applicationContext) }
-    private val mediaCommands by lazy { MediaCommandExecutor(media) }
-    private val appLauncher by lazy { AppLaunchAdapter(this) }
+    private val actions by lazy { ActionExecutor(this, media) }
     private val audioManager by lazy { getSystemService(AudioManager::class.java) }
     private var audioDevices by mutableStateOf(AudioDevicesUi())
     private var audioDeviceMessage = ""
@@ -67,6 +66,8 @@ class MainActivity : ComponentActivity() {
     private var wakeMessage by mutableStateOf("Elegí una frase e iniciá la sesión con la app abierta.")
     private var message by mutableStateOf("Conectá el casco Bluetooth y pulsá Iniciar prueba.")
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
+    private var appCatalogMessage by mutableStateOf("Buscando las aplicaciones que se pueden abrir…")
+    private var appCommands by mutableStateOf<List<String>>(emptyList())
     private var assistantMessage by mutableStateOf("Opcional: probá el botón del Y12 como acceso a una orden corta.")
     private var audioDiagnostic by mutableStateOf("Actualizá los niveles con la moto detenida y la sesión activa.")
     private var selectedScreen by mutableStateOf(CopilotScreen.HOME)
@@ -196,6 +197,8 @@ class MainActivity : ComponentActivity() {
             assistantSelected = isSelectedAssistant(),
             assistantMessage = assistantMessage,
             voiceMessage = voiceMessage,
+            appCatalogMessage = appCatalogMessage,
+            appCommands = appCommands,
             probeMessage = message,
             wakeMessage = wakeMessage,
             wakeDetections = wakeDetections,
@@ -227,6 +230,7 @@ class MainActivity : ComponentActivity() {
                 onOpenAudioControls = ::openAudioControls,
                 onSelectAssistant = ::requestAssistantRole,
                 onToggleListening = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) },
+                onRefreshApps = ::refreshAppCatalog,
                 onMeasure = ::requestProbe,
                 onToggleWake = { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) },
                 onPhraseChange = { wakePhrase = WakePhrase.valueOf(it) },
@@ -353,8 +357,31 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        refreshAppCatalog()
         mainHandler.removeCallbacks(refreshDevicesTask)
         mainHandler.post(refreshDevicesTask)
+    }
+
+    private fun refreshAppCatalog() {
+        worker.execute {
+            val available = actions.availableApps()
+            mainHandler.post {
+                if (available.isSuccess) {
+                    val catalog = available.getOrThrow()
+                    appCommands = catalog.map { app ->
+                        val command = AppNameMatcher.commandFor(app, catalog)
+                        val repeated = catalog.count {
+                            MinimalIntentRouter.normalize(it.label) == MinimalIntentRouter.normalize(app.label)
+                        } > 1
+                        if (repeated) "$command · ${app.packageName}" else command
+                    }
+                    appCatalogMessage = "${appCommands.size} accesos disponibles. Decí el comando como aparece aquí."
+                } else {
+                    appCommands = emptyList()
+                    appCatalogMessage = "No se pudo leer la lista de aplicaciones: ${available.exceptionOrNull()?.message}."
+                }
+            }
+        }
     }
 
     override fun onPause() {
@@ -557,16 +584,16 @@ class MainActivity : ComponentActivity() {
                             TestIntent.MEDIA_NEXT, TestIntent.MEDIA_PREVIOUS,
                             TestIntent.MEDIA_PLAY, TestIntent.MEDIA_PAUSE,
                             TestIntent.VOLUME_UP, TestIntent.VOLUME_DOWN, TestIntent.VOLUME_SET -> {
-                                val action = checkNotNull(mediaCommands.execute(command))
-                                val label = mediaCommands.description(command.intent, action.getOrNull() as? VolumeAdjustment)
+                                val action = checkNotNull(actions.executeMedia(command))
+                                val label = actions.description(command.intent, action.getOrNull() as? VolumeAdjustment)
                                 if (action.isSuccess) "Escuché: ‘$heard’. $label en $elapsed ms. Comprobá el resultado en la música."
                                 else "Escuché: ‘$heard’, pero falló el envío de $label: ${action.exceptionOrNull()?.message}"
                             }
                             TestIntent.STOP_TTS -> "Escuché: ‘$heard’. Orden Silencio reconocida; aún no hay voz sintetizada para interrumpir."
                             TestIntent.CANCEL -> "Escuché: ‘$heard’. Orden Cancelar reconocida; no se ejecutó ninguna acción."
-                            TestIntent.OPEN_APP -> appLauncher.find(checkNotNull(command.appName)).fold(
+                            TestIntent.OPEN_APP -> actions.prepareApp(command).fold(
                                 onSuccess = { target -> runCatching {
-                                    startActivity(target.launchIntent)
+                                    actions.openAppFromActivity(target).getOrThrow()
                                     if (fromWake) endWakeTest("Prueba de activación detenida al abrir ${target.label}.")
                                 }.fold(
                                     onSuccess = { "Abriendo ${target.label}." },

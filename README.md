@@ -1,6 +1,6 @@
 # APP Copiloto Moto
 
-Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta rama contiene Inicio, Viaje y Ajustes sobre el prototipo de fase 0: activación, audio Bluetooth, órdenes multimedia, volumen y llamadas con confirmación. Pruebas y diagnóstico se abren desde estas pantallas. Inicio prepara la presentación de Mi Moto, Preparar viaje y Mis viajes como módulos próximos. La estabilidad del audio sigue en validación con hardware real.
+Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta rama inicia la fase 1 sobre el prototipo de fase 0: reúne las órdenes en un Action Executor, amplía las frases de música y volumen, y descubre los accesos instalados para abrir aplicaciones por voz. **Pruebas** muestra los nombres de apps disponibles. El viaje y el audio Bluetooth siguen en validación con hardware real.
 
 En Ajustes y Pruebas, **Dispositivos de audio** permite elegir el casco de comunicación o mantener Automático. Muestra salida musical prevista, ruta de voz, niveles y la última entrada medida por separado. La salida de música de otras apps se elige en Android. Los cambios y nuevas capturas quedan bloqueados durante el viaje y la restauración del audio. Ver el protocolo de comparación en `docs/PRUEBA_AUDIO_PERFILES_Y12_SKULLCANDY.md`.
 

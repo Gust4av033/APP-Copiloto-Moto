@@ -33,7 +33,7 @@
     <string name="settings_test_tools_hint">Comprobá el micrófono, el volumen, la activación y el botón del Y12.</string>
     <string name="back_to_screen">Volver a %1$s</string>
     <string name="ui_brand">APP · COPILOTO MOTO</string>
-    <string name="ui_phase">Fase 0 · Validación manos libres</string>
+    <string name="ui_phase">Fase 1 · Núcleo de comandos</string>
     <string name="nav_trip">Viaje</string>
     <string name="nav_tests">Pruebas</string>
     <string name="nav_settings">Ajustes</string>
@@ -52,7 +52,11 @@
     <string name="trip_commands">Lo que podés decir</string>
     <string name="commands_music">“Siguiente canción”, “anterior canción”, “pausa” o “reanudar”.</string>
     <string name="commands_volume">“Subir volumen”, “bajar volumen”, “volumen al 40 por ciento” o “volumen a 6”. El porcentaje se adapta al rango de Android; el número elige un nivel.</string>
-    <string name="commands_apps">“Abre Spotify” o “abre [nombre exacto de la aplicación]”. Durante el viaje, tocá la acción de la notificación para abrirla.</string>
+    <string name="commands_apps">“Abre [nombre de la aplicación]”. En Pruebas podés ver los nombres detectados. Durante el viaje, tocá la acción de la notificación para abrirla.</string>
+    <string name="tests_apps_title">Aplicaciones del teléfono</string>
+    <string name="tests_apps_refresh">Actualizar aplicaciones</string>
+    <string name="tests_apps_show">Ver nombres para órdenes</string>
+    <string name="tests_apps_hide">Ocultar nombres</string>
     <string name="commands_call">“Llama a [nombre]”. Confirmá el destinatario por voz antes de marcar.</string>
     <string name="commands_stop">“Detener sesión” cierra el micrófono. Configurá la activación y las llamadas en Ajustes.</string>
     <string name="trip_results">Resultados de la sesión</string>

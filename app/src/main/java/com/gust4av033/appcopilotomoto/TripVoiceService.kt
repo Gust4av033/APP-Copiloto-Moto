@@ -98,6 +98,7 @@ class TripVoiceService : Service() {
         const val ACTION_START = "com.gust4av033.appcopilotomoto.START_TRIP_TEST"
         const val ACTION_STOP = "com.gust4av033.appcopilotomoto.STOP_TRIP_TEST"
         const val ACTION_MANUAL_COMMAND = "com.gust4av033.appcopilotomoto.MANUAL_TRIP_COMMAND"
+        const val ACTION_SILENCE = "com.gust4av033.appcopilotomoto.SILENCE_TRIP_SPEECH"
         const val EXTRA_PHRASE = "phrase"
         const val EXTRA_SENSITIVITY = "sensitivity"
         const val EXTRA_AUDIO_MODE = "audio_mode"
@@ -112,8 +113,7 @@ class TripVoiceService : Service() {
     private val callPromptLazy = lazy { TripCallPrompt(applicationContext) }
     private val callPrompt by callPromptLazy
     private val media by lazy { MediaActionAdapter(applicationContext) }
-    private val mediaCommands by lazy { MediaCommandExecutor(media) }
-    private val appLauncher by lazy { AppLaunchAdapter(this) }
+    private val actions by lazy { ActionExecutor(this, media) }
     private val audioManager by lazy { getSystemService(AudioManager::class.java) }
     private var deviceCallback: AudioDeviceCallback? = null
     private var communicationListener: AudioManager.OnCommunicationDeviceChangedListener? = null
@@ -141,6 +141,20 @@ class TripVoiceService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_SILENCE) {
+            val silenced = callPromptLazy.isInitialized() && callPrompt.cancel()
+            if (active && silenced) {
+                pendingTask?.let(mainHandler::removeCallbacks)
+                pendingTask = null
+                TripTestState.status = "Respuesta hablada detenida; llamada cancelada."
+                TripTestState.lastCommandResult = TripTestState.status
+                updateNotification("Llamada cancelada; esperando activación")
+                detector?.let { provider ->
+                    schedule(300L) { if (active && detector === provider) startDetector(provider) }
+                }
+            }
+            return START_NOT_STICKY
+        }
         if (intent?.action == ACTION_STOP) {
             stopSession("Sesión detenida desde la app o la notificación.")
             return START_NOT_STICKY
@@ -289,7 +303,7 @@ class TripVoiceService : Service() {
     private fun finishPendingVolume(bluetoothVoice: Boolean) {
         val pending = pendingVolumeCommand ?: return
         pendingVolumeCommand = null
-        val action = mediaCommands.executeRestoredVolume(pending.command, bluetoothVoice) ?: return
+        val action = actions.executeRestoredVolume(pending.command, bluetoothVoice) ?: return
         val change = action.getOrNull()
         val atLimit = change != null && when (pending.command.intent) {
             TestIntent.VOLUME_UP -> change.before >= change.maximum
@@ -464,6 +478,9 @@ class TripVoiceService : Service() {
             val heard = outcome.getOrNull()
             val command = heard?.let(MinimalIntentRouter::route) ?: RoutedCommand(TestIntent.UNKNOWN)
             val intent = command.intent
+            val cancelledApp = intent == TestIntent.CANCEL && pendingApp != null
+            // Una orden nueva reemplaza cualquier apertura que aún estaba pendiente.
+            if (intent != TestIntent.OPEN_APP) pendingApp = null
             if (intent == TestIntent.VOLUME_UP || intent == TestIntent.VOLUME_DOWN ||
                 intent == TestIntent.VOLUME_SET) {
                 TripTestState.recognized++
@@ -477,7 +494,7 @@ class TripVoiceService : Service() {
                 }
                 return@listenOnce
             }
-            val mediaAction = mediaCommands.execute(command)
+            val mediaAction = actions.executeMedia(command)
             val elapsed = SystemClock.elapsedRealtime() - wakeAt
             TripTestState.lastLatencyMs = elapsed
             if (heard != null) TripTestState.recognized++
@@ -493,7 +510,7 @@ class TripVoiceService : Service() {
                 return@listenOnce
             }
             if (intent == TestIntent.OPEN_APP) {
-                val found = appLauncher.find(checkNotNull(command.appName))
+                val found = actions.prepareApp(command)
                 pendingApp = found.getOrNull()
                 TripTestState.status = if (pendingApp != null) {
                     "$source: Encontré ${pendingApp?.label}. Tocá ‘Abrir aplicación’ en la notificación para abrirla."
@@ -554,12 +571,17 @@ class TripVoiceService : Service() {
             TripTestState.status = when {
                 outcome.isFailure -> "No se entendió la orden: ${outcome.exceptionOrNull()?.message}."
                 mediaAction != null -> {
-                    val label = mediaCommands.description(intent, mediaAction.getOrNull() as? VolumeAdjustment)
+                    val label = actions.description(intent, mediaAction.getOrNull() as? VolumeAdjustment)
                     if (mediaAction.isSuccess) "Escuché ‘$heard’; $label en $elapsed ms."
                     else "Escuché ‘$heard’, pero falló $label: ${mediaAction.exceptionOrNull()?.message ?: "error de Android"}."
                 }
-                intent == TestIntent.CANCEL -> "Escuché ‘$heard’; orden cancelada."
-                intent == TestIntent.STOP_TTS -> "Escuché ‘$heard’; Silencio reconocido (sin TTS activo)."
+                intent == TestIntent.CANCEL -> if (cancelledApp) "Escuché ‘$heard’; apertura de aplicación cancelada."
+                    else "Escuché ‘$heard’; orden cancelada."
+                intent == TestIntent.STOP_TTS -> {
+                    val silenced = callPromptLazy.isInitialized() && callPrompt.cancel()
+                    if (silenced) "Escuché ‘$heard’; respuesta hablada detenida."
+                    else "Escuché ‘$heard’; Silencio reconocido (sin TTS activo)."
+                }
                 else -> "Escuché ‘$heard’; no coincide con las órdenes de prueba."
             }
             TripTestState.status = "$source: ${TripTestState.status}"
@@ -622,7 +644,9 @@ class TripVoiceService : Service() {
                     }
                 }
             }
-        } }.onFailure {
+        } }.onSuccess {
+            updateNotification("Anunciando a ${contact.name} · Silencio disponible")
+        }.onFailure {
             TripTestState.failures++
             TripTestState.save(this)
             TripTestState.status = "No se pudo anunciar el contacto; no se hará la llamada."
@@ -829,6 +853,12 @@ class TripVoiceService : Service() {
             val launch = PendingIntent.getActivity(this, 3, target.launchIntent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
             notice.addAction(android.R.drawable.ic_menu_view, "Abrir ${target.label}", launch)
+        }
+        if (callPromptLazy.isInitialized() && callPrompt.isAnnouncing()) {
+            val silence = PendingIntent.getService(this, 4,
+                Intent(this, TripVoiceService::class.java).setAction(ACTION_SILENCE),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            notice.addAction(android.R.drawable.ic_lock_silent_mode, "Silencio", silence)
         }
         return notice.addAction(android.R.drawable.ic_media_pause, "Detener", stop).build()
     }

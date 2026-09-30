@@ -1,10 +1,14 @@
 package com.gust4av033.appcopilotomoto
 
+import android.app.Activity
+import android.content.Context
 import android.media.AudioManager
 
-/** Único punto de ejecución de órdenes de música y volumen. */
-class MediaCommandExecutor(private val media: MediaActionAdapter) {
-    fun execute(command: RoutedCommand): Result<*>? = when (command.intent) {
+/** Ejecuta las acciones deterministas; la sesión decide cuándo restaurar audio o pedir confirmación. */
+class ActionExecutor(private val context: Context, private val media: MediaActionAdapter) {
+    private val apps = AppLaunchAdapter(context)
+
+    fun executeMedia(command: RoutedCommand): Result<*>? = when (command.intent) {
         TestIntent.MEDIA_NEXT -> media.nextTrack()
         TestIntent.MEDIA_PREVIOUS -> media.previousTrack()
         TestIntent.MEDIA_PLAY -> media.play()
@@ -25,6 +29,19 @@ class MediaCommandExecutor(private val media: MediaActionAdapter) {
             TestIntent.VOLUME_SET -> command.volume?.let { media.setRequestedVolume(it, bluetoothVoice) }
             else -> null
         }
+
+    fun availableApps(): Result<List<LaunchableApp>> = apps.installedApps()
+
+    fun prepareApp(command: RoutedCommand): Result<AppTarget> = runCatching {
+        check(command.intent == TestIntent.OPEN_APP) { "La orden no pide abrir una aplicación." }
+        apps.find(checkNotNull(command.appName)).getOrThrow()
+    }
+
+    /** Solo la prueba con Activity visible abre otra pantalla directamente. */
+    fun openAppFromActivity(target: AppTarget): Result<Unit> = runCatching {
+        check(context is Activity && !context.isFinishing) { "APP debe estar visible para abrir otra aplicación." }
+        context.startActivity(target.launchIntent)
+    }
 
     fun description(intent: TestIntent, change: VolumeAdjustment? = null): String = when (intent) {
         TestIntent.MEDIA_NEXT -> "Siguiente canción"

@@ -15,10 +15,14 @@ class TripCallPrompt(private val context: Context) {
     private var engine: TextToSpeech? = null
     private var generation = 0
     private var timeout: Runnable? = null
+    private var announcing = false
+
+    fun isAnnouncing(): Boolean = announcing
 
     fun announce(name: String, onFinished: (Boolean) -> Unit) {
         cancel()
         val cycle = ++generation
+        announcing = true
         val instance = TextToSpeech(context.applicationContext) { state ->
             handler.post {
                 if (cycle != generation) return@post
@@ -58,12 +62,15 @@ class TripCallPrompt(private val context: Context) {
         onFinished(ok)
     }
 
-    fun cancel() {
+    fun cancel(): Boolean {
+        val wasAnnouncing = announcing
+        announcing = false
         generation++
         timeout?.let(handler::removeCallbacks)
         timeout = null
         engine?.stop()
         engine?.shutdown()
         engine = null
+        return wasAnnouncing
     }
 }

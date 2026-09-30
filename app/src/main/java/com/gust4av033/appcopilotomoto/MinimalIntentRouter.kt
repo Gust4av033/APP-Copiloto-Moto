@@ -66,8 +66,9 @@ object MinimalIntentRouter {
 
     fun requestedApp(transcript: String): String? {
         val spoken = commandText(transcript)
-        val prefix = listOf("abre la aplicacion ", "abrir la aplicacion ", "abre ", "abrir ",
-            "inicia ", "iniciar ", "lanza ", "lanzar ")
+        val prefix = listOf("abre la aplicacion de ", "abre la aplicacion ",
+            "abre la app de ", "abre la app ", "abrir la aplicacion ",
+            "abre ", "abrir ", "abrime ", "inicia ", "iniciar ", "lanza ", "lanzar ")
             .firstOrNull { spoken.startsWith(it) } ?: return null
         return spoken.removePrefix(prefix).takeIf { it.length >= 2 && it.any(Char::isLetter) }
     }
