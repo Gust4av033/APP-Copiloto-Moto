@@ -16,7 +16,8 @@ enum class WakePhrase(val label: String) {
 
 enum class WakeAudioMode(val label: String) {
     BLUETOOTH("Casco: activación y orden"),
-    PHONE_WAKE("Prueba: teléfono para Alexa, casco para la orden")
+    PHONE_WAKE("Prueba: teléfono para Alexa, casco para la orden"),
+    BUTTON("Botón: música A2DP hasta pedir una orden")
 }
 
 class OpenWakeWordProvider(
@@ -115,5 +116,54 @@ class OpenWakeWordProvider(
                 oldMode = null
             }
         }
+    }
+}
+
+/** Viaje activado por el botón de asistente: sin detector ni SCO mientras espera. */
+class ButtonWakeWordProvider(context: Context) : WakeWordProvider {
+    override val phrase = "botón del casco"
+    private val audioManager = context.getSystemService(AudioManager::class.java)
+    private val oldMode: Int = audioManager.mode
+    private var ownsRoute = false
+    private var closed = false
+
+    override fun start(onDetected: (Float) -> Unit): Result<Unit> = runCatching {
+        check(!closed) { "La sesión por botón ya terminó." }
+        releaseRoute()
+    }
+
+    override fun pause() {
+        check(!closed) { "La sesión por botón ya terminó." }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+            error("Este teléfono no admite seleccionar el micrófono Bluetooth para el botón.")
+        }
+        val headset = BluetoothAudioRouteSelector.communicationHeadset(audioManager)
+            ?: error("Android no ofrece el micrófono del casco seleccionado.")
+        audioManager.mode = AudioManager.MODE_IN_COMMUNICATION
+        try {
+            check(audioManager.setCommunicationDevice(headset)) {
+                "Android no pudo abrir el micrófono del casco."
+            }
+            ownsRoute = true
+        } catch (failure: Exception) {
+            runCatching { audioManager.clearCommunicationDevice() }
+            audioManager.mode = oldMode
+            throw failure
+        }
+    }
+
+    private fun releaseRoute() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && ownsRoute) {
+            try { audioManager.clearCommunicationDevice() } finally {
+                ownsRoute = false
+                audioManager.mode = oldMode
+            }
+        }
+    }
+
+    override fun close() {
+        if (closed) return
+        closed = true
+        releaseRoute()
     }
 }
