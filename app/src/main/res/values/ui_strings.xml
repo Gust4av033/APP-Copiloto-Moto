@@ -167,9 +167,9 @@
     <string name="tests_volume_title">Comparar volumen y cascos</string>
     <string name="tests_volume_protocol">1. Poné música a un nivel medio, lejos del máximo.\n2. Iniciá el viaje y decí “Alexa, bajar volumen”, luego “Alexa, subir volumen”.\n3. Revisá los niveles en la última orden y anotá si cambia el sonido.\n4. Detené el viaje, cambiá la salida en Android y elegí el otro casco. Repetí con la misma canción.</string>
     <string name="tests_volume_result_hint">Si cambia el número pero no el sonido, registrá “cambia nivel, no sonido”. LE Audio disponible tampoco confirma mejor calidad.</string>
-    <string name="trip_pending_app">Aplicación pendiente</string>
+    <string name="trip_pending_app">Acción pendiente</string>
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Abrir por voz requiere APP visible y teléfono desbloqueado. También podés usar estos botones o el aviso; la solicitud vence a los 30 segundos.</string>
-    <string name="trip_open_app">Abrir aplicación</string>
+    <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
     <string name="ui_revision">UI comandos 02</string>
     <string name="session_restoring">Restaurando audio</string>

@@ -2,6 +2,7 @@ package com.gust4av033.appcopilotomoto.presentation
 
 import androidx.compose.runtime.Immutable
 import com.gust4av033.appcopilotomoto.R
+import com.gust4av033.appcopilotomoto.ContactChatCapability
 import com.gust4av033.appcopilotomoto.MusicPlayer
 import com.gust4av033.appcopilotomoto.TripCallPhase
 
@@ -106,6 +107,9 @@ data class CopilotUiState(
     val musicPlayers: List<MusicPlayer> = emptyList(),
     val selectedMusicPlayer: String? = null,
     val musicPlayersMessage: String = "",
+    val chatCapabilities: List<ContactChatCapability> = emptyList(),
+    val chatContactsGranted: Boolean = false,
+    val chatIntegrationMessage: String = "",
     val probeMessage: String = "",
     val wakeMessage: String = "",
     val wakeDetections: Int = 0,
@@ -141,6 +145,7 @@ data class CopilotActions(
     val onSelectAssistant: () -> Unit = {},
     val onToggleListening: () -> Unit = {},
     val onRefreshApps: () -> Unit = {},
+    val onEnableChatContacts: () -> Unit = {},
     val onMusicPlayerChange: (String?) -> Unit = {},
     val onMeasure: () -> Unit = {},
     val onToggleWake: () -> Unit = {},

@@ -20,6 +20,8 @@ fun RoutedCommand.toCommandUi(): CommandUi = when (intent) {
     TestIntent.VOLUME_SET -> CommandUi(R.string.command_volume_set,
         if (volume?.percent == true) R.string.command_percent else R.string.command_level,
         volume?.amount?.toString().orEmpty())
+    TestIntent.OPEN_CONTACT_CHAT -> CommandUi(R.string.command_contact_chat, R.string.command_contact_parameter,
+        "${chatApp?.label.orEmpty()}: ${contactName.orEmpty()}")
     TestIntent.OPEN_APP -> CommandUi(R.string.command_open_app, R.string.command_app_parameter, appName.orEmpty())
     TestIntent.CALL_NAMED -> CommandUi(R.string.command_call, R.string.command_contact_parameter, contactName.orEmpty())
     TestIntent.CALL_SELECTED -> CommandUi(R.string.command_call, R.string.command_fixed_contact)

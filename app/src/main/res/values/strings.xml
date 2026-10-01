@@ -4,5 +4,16 @@
     <string name="welcome_title">APP Copiloto Moto</string>
     <string name="welcome_subtitle">Proyecto preparado para iniciar Fase 0</string>
     <string name="welcome_detail">La primera prueba será activar el asistente y cambiar de canción con la voz.</string>
+    <string name="command_contact_chat">Abrir chat</string>
+    <string name="integrations_title">Integraciones y acciones</string>
+    <string name="integrations_apps">Aplicaciones: %1$d accesos para abrir por nombre.</string>
+    <string name="integrations_music">Música: %1$d reproductores con búsqueda compatible. Elegí uno en Ajustes.</string>
+    <string name="integrations_chat_unavailable">No se detectó una apertura de chat compatible. Instalá o actualizá esta edición y actualizá la lista.</string>
+    <string name="integrations_chat_ready">Disponible: abrir chat con un contacto, con confirmación por voz.</string>
+    <string name="integrations_chat_permission">Disponible; falta habilitar contactos para buscar por nombre.</string>
+    <string name="integrations_contacts">Habilitar contactos para chats</string>
+    <string name="commands_chat">Chats: «abre el chat de Ana en WhatsApp», «abre WhatsApp con Ana» o «abre el chat de Ana en WhatsApp Business». Después: «uno» para abrir o «dos» para cancelar.</string>
+    <string name="integrations_chat_hint">Configurá contactos antes del viaje. Usá un nombre único y un solo número, preferentemente con + y código de país. La apertura por voz requiere APP visible y pantalla desbloqueada. Abre la conversación; no dicta ni envía mensajes.</string>
 </resources>
+
 

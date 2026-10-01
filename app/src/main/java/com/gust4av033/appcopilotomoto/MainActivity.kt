@@ -82,6 +82,9 @@ class MainActivity : ComponentActivity() {
     private var musicPlayers by mutableStateOf<List<MusicPlayer>>(emptyList())
     private var selectedMusicPlayer by mutableStateOf<String?>(null)
     private var musicPlayersMessage by mutableStateOf("")
+    private var chatCapabilities by mutableStateOf<List<ContactChatCapability>>(emptyList())
+    private var chatContactsGranted by mutableStateOf(false)
+    private var chatIntegrationMessage by mutableStateOf("")
     private var lastTestCommand by mutableStateOf<CommandUi?>(null)
     private var assistantMessage by mutableStateOf("Opcional: probá el botón del Y12 como acceso a una orden corta.")
     private var audioDiagnostic by mutableStateOf("Actualizá los niveles con la moto detenida y la sesión activa.")
@@ -123,6 +126,12 @@ class MainActivity : ComponentActivity() {
         tripCallMessage = if (listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
                 .all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }) "Llamadas habilitadas para el contacto elegido."
         else "Sin permiso de teléfono, las órdenes de llamada no marcarán."
+    }
+
+    private val chatContactsPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        chatContactsGranted = granted
+        chatIntegrationMessage = if (granted) "Contactos habilitados para abrir chats por nombre."
+            else "Sin contactos no se pueden resolver chats por nombre. Podés habilitarlos en Ajustes de Android."
     }
 
     private val namedCallPermissions = registerForActivityResult(
@@ -248,6 +257,9 @@ class MainActivity : ComponentActivity() {
             musicPlayers = musicPlayers,
             selectedMusicPlayer = selectedMusicPlayer,
             musicPlayersMessage = musicPlayersMessage,
+            chatCapabilities = chatCapabilities,
+            chatContactsGranted = chatContactsGranted,
+            chatIntegrationMessage = chatIntegrationMessage,
             probeMessage = message,
             wakeMessage = wakeMessage,
             wakeDetections = wakeDetections,
@@ -303,6 +315,11 @@ class MainActivity : ComponentActivity() {
                 onSelectAssistant = ::requestAssistantRole,
                 onToggleListening = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) },
                 onRefreshApps = ::refreshAppCatalog,
+                onEnableChatContacts = {
+                    if (!TripTestState.running && !TripTestState.restoringAudio && !listening && !running && !wakeEnabled && !wakeTransition) {
+                        chatContactsPermission.launch(Manifest.permission.READ_CONTACTS)
+                    }
+                },
                 onMusicPlayerChange = { selected ->
                     if (!TripTestState.running && !TripTestState.restoringAudio && !listening && !wakeEnabled && !wakeTransition && !running) {
                         actions.selectMusicPlayer(selected)
@@ -443,6 +460,8 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         TripTestState.openPendingAppFromVoice = voiceAppOpener
         TripTestState.playMusicFromVoice = voiceMusicSearcher
+        chatContactsGranted = checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
+        if (chatContactsGranted) chatIntegrationMessage = ""
         refreshAppCatalog()
         mainHandler.removeCallbacks(refreshDevicesTask)
         mainHandler.post(refreshDevicesTask)
@@ -452,7 +471,10 @@ class MainActivity : ComponentActivity() {
         worker.execute {
             val available = actions.availableApps()
             val players = actions.availableMusicPlayers()
+            val chats = runCatching { actions.contactChatCapabilities() }
             mainHandler.post {
+                chatCapabilities = chats.getOrDefault(emptyList())
+                chats.exceptionOrNull()?.let { chatIntegrationMessage = "No se pudieron consultar integraciones: ${it.message}." }
                 musicPlayers = players.getOrDefault(emptyList())
                 musicPlayersMessage = players.exceptionOrNull()?.let { "No se pudieron consultar reproductores: ${it.message}." }.orEmpty()
                 if (available.isSuccess) {
@@ -756,6 +778,7 @@ class MainActivity : ComponentActivity() {
                                 ) },
                                 onFailure = { it.message ?: "No se encontró la aplicación." }
                             )
+                            TestIntent.OPEN_CONTACT_CHAT -> "Escuché: ‘$heard’. Los chats con confirmación por voz se prueban en la sesión de viaje."
                             TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.CONFIRM_CALL -> "Escuché: ‘$heard’. Las llamadas por nombre se prueban en la sesión de viaje."
                             TestIntent.STOP_SESSION -> "Escuché: ‘$heard’. ${if (fromWake) "Deteniendo sesión de activación." else "No hay sesión de activación en esta prueba manual."}"
                             TestIntent.UNKNOWN -> "Escuché: ‘$heard’. No coincide con las órdenes de esta prueba; no se ejecutó nada."

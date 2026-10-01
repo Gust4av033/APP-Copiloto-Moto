@@ -99,3 +99,29 @@ Antes de cerrar fase 1 quedan por validar canciones con Poweramp/otros compatibl
 Fuentes de integración: [API oficial de Poweramp](https://github.com/maxmpz/powerampapi/blob/master/poweramp_api_lib/src/main/java/com/maxmpz/poweramp/player/PowerampAPI.java), [búsqueda multimedia estándar de Android](https://developer.android.com/guide/components/intents-common#PlaySearch).
 
 Validación local del avance: `:app:clean :app:testDebugUnitTest :app:assembleDebug :app:lintDebug` completos; 35 pruebas, cero fallos/errores, APK compilado y lint sin errores. Lint registra 43 advertencias y 9 sugerencias. La prueba de canciones, ruido y Bluetooth en el teléfono queda pendiente.
+
+
+## Apertura de chats por contacto e integraciones
+
+Extensión de los accesos a apps de fase 1: se puede pedir una acción concreta soportada por un proveedor. WhatsApp y WhatsApp Business tienen adaptadores explícitos de apertura por enlace `wa.me`, con destino restringido a la edición solicitada. No se automatizan pantallas mediante accesibilidad ni se promete controlar cualquier app. Dictado, lectura y envío de mensajes siguen siendo mensajería de fase 5.
+
+En Ajustes y Comandos, «Integraciones y acciones» muestra accesos a apps, reproductores compatibles y disponibilidad de apertura de chats por edición de WhatsApp. «Habilitar contactos para chats» solicita solo READ_CONTACTS: no exige permisos de llamada. La agenda se consulta localmente al resolver la orden; no se transmite un catálogo de contactos.
+
+### Prueba en el teléfono
+
+1. Con la moto detenida, instalar/actualizar la edición deseada, actualizar la lista y conceder contactos antes de iniciar el viaje. Usar un nombre único con un único número. Se recomienda guardar el número con + y código de país. Se usa el número normalizado de Android; para un número local, Android intenta validarlo con la región de la SIM. Sin región válida, se pide corregir el contacto, sin inventar un prefijo.
+2. Iniciar viaje con APP visible, desbloqueada y la pantalla encendida. Decir «abre el chat de Ana en WhatsApp» o «abre WhatsApp con Ana». Para Business: «abre el chat de Ana en WhatsApp Business».
+3. Escuchar el nombre, la edición y los últimos cuatro dígitos. Decir «uno» para abrir o «dos» para cancelar. Se reutilizan el token, la expiración de 30 segundos y la tarjeta/notificación de apertura pendiente. No se envía texto. La disponibilidad de un enlace no demuestra que el número tenga cuenta de WhatsApp.
+4. Probar contacto inexistente, homónimos, varios números, número inválido, permiso denegado y edición no instalada. Debe mostrar el motivo y recuperar la escucha sin cerrar el viaje; no elegir arbitrariamente persona, número ni otra edición.
+5. Probar cancelación, expiración y detención del viaje durante la búsqueda/confirmación: una respuesta antigua no debe abrir el chat. En segundo plano se conserva la notificación pendiente; la apertura por voz requiere que APP esté visible y desbloqueada, igual que las demás apps. No se desbloquea Android ni se garantiza mantener encendida la pantalla de WhatsApp.
+6. Volver a APP y comprobar música, volumen, apertura de apps y recuperación tras llamada, tanto por voz como por botón del casco.
+
+La comprobación breve fuera del viaje interpreta la orden de chat y remite a la sesión: no abre un contacto sin la confirmación. «Probar frase» permite verificar el nombre y proveedor detectados sin consultar contactos ni ejecutar acciones.
+
+### Validación y próximos avances
+
+El usuario confirmó en su teléfono que la búsqueda reproduce canciones, que se abren apps y que subir/bajar volumen produce cambios audibles por voz y botones físicos del casco. La apertura de chats de esta entrega todavía requiere la prueba anterior en su teléfono; pruebas unitarias y compilación no sustituyen esa validación.
+
+La base de integraciones distingue acciones soportadas y disponibles por proveedor. Un siguiente incremento de mensajería sería dictar un borrador, leerlo y permitir corregir/cancelar; el envío requiere una vía compatible y una confirmación explícita. Navegación y las demás fases conservan su alcance en la documentación del proyecto.
+
+Validación local de chats: `:app:clean :app:testDebugUnitTest :app:assembleDebug :app:lintDebug` completos. 45 pruebas, cero fallos y errores; APK compilado; lint sin errores, con 47 advertencias y 9 sugerencias. Queda pendiente la prueba de apertura del contacto en el teléfono.

@@ -19,6 +19,7 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 import com.gust4av033.appcopilotomoto.presentation.components.ActionButton
 import com.gust4av033.appcopilotomoto.presentation.components.CommandPhraseTestCard
 import com.gust4av033.appcopilotomoto.presentation.components.PendingAppCard
+import com.gust4av033.appcopilotomoto.presentation.components.IntegrationsCard
 import com.gust4av033.appcopilotomoto.presentation.components.SectionCard
 import com.gust4av033.appcopilotomoto.presentation.components.SupportingText
 
@@ -35,6 +36,7 @@ fun CommandsScreen(state: CopilotUiState, actions: CopilotActions) {
         Text(stringResource(R.string.commands_cancel))
         SupportingText(stringResource(R.string.commands_stop))
     }
+    IntegrationsCard(state, actions)
     CommandPhraseTestCard()
     var query by rememberSaveable { mutableStateOf("") }
     var visibleCount by rememberSaveable(query) { mutableStateOf(20) }
@@ -58,3 +60,4 @@ fun CommandsScreen(state: CopilotUiState, actions: CopilotActions) {
         }
     }
 }
+

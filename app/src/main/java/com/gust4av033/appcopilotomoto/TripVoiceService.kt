@@ -571,7 +571,7 @@ class TripVoiceService : Service() {
         }, playbackResumePolicy = { heard ->
             when (heard?.let(MinimalIntentRouter::resolve)) {
                 TestIntent.MEDIA_PAUSE -> PlaybackResumePolicy.KEEP_PAUSED
-                TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.OPEN_APP, TestIntent.MEDIA_SEARCH -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
+                TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.OPEN_APP, TestIntent.OPEN_CONTACT_CHAT, TestIntent.MEDIA_SEARCH -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 TestIntent.STOP_SESSION -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 else -> if (wakeAudioMode == WakeAudioMode.BUTTON) {
                     PlaybackResumePolicy.AFTER_ROUTE_RESTORED
@@ -585,7 +585,7 @@ class TripVoiceService : Service() {
             val intent = command.intent
             val cancelledApp = intent == TestIntent.CANCEL && pendingApp != null
             // Una orden nueva reemplaza cualquier apertura que aún estaba pendiente.
-            if (intent != TestIntent.OPEN_APP) {
+            if (intent != TestIntent.OPEN_APP && intent != TestIntent.OPEN_CONTACT_CHAT) {
                 clearPendingApp()
             }
             if (intent == TestIntent.VOLUME_UP || intent == TestIntent.VOLUME_DOWN ||
@@ -626,23 +626,31 @@ class TripVoiceService : Service() {
                 stopSession("Sesión detenida por voz: ‘$heard’ en $elapsed ms.")
                 return@listenOnce
             }
-            if (intent == TestIntent.OPEN_APP) {
+            if (intent == TestIntent.OPEN_APP || intent == TestIntent.OPEN_CONTACT_CHAT) {
                 clearPendingApp()
-                val found = actions.prepareApp(command)
-                found.getOrNull()?.let(::preparePendingApp)
-                TripTestState.status = if (pendingApp != null) {
-                    "$source: Encontré ${pendingApp?.label}. Escuchá la confirmación: uno para abrir o dos para cancelar."
-                } else {
-                    TripTestState.failures++
-                    "$source: ${found.exceptionOrNull()?.message ?: "No se encontró la aplicación."}"
-                }
-                TripTestState.lastCommandResult = TripTestState.status
-                TripTestState.save(this)
-                updateNotification(if (pendingApp != null) "Aplicación lista: ${pendingApp?.label}" else "Aplicación no encontrada")
-                val request = appRequests.current
-                if (request != null) requestAppChoice(provider, cycle, request)
-                else schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 100L else 2_000L) {
-                    if (active && detector === provider && cycle == generation) startDetector(provider)
+                TripTestState.status = if (intent == TestIntent.OPEN_CONTACT_CHAT) "Buscando contacto para el chat…" else "Buscando aplicación…"
+                updateNotification(TripTestState.status)
+                worker.execute {
+                    val found = if (intent == TestIntent.OPEN_CONTACT_CHAT) actions.prepareContactChat(command)
+                        else actions.prepareApp(command)
+                    mainHandler.post {
+                        if (!active || detector !== provider || cycle != generation) return@post
+                        found.getOrNull()?.let(::preparePendingApp)
+                        TripTestState.status = if (pendingApp != null) {
+                            "$source: Encontré ${pendingApp?.label}. Escuchá la confirmación: uno para abrir o dos para cancelar."
+                        } else {
+                            TripTestState.failures++
+                            "$source: ${found.exceptionOrNull()?.message ?: "No se pudo preparar la apertura."}"
+                        }
+                        TripTestState.lastCommandResult = TripTestState.status
+                        TripTestState.save(this)
+                        updateNotification(if (pendingApp != null) "Acción lista: ${pendingApp?.label}" else "No se pudo preparar la acción")
+                        val request = appRequests.current
+                        if (request != null) requestAppChoice(provider, cycle, request)
+                        else schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 100L else 2_000L) {
+                            if (active && detector === provider && cycle == generation) startDetector(provider)
+                        }
+                    }
                 }
                 return@listenOnce
             }
@@ -723,7 +731,7 @@ class TripVoiceService : Service() {
         appChoiceToken = token
         TripTestState.status = "Anunciando ${request.target.label}: uno para abrir o dos para cancelar…"
         runCatching {
-            callPrompt.announceApp(request.target.label) { announced ->
+            callPrompt.announceApp(request.target.spokenLabel) { announced ->
                 if (!isCurrentAppChoice(provider, cycle, token)) return@announceApp
                 if (!announced) {
                     finishAppChoice(provider, cycle, token, "No se pudo anunciar la app; la apertura quedó pendiente en el aviso.")

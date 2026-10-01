@@ -8,6 +8,7 @@ import android.media.AudioManager
 class ActionExecutor(private val context: Context, private val media: MediaActionAdapter) {
     private val apps = AppLaunchAdapter(context)
     private val music = MusicSearchAdapter(context)
+    private val chats: List<ContactChatAdapter> = ChatApp.entries.map { WhatsAppChatAdapter(context, it) }
 
     fun executeMedia(command: RoutedCommand): Result<*>? = when (command.intent) {
         TestIntent.MEDIA_NEXT -> media.nextTrack()
@@ -36,6 +37,17 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
     fun selectMusicPlayer(packageName: String?) = music.selectPlayer(packageName)
     fun prepareMusicSearch(command: RoutedCommand): Result<MusicSearchRequest> = music.prepare(command)
     fun sendMusicSearch(request: MusicSearchRequest): Result<Unit> = music.send(request)
+
+    fun contactChatCapabilities(): List<ContactChatCapability> = chats.map { ContactChatCapability(it.app, it.available()) }
+
+    fun prepareContactChat(command: RoutedCommand): Result<AppTarget> = runCatching {
+        check(command.intent == TestIntent.OPEN_CONTACT_CHAT) { "La orden no pide abrir un chat." }
+        val app = checkNotNull(command.chatApp)
+        val adapter = chats.single { it.app == app }
+        check(adapter.available()) { "${app.label} no está disponible. Revisá Ajustes → Integraciones." }
+        val contact = VoiceContactResolver(context).findUnique(checkNotNull(command.contactName), preferInternationalNumber = true).getOrThrow()
+        adapter.prepare(contact).getOrThrow()
+    }
 
     fun availableApps(): Result<List<LaunchableApp>> = apps.installedApps()
 
