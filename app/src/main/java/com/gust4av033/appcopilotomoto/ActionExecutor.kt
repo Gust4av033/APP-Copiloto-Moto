@@ -7,6 +7,7 @@ import android.media.AudioManager
 /** Ejecuta las acciones deterministas; la sesión decide cuándo restaurar audio o pedir confirmación. */
 class ActionExecutor(private val context: Context, private val media: MediaActionAdapter) {
     private val apps = AppLaunchAdapter(context)
+    private val music = MusicSearchAdapter(context)
 
     fun executeMedia(command: RoutedCommand): Result<*>? = when (command.intent) {
         TestIntent.MEDIA_NEXT -> media.nextTrack()
@@ -29,6 +30,12 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
             TestIntent.VOLUME_SET -> command.volume?.let { media.setRequestedVolume(it, bluetoothVoice) }
             else -> null
         }
+
+    fun availableMusicPlayers(): Result<List<MusicPlayer>> = music.availablePlayers()
+    fun preferredMusicPlayer(): String? = music.preferredPackage()
+    fun selectMusicPlayer(packageName: String?) = music.selectPlayer(packageName)
+    fun prepareMusicSearch(command: RoutedCommand): Result<MusicSearchRequest> = music.prepare(command)
+    fun sendMusicSearch(request: MusicSearchRequest): Result<Unit> = music.send(request)
 
     fun availableApps(): Result<List<LaunchableApp>> = apps.installedApps()
 
@@ -54,3 +61,4 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
         else -> "Orden"
     }
 }
+

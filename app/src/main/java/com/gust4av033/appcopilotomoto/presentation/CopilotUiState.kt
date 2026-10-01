@@ -2,6 +2,7 @@ package com.gust4av033.appcopilotomoto.presentation
 
 import androidx.compose.runtime.Immutable
 import com.gust4av033.appcopilotomoto.R
+import com.gust4av033.appcopilotomoto.MusicPlayer
 import com.gust4av033.appcopilotomoto.TripCallPhase
 
 enum class CopilotScreen(val titleRes: Int, val iconRes: Int, val inMainNavigation: Boolean = true) {
@@ -102,6 +103,9 @@ data class CopilotUiState(
     val voiceMessage: String = "",
     val appCatalogMessage: String = "",
     val appCommands: List<String> = emptyList(),
+    val musicPlayers: List<MusicPlayer> = emptyList(),
+    val selectedMusicPlayer: String? = null,
+    val musicPlayersMessage: String = "",
     val probeMessage: String = "",
     val wakeMessage: String = "",
     val wakeDetections: Int = 0,
@@ -137,6 +141,7 @@ data class CopilotActions(
     val onSelectAssistant: () -> Unit = {},
     val onToggleListening: () -> Unit = {},
     val onRefreshApps: () -> Unit = {},
+    val onMusicPlayerChange: (String?) -> Unit = {},
     val onMeasure: () -> Unit = {},
     val onToggleWake: () -> Unit = {},
     val onPhraseChange: (String) -> Unit = {},

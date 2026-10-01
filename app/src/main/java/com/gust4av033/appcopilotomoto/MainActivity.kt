@@ -79,6 +79,9 @@ class MainActivity : ComponentActivity() {
     private var voiceMessage by mutableStateOf("Iniciá la reproducción en tu app de música antes de probar la orden.")
     private var appCatalogMessage by mutableStateOf("Buscando las aplicaciones que se pueden abrir…")
     private var appCommands by mutableStateOf<List<String>>(emptyList())
+    private var musicPlayers by mutableStateOf<List<MusicPlayer>>(emptyList())
+    private var selectedMusicPlayer by mutableStateOf<String?>(null)
+    private var musicPlayersMessage by mutableStateOf("")
     private var lastTestCommand by mutableStateOf<CommandUi?>(null)
     private var assistantMessage by mutableStateOf("Opcional: probá el botón del Y12 como acceso a una orden corta.")
     private var audioDiagnostic by mutableStateOf("Actualizá los niveles con la moto detenida y la sesión activa.")
@@ -169,9 +172,20 @@ class MainActivity : ComponentActivity() {
             openPendingApp(token)
     }
 
+    private val voiceMusicSearcher: (MusicSearchRequest) -> Result<Unit> = { request ->
+        runCatching {
+            check(lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED) &&
+                !getSystemService(KeyguardManager::class.java).isKeyguardLocked) {
+                "${request.player.label} requiere APP visible y el teléfono desbloqueado."
+            }
+            actions.sendMusicSearch(request).getOrThrow()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         TripTestState.restore(this)
+        selectedMusicPlayer = actions.preferredMusicPlayer()
         keepScreenOnDuringTrip = getSharedPreferences("ui_settings", MODE_PRIVATE)
             .getBoolean("keep_screen_on_during_trip", true)
         tripCallContact = TripCallContactStore.load(this)
@@ -231,6 +245,9 @@ class MainActivity : ComponentActivity() {
             voiceMessage = voiceMessage,
             appCatalogMessage = appCatalogMessage,
             appCommands = appCommands,
+            musicPlayers = musicPlayers,
+            selectedMusicPlayer = selectedMusicPlayer,
+            musicPlayersMessage = musicPlayersMessage,
             probeMessage = message,
             wakeMessage = wakeMessage,
             wakeDetections = wakeDetections,
@@ -286,6 +303,12 @@ class MainActivity : ComponentActivity() {
                 onSelectAssistant = ::requestAssistantRole,
                 onToggleListening = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) },
                 onRefreshApps = ::refreshAppCatalog,
+                onMusicPlayerChange = { selected ->
+                    if (!TripTestState.running && !TripTestState.restoringAudio && !listening && !wakeEnabled && !wakeTransition && !running) {
+                        actions.selectMusicPlayer(selected)
+                        selectedMusicPlayer = selected
+                    }
+                },
                 onMeasure = ::requestProbe,
                 onToggleWake = { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) },
                 onPhraseChange = { wakePhrase = WakePhrase.valueOf(it) },
@@ -419,6 +442,7 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         TripTestState.openPendingAppFromVoice = voiceAppOpener
+        TripTestState.playMusicFromVoice = voiceMusicSearcher
         refreshAppCatalog()
         mainHandler.removeCallbacks(refreshDevicesTask)
         mainHandler.post(refreshDevicesTask)
@@ -427,7 +451,10 @@ class MainActivity : ComponentActivity() {
     private fun refreshAppCatalog() {
         worker.execute {
             val available = actions.availableApps()
+            val players = actions.availableMusicPlayers()
             mainHandler.post {
+                musicPlayers = players.getOrDefault(emptyList())
+                musicPlayersMessage = players.exceptionOrNull()?.let { "No se pudieron consultar reproductores: ${it.message}." }.orEmpty()
                 if (available.isSuccess) {
                     val catalog = available.getOrThrow()
                     appCommands = catalog.map { app ->
@@ -447,6 +474,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun releaseVoiceAppOpener() {
+        if (TripTestState.playMusicFromVoice === voiceMusicSearcher) TripTestState.playMusicFromVoice = null
         if (TripTestState.openPendingAppFromVoice === voiceAppOpener) {
             TripTestState.openPendingAppFromVoice = null
         }
@@ -677,9 +705,11 @@ class MainActivity : ComponentActivity() {
                     SpeechCaptureState.SPEECH_ONSET -> Unit
                 }
             }, playbackResumePolicy = { heard ->
-                if (heard?.let(MinimalIntentRouter::resolve) == TestIntent.MEDIA_PAUSE) {
-                    PlaybackResumePolicy.KEEP_PAUSED
-                } else PlaybackResumePolicy.NOW
+                when (heard?.let(MinimalIntentRouter::resolve)) {
+                    TestIntent.MEDIA_PAUSE -> PlaybackResumePolicy.KEEP_PAUSED
+                    TestIntent.MEDIA_SEARCH -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
+                    else -> PlaybackResumePolicy.NOW
+                }
             }) { outcome ->
                 if (!listening) return@listenOnce
                 listening = false
@@ -698,6 +728,21 @@ class MainActivity : ComponentActivity() {
                                 val label = actions.description(command.intent, action.getOrNull() as? VolumeAdjustment)
                                 if (action.isSuccess) "Escuché: ‘$heard’. $label en $elapsed ms. Comprobá el resultado en la música."
                                 else "Escuché: ‘$heard’, pero falló el envío de $label: ${action.exceptionOrNull()?.message}"
+                            }
+                            TestIntent.MEDIA_SEARCH -> {
+                                val pausedBySpeech = speech.cancel(resumePlayback = false)
+                                val sent = actions.prepareMusicSearch(command).mapCatching { request ->
+                                    val result = if (request.player.backgroundSearch) actions.sendMusicSearch(request)
+                                        else voiceMusicSearcher(request)
+                                    result.getOrThrow()
+                                    if (fromWake && !request.player.backgroundSearch) endWakeTest("Búsqueda enviada a ${request.player.label}.")
+                                    request
+                                }
+                                if (sent.isFailure && pausedBySpeech) runCatching { media.resumePlayback() }
+                                sent.fold(
+                                    onSuccess = { "Búsqueda ‘${it.query}’ enviada a ${it.player.label}. Comprobá la canción que reproduzca." },
+                                    onFailure = { "No se envió la búsqueda: ${it.message}." }
+                                )
                             }
                             TestIntent.STOP_TTS -> "Escuché: ‘$heard’. Orden Silencio reconocida; aún no hay voz sintetizada para interrumpir."
                             TestIntent.CANCEL -> "Escuché: ‘$heard’. Orden Cancelar reconocida; no se ejecutó ninguna acción."

@@ -27,6 +27,7 @@ import com.gust4av033.appcopilotomoto.presentation.components.AudioLevels
 import com.gust4av033.appcopilotomoto.presentation.components.DiagnosticsReportCard
 import com.gust4av033.appcopilotomoto.presentation.components.CommandInterpretation
 import com.gust4av033.appcopilotomoto.presentation.components.PendingAppCard
+import com.gust4av033.appcopilotomoto.presentation.components.MusicPlayerCard
 import com.gust4av033.appcopilotomoto.presentation.components.AudioDevicesCard
 import com.gust4av033.appcopilotomoto.presentation.components.ChoiceGroup
 import com.gust4av033.appcopilotomoto.presentation.components.SectionCard
@@ -230,6 +231,7 @@ fun SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommand
         SupportingText(stringResource(R.string.settings_sensitivity_hint))
     }
     AudioDevicesCard(state, actions)
+    MusicPlayerCard(state, actions)
     SectionCard(stringResource(R.string.settings_calls)) {
         SupportingText(stringResource(R.string.settings_calls_hint))
         ActionButton(stringResource(R.string.calls_enable), enabled = !state.busy, onClick = actions.onEnableNamedCalls)

@@ -60,8 +60,42 @@ Prueba en S22+:
 4. Cancelar con la tarjeta o deslizar el aviso durante el anuncio y durante la escucha. Una respuesta tardía no debe abrir nada; el modo botón debe volver a estar listo.
 5. Cambiar a otra app o bloquear manualmente el teléfono durante la confirmación: «uno» no puede abrir la app; el aviso sigue disponible hasta vencer. Volver a APP permite una nueva solicitud por voz.
 
-Pedir una canción por nombre sigue pendiente de integración con un reproductor compatible; los controles multimedia actuales no realizan búsqueda de canciones.
+La búsqueda por nombre se incorpora en el avance siguiente, descrito abajo.
 
 Validación de pantalla y confirmación numerada: `:app:clean :app:testDebugUnitTest :app:assembleDebug` correctos, 25 pruebas sin fallos ni errores; `:app:lintDebug` correcto, sin errores. Persisten advertencias del prototipo. Anuncio, reconocimiento en el casco, mantenimiento de pantalla y recuperación de audio requieren validación en el S22+.
 
 Referencias: [Mantener la pantalla encendida](https://developer.android.com/develop/background-work/background-tasks/awake/screen-on) y [Restricciones para abrir actividades](https://developer.android.com/guide/components/activities/secure-bal).
+
+## Avance 01-10-2026 · canciones y continuidad del viaje
+
+El usuario confirmó en S22+ que mantener la pantalla encendida y abrir/cancelar apps con uno/dos funciona, y que el viaje continúa después de una llamada. Reportó cierres ocasionales y activaciones por ruido muy fuerte de vehículos; no hay una medición nueva de tasa de aciertos. La búsqueda de canciones y la nueva recuperación todavía requieren prueba física.
+
+### Recuperación de órdenes no entendidas
+
+En el viaje se elimina el cierre tras dos órdenes no válidas. Ruido, silencio y frases desconocidas dejan el resultado visible y vuelven a esperar Alexa o el botón. Si hay más de tres activaciones en 12 segundos, se pausa el detector 8 segundos y se recupera la espera sin terminar el viaje. No se cambia el modelo ni la sensibilidad del wake word. Los cierres por pérdida del casco, permisos, fallo de captura/ruta o una orden explícita de detener siguen vigentes. La prueba de detector visible de Pruebas conserva sus límites de diagnóstico; esta modificación corresponde al servicio del viaje.
+
+### Reproducción por nombre
+
+- Órdenes: «pon [nombre]», «pon la canción [nombre]», «poneme [nombre]» o «reproduce [nombre]». Se conservan acentos y caracteres del título. Siguiente/anterior/pausa/reanudar/volumen tienen prioridad y no se convierten en búsqueda.
+- Ajustes → Música lista los reproductores que publican una actividad estándar de búsqueda y Poweramp cuando está disponible su receptor público. La elección se guarda. Automático prioriza Poweramp; si no está, solo elige cuando hay un único compatible. Un reproductor elegido que desaparece no se reemplaza por otro.
+- Poweramp usa su receptor documentado para `MEDIA_PLAY_FROM_SEARCH`, sin abrir una Activity, y puede recibir la solicitud con otra app visible o el teléfono bloqueado. Busca en la biblioteca que tenga indexada; APP no descarga canciones ni consulta su catálogo privado.
+- Otros reproductores reciben la búsqueda estándar de Android desde la Activity visible y desbloqueada. Pueden abrir su interfaz; si APP está en segundo plano, se explica el requisito sin intentar abrir una pantalla desde el servicio. No se promete compatibilidad con cualquier reproductor ni con una app que no anuncie esta función.
+- En modo botón, la búsqueda espera la restauración de la ruta multimedia. Una búsqueda enviada inicia su propia reproducción: no se reenvía PLAY a la pista anterior. Si el envío falla, se restaura la pausa temporal de APP.
+- El resultado indica solicitud enviada, no canción encontrada/reproducción confirmada; la biblioteca y la coincidencia final dependen del reproductor. El selector solo aplica a búsquedas, los controles multimedia existentes siguen usando la sesión que administra Android.
+
+### Prueba en teléfono
+
+1. Abrir Poweramp, comprobar su biblioteca y anotar dos títulos exactos. Actualizar reproductores en Ajustes; seleccionar Poweramp o Automático.
+2. En modo botón, pedir «pon [título]» con música reproduciéndose. Confirmar la canción exacta y la recuperación de calidad musical; repetir partiendo con música pausada.
+3. Repetir con otra app visible y teléfono bloqueado. Poweramp debe recibir la búsqueda sin tocar la pantalla. En modo voz verificar canción y continuidad de la espera.
+4. Pedir un título inexistente: APP solo debe informar que envió la búsqueda; anotar qué decidió Poweramp, sin asumir que encontró el título.
+5. Probar «pon la siguiente», «pon la música en pausa» y «pon volumen al 40 por ciento»: conservar sus acciones específicas.
+6. En un reproductor estándar que aparezca en la lista, probar con APP visible; luego en segundo plano. El segundo caso debe explicar el requisito y conservar el viaje. Quitar/deshabilitar el reproductor elegido: no cambiar a otro silenciosamente.
+7. Provocar tres órdenes desconocidas, silencios o errores de STT consecutivos: el viaje no debe terminar por contador. Si aparece pausa por ráfaga, esperar recuperación y enviar una orden válida. Detener durante esa pausa: no debe reactivar la sesión.
+8. Repetir llamadas por nombre y apertura de apps con uno/dos, en ambos modos, para descartar regresiones.
+
+Antes de cerrar fase 1 quedan por validar canciones con Poweramp/otros compatibles, continuidad ante órdenes fallidas y la regresión de contactos, cancelaciones y audio en ambos modos. No se adelanta navegación en este avance.
+
+Fuentes de integración: [API oficial de Poweramp](https://github.com/maxmpz/powerampapi/blob/master/poweramp_api_lib/src/main/java/com/maxmpz/poweramp/player/PowerampAPI.java), [búsqueda multimedia estándar de Android](https://developer.android.com/guide/components/intents-common#PlaySearch).
+
+Validación local del avance: `:app:clean :app:testDebugUnitTest :app:assembleDebug :app:lintDebug` completos; 35 pruebas, cero fallos/errores, APK compilado y lint sin errores. Lint registra 43 advertencias y 9 sugerencias. La prueba de canciones, ruido y Bluetooth en el teléfono queda pendiente.

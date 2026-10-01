@@ -41,6 +41,7 @@ object TripTestState {
     internal var pendingAppTarget: AppTarget? = null
     internal var pendingAppExpiresAtMs = 0L
     internal var openPendingAppFromVoice: ((String) -> Boolean)? = null
+    internal var playMusicFromVoice: ((MusicSearchRequest) -> Result<Unit>)? = null
     var commandReady by mutableStateOf(false)
     var callPhase by mutableStateOf(TripCallPhase.NONE)
     var status by mutableStateOf("Iniciá la sesión de prueba con la app abierta.")
@@ -140,8 +141,7 @@ class TripVoiceService : Service() {
     private var detector: WakeWordProvider? = null
     private var generation = 0
     private var pendingTask: Runnable? = null
-    private var consecutiveFailures = 0
-    private val recentDetections = ArrayDeque<Long>()
+    private val activationGate = WakeActivationGate()
     private var active = false
     private var closing = false
     private var callPending = false
@@ -157,13 +157,14 @@ class TripVoiceService : Service() {
             if (value) TripTestState.callPhase = TripCallPhase.NONE
         }
     private var wakeAudioMode = WakeAudioMode.BLUETOOTH
-    private data class PendingVolumeCommand(
+    private data class PendingRoutedCommand(
         val command: RoutedCommand,
         val heard: String,
         val source: String,
         val wakeAt: Long
     )
-    private var pendingVolumeCommand: PendingVolumeCommand? = null
+    private var pendingVolumeCommand: PendingRoutedCommand? = null
+    private var pendingMusicCommand: PendingRoutedCommand? = null
     private val appRequests = PendingAppLaunch<AppTarget>()
     private val pendingApp: AppTarget? get() = appRequests.current?.target
     private var appChoiceToken: String? = null
@@ -260,6 +261,7 @@ class TripVoiceService : Service() {
             stopSelf(startId)
             return START_NOT_STICKY
         }
+        activationGate.reset()
         active = true
         val hardwareMonitor = runCatching { monitorHardware() }
         if (hardwareMonitor.isFailure) {
@@ -338,7 +340,8 @@ class TripVoiceService : Service() {
             val pausedBySpeech = if (speechLazy.isInitialized()) speech.cancel(resumePlayback = false) else false
             val resume = pausedBySpeech || resumeAfterButtonRoute
             resumeAfterButtonRoute = false
-            if (resume) runCatching { media.resumePlayback() }
+            val searchSent = finishPendingMusic()
+            if (resume && !searchSent) runCatching { media.resumePlayback() }
             armed = true
             TripTestState.audioDuring = media.audioRouteDiagnostic()
             TripTestState.status = "Esperando el botón del casco. Música por la salida normal; micrófono cerrado."
@@ -359,12 +362,34 @@ class TripVoiceService : Service() {
         }
         finishPendingVolume(bluetoothVoice = wakeAudioMode == WakeAudioMode.BLUETOOTH)
         val pausedBySpeech = if (speechLazy.isInitialized()) speech.cancel(resumePlayback = false) else false
-        if (pausedBySpeech || resumeAfterButtonRoute) runCatching { media.resumePlayback() }
+        val resume = pausedBySpeech || resumeAfterButtonRoute
         resumeAfterButtonRoute = false
+        val searchSent = finishPendingMusic()
+        if (resume && !searchSent) runCatching { media.resumePlayback() }
         armed = true
         TripTestState.audioDuring = media.audioRouteDiagnostic()
         TripTestState.status = "Esperando ‘${provider.phrase}’; viaje activo… ${inputCheck.getOrNull().orEmpty()}"
         updateNotification("Esperando ‘${provider.phrase}’")
+    }
+
+    private fun finishPendingMusic(): Boolean {
+        val pending = pendingMusicCommand ?: return false
+        pendingMusicCommand = null
+        val sent = actions.prepareMusicSearch(pending.command).mapCatching { request ->
+            if (request.player.backgroundSearch) actions.sendMusicSearch(request).getOrThrow()
+            else (TripTestState.playMusicFromVoice?.invoke(request)
+                ?: Result.failure(IllegalStateException("${request.player.label} requiere APP visible y el teléfono desbloqueado. Revisá Ajustes → Música."))).getOrThrow()
+            request
+        }
+        if (sent.isSuccess) TripTestState.actions++ else TripTestState.failures++
+        TripTestState.lastLatencyMs = SystemClock.elapsedRealtime() - pending.wakeAt
+        TripTestState.lastCommandResult = sent.fold(
+            onSuccess = { "Búsqueda ‘${it.query}’ enviada a ${it.player.label}; comprobá la canción que reproduzca. Viaje activo." },
+            onFailure = { "No se envió la búsqueda de canción: ${it.message}. Viaje activo." }
+        )
+        TripTestState.save(this)
+        // La búsqueda enviada inicia su propia reproducción; no reenviar PLAY a la pista anterior.
+        return sent.isSuccess
     }
 
     private fun finishPendingVolume(bluetoothVoice: Boolean) {
@@ -398,14 +423,25 @@ class TripVoiceService : Service() {
     private fun onDetected(provider: WakeWordProvider, cycle: Int, score: Float) {
         if (!active || !armed || detector !== provider || cycle != generation) return
         val now = SystemClock.elapsedRealtime()
-        while (recentDetections.isNotEmpty() && now - recentDetections.first() > 12_000L) {
-            recentDetections.removeFirst()
-        }
-        if (recentDetections.size >= 3) {
-            stopSession("Varias activaciones seguidas; sesión detenida para evitar un bucle.")
+        val waitMs = activationGate.waitBeforeCapture(now)
+        if (waitMs > 0L) {
+            armed = false
+            val quietCycle = ++generation
+            TripTestState.status = "Activaciones muy seguidas; pausa de ${waitMs / 1_000} segundos, el viaje sigue activo."
+            TripTestState.lastCommandResult = TripTestState.status
+            updateNotification("Pausa breve de activación · viaje activo")
+            worker.execute {
+                val paused = runCatching { provider.pause() }
+                mainHandler.post {
+                    if (!active || detector !== provider || generation != quietCycle) return@post
+                    if (paused.isFailure) stopSession("No se pudo liberar el micrófono: ${paused.exceptionOrNull()?.message}")
+                    else schedule(waitMs) {
+                        if (active && detector === provider && generation == quietCycle) startDetector(provider)
+                    }
+                }
+            }
             return
         }
-        recentDetections.addLast(now)
         armed = false
         generation++ // Descarta callbacks anteriores al traspaso del micrófono.
         TripTestState.detections++
@@ -535,7 +571,7 @@ class TripVoiceService : Service() {
         }, playbackResumePolicy = { heard ->
             when (heard?.let(MinimalIntentRouter::resolve)) {
                 TestIntent.MEDIA_PAUSE -> PlaybackResumePolicy.KEEP_PAUSED
-                TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.OPEN_APP -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
+                TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.OPEN_APP, TestIntent.MEDIA_SEARCH -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 TestIntent.STOP_SESSION -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 else -> if (wakeAudioMode == WakeAudioMode.BUTTON) {
                     PlaybackResumePolicy.AFTER_ROUTE_RESTORED
@@ -555,12 +591,22 @@ class TripVoiceService : Service() {
             if (intent == TestIntent.VOLUME_UP || intent == TestIntent.VOLUME_DOWN ||
                 intent == TestIntent.VOLUME_SET) {
                 TripTestState.recognized++
-                consecutiveFailures = 0
                 TripTestState.save(this)
-                pendingVolumeCommand = PendingVolumeCommand(command, heard.orEmpty(), source, wakeAt)
+                pendingVolumeCommand = PendingRoutedCommand(command, heard.orEmpty(), source, wakeAt)
                 TripTestState.status = "$source: Escuché ‘$heard’; restaurando la ruta para ajustar volumen…"
                 TripTestState.lastCommandResult = TripTestState.status
                 updateNotification("$source · restaurando ruta de voz")
+                schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 100L else 350L) {
+                    if (active && detector === provider && cycle == generation) startDetector(provider)
+                }
+                return@listenOnce
+            }
+            if (intent == TestIntent.MEDIA_SEARCH) {
+                TripTestState.recognized++
+                TripTestState.save(this)
+                pendingMusicCommand = PendingRoutedCommand(command, heard.orEmpty(), source, wakeAt)
+                TripTestState.status = "Restaurando audio antes de buscar ‘${command.musicQuery}’…"
+                updateNotification("Preparando búsqueda de canción")
                 schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 100L else 350L) {
                     if (active && detector === provider && cycle == generation) startDetector(provider)
                 }
@@ -574,8 +620,7 @@ class TripVoiceService : Service() {
             if (mediaAction?.isSuccess == true && (volumeChange == null || volumeChange.after != volumeChange.before)) TripTestState.actions++
             if (outcome.isFailure || intent == TestIntent.UNKNOWN || mediaAction?.isFailure == true) {
                 TripTestState.failures++
-                consecutiveFailures++
-            } else consecutiveFailures = 0
+            }
             TripTestState.save(this)
             if (intent == TestIntent.STOP_SESSION) {
                 stopSession("Sesión detenida por voz: ‘$heard’ en $elapsed ms.")
@@ -662,13 +707,10 @@ class TripVoiceService : Service() {
             TripTestState.status = "$source: ${TripTestState.status}"
             TripTestState.lastCommandResult = TripTestState.status
             updateNotification("$source · orden terminada; esperando activación")
-            if (consecutiveFailures >= 2 && wakeAudioMode != WakeAudioMode.BUTTON) {
-                stopSession("Dos activaciones sin orden válida; sesión detenida. ${TripTestState.status}")
-            } else {
-                val delay = if (wakeAudioMode == WakeAudioMode.BUTTON) 100L
-                    else if (intent != TestIntent.UNKNOWN && outcome.isSuccess) 2_000L else 3_500L
-                schedule(delay) { if (active && detector === provider && cycle == generation) startDetector(provider) }
-            }
+            // Ruido, silencio y órdenes desconocidas no terminan una sesión de viaje.
+            val delay = if (wakeAudioMode == WakeAudioMode.BUTTON) 100L
+                else if (intent != TestIntent.UNKNOWN && outcome.isSuccess) 2_000L else 3_500L
+            schedule(delay) { if (active && detector === provider && cycle == generation) startDetector(provider) }
         }
     }
 
@@ -899,8 +941,7 @@ class TripVoiceService : Service() {
         callPending = false
         TripTestState.callPhase = TripCallPhase.RECOVERING
         stopPhoneMonitoring()
-        consecutiveFailures = 0
-        recentDetections.clear()
+        activationGate.reset()
         pendingTask?.let(mainHandler::removeCallbacks)
         pendingTask = null
         TripTestState.status = "Llamada terminada; recuperando modo viaje…"
@@ -991,6 +1032,7 @@ class TripVoiceService : Service() {
         callPending = false
         armed = false
         pendingVolumeCommand = null
+        pendingMusicCommand = null
         clearPendingApp()
         generation++
         val stoppedGeneration = generation

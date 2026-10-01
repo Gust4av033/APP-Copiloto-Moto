@@ -51,7 +51,7 @@
     <string name="trip_last_result">Última orden</string>
     <string name="no_command_result">Todavía no hay órdenes en esta sesión.</string>
     <string name="trip_commands">Lo que podés decir</string>
-    <string name="commands_music">“Siguiente canción”, “pasa de canción”, “anterior canción”, “pon la música en pausa” o “reanudar”.</string>
+    <string name="commands_music">“Siguiente canción”, “pasa de canción”, “anterior canción”, “pon la música en pausa”, “reanudar” o “pon [nombre de canción]”. Elegí el reproductor de búsqueda en Ajustes → Música.</string>
     <string name="commands_volume">“Subir volumen”, “bajar volumen”, “volumen al 40 por ciento” o “volumen a 6”. El porcentaje se adapta al rango de Android; el número elige un nivel.</string>
     <string name="commands_apps">“Abre [nombre de la aplicación]”. Durante el viaje APP anuncia el nombre y escucha “uno” para abrir o “dos” para cancelar. Abrir por voz requiere APP visible y teléfono desbloqueado; el aviso emergente también permite abrir o cancelar.</string>
     <string name="tests_apps_title">Aplicaciones del teléfono</string>
@@ -259,5 +259,16 @@
     <string name="settings_screen_on_toggle">Mantener pantalla encendida</string>
     <string name="settings_screen_on_hint">Mientras APP esté visible y el viaje activo, evita el apagado automático. Al detener el viaje o pasar a otra app vuelve el comportamiento normal. No desbloquea el teléfono ni impide apagarlo con el botón. La opción se guarda.</string>
     <string name="trip_screen_on_hint">Pantalla encendida mientras APP esté visible. Podés cambiarlo en Ajustes.</string>
+    <string name="command_music_search">Buscar canción</string>
+    <string name="command_music_query">Búsqueda: %1$s</string>
+    <string name="music_settings_title">Música · búsqueda por nombre</string>
+    <string name="music_settings_hint">Decí “pon [nombre]”, “pon la canción [nombre]” o “reproduce [nombre]”. La selección se guarda y aplica a búsquedas; los controles siguiente/pausa/volumen siguen usando la sesión multimedia de Android.</string>
+    <string name="music_player_auto">Automático · prioriza Poweramp; si no, un único compatible</string>
+    <string name="music_search_background">Búsqueda directa: puede enviarse con otra app visible o pantalla bloqueada.</string>
+    <string name="music_search_visible">Búsqueda estándar: requiere APP visible y teléfono desbloqueado; puede abrir el reproductor.</string>
+    <string name="music_no_players">No se detectaron reproductores que anuncien búsqueda por nombre.</string>
+    <string name="music_player_missing">El reproductor guardado no está disponible. Elegí otro con el viaje detenido; no se sustituye automáticamente.</string>
+    <string name="music_refresh_players">Actualizar reproductores</string>
+    <string name="music_search_scope">Poweramp busca en su biblioteca. Cada reproductor decide qué encuentra y reproduce; enviar la búsqueda no confirma la canción. No todos ofrecen esta función.</string>
 </resources>
 
