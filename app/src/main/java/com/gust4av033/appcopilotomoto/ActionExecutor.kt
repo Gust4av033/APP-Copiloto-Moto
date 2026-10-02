@@ -41,7 +41,7 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
     fun contactChatCapabilities(): List<ContactChatCapability> = chats.map { ContactChatCapability(it.app, it.available()) }
 
     fun prepareContactChat(command: RoutedCommand): Result<AppTarget> = runCatching {
-        check(command.intent == TestIntent.OPEN_CONTACT_CHAT) { "La orden no pide abrir un chat." }
+        check(command.intent == TestIntent.OPEN_CONTACT_CHAT || command.intent == TestIntent.DRAFT_CONTACT_MESSAGE) { "La orden no pide un chat o borrador." }
         val app = checkNotNull(command.chatApp)
         val adapter = chats.single { it.app == app }
         check(adapter.available()) { "${app.label} no está disponible. Revisá Ajustes → Integraciones." }
@@ -73,4 +73,3 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
         else -> "Orden"
     }
 }
-

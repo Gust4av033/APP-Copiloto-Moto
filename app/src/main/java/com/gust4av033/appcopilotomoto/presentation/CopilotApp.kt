@@ -321,3 +321,13 @@ private fun SwitchingModePreview() {
         overlayEnabled = true, overlayPermissionGranted = true,
         tripStatus = "Cambiando al modo 1; liberando audio…"), CopilotScreen.SETTINGS, {}, CopilotActions())
 }
+
+@Preview(name = "Borrador WhatsApp: revisar antes de abrir", showBackground = true, widthDp = 360, heightDp = 800, locale = "es", fontScale = 1.5f)
+@Composable
+private fun WhatsAppDraftPreview() {
+    CopilotApp(PreviewState.copy(tripActive = true, commandReady = false,
+        pendingAppName = "WhatsApp · borrador para Ana", pendingAppToken = "draft-preview",
+        pendingDraftText = "Voy llegando. Te aviso cuando llegue.",
+        tripStatus = "Confirmación: uno abre el borrador, dos lo descarta."),
+        CopilotScreen.TRIP, {}, CopilotActions())
+}

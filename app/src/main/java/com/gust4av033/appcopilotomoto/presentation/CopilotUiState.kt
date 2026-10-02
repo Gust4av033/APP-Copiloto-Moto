@@ -85,6 +85,7 @@ data class CopilotUiState(
     val tripStatus: String = "",
     val lastCommandResult: String = "",
     val pendingAppName: String? = null,
+    val pendingDraftText: String? = null,
     val pendingAppToken: String? = null,
     val lastTripCommand: CommandUi? = null,
     val lastTestCommand: CommandUi? = null,

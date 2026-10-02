@@ -4,6 +4,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class PendingAppLaunchTest {
+    @Test fun draftHasTimeForReadbackButStillExpiresAndRejectsOldToken() {
+        val pending = PendingAppLaunch<String>()
+        pending.prepare("Borrador", "draft", 100, PendingAppLaunch.DRAFT_VALIDITY_MS)
+        assertFalse(pending.expire("draft", 30_100))
+        assertFalse(pending.expire("draft", 60_099))
+        assertTrue(pending.expire("draft", 60_100))
+        assertNull(pending.current)
+        assertFalse(pending.clear("draft"))
+    }
     @Test fun replacingAnAppIgnoresItsOldCancelAndDeadline() {
         val pending = PendingAppLaunch<String>()
         pending.prepare("Música", "first", 0)

@@ -100,6 +100,8 @@ fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommands: (
         Text(stringResource(R.string.commands_modes))
         Text(stringResource(R.string.commands_apps))
         Text(stringResource(R.string.commands_call))
+        SupportingText(stringResource(R.string.commands_incoming_calls))
+        Text(stringResource(R.string.commands_chat_draft))
         Text(stringResource(R.string.commands_cancel))
         SupportingText(stringResource(R.string.commands_stop))
         ActionButton(stringResource(R.string.home_view_commands), onClick = onOpenCommands)

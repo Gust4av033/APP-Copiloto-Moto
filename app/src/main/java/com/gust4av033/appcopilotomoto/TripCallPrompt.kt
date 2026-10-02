@@ -22,10 +22,15 @@ class TripCallPrompt(private val context: Context) {
     fun announce(name: String, onFinished: (Boolean) -> Unit) = speak(
         "Llamar a $name. Después del tono, di confirmar llamada o cancelar.", onFinished)
 
-    fun announceApp(name: String, onFinished: (Boolean) -> Unit) = speak(
-        "Abrir $name. Después del tono, di uno para abrir o dos para cancelar.", onFinished)
+    fun announceApp(name: String, draft: String? = null, onFinished: (Boolean) -> Unit) = speak(
+        if (draft == null) "Abrir $name. Después del tono, di uno para abrir o dos para cancelar."
+        else "Preparar un borrador para $name. El mensaje dice: $draft. No se enviará. Después del tono, di uno para abrir el borrador o dos para descartarlo.",
+        onFinished, if (draft == null) 10_000L else 28_000L)
 
-    private fun speak(text: String, onFinished: (Boolean) -> Unit) {
+    fun askForDraft(name: String, onFinished: (Boolean) -> Unit) = speak(
+        "Mensaje para $name. Después del tono, dicta un mensaje breve o di cancelar.", onFinished)
+
+    private fun speak(text: String, onFinished: (Boolean) -> Unit, timeoutMs: Long = 10_000L) {
         cancel()
         val cycle = ++generation
         announcing = true
@@ -57,7 +62,7 @@ class TripCallPrompt(private val context: Context) {
         }
         engine = instance
         timeout = Runnable { finish(cycle, false, onFinished) }.also {
-            handler.postDelayed(it, 10_000L)
+            handler.postDelayed(it, timeoutMs)
         }
     }
 
@@ -79,4 +84,3 @@ class TripCallPrompt(private val context: Context) {
         return wasAnnouncing
     }
 }
-

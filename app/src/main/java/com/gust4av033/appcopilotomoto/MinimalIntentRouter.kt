@@ -3,7 +3,7 @@ package com.gust4av033.appcopilotomoto
 import java.text.Normalizer
 import java.util.Locale
 
-enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, MEDIA_SEARCH, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, OPEN_APP, OPEN_CONTACT_CHAT, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, SWITCH_MODE, OPEN_ASSISTANT, UNKNOWN }
+enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, MEDIA_SEARCH, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, OPEN_APP, OPEN_CONTACT_CHAT, DRAFT_CONTACT_MESSAGE, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, SWITCH_MODE, OPEN_ASSISTANT, UNKNOWN }
 
 data class VolumeRequest(val amount: Int, val percent: Boolean)
 data class RoutedCommand(
@@ -13,7 +13,8 @@ data class RoutedCommand(
     val appName: String? = null,
     val musicQuery: String? = null,
     val chatApp: ChatApp? = null,
-    val audioMode: WakeAudioMode? = null
+    val audioMode: WakeAudioMode? = null,
+    val messageText: String? = null
 )
 
 /** Las órdenes claras pasan por reglas locales; una frase desconocida no ejecuta nada. */
@@ -105,6 +106,7 @@ object MinimalIntentRouter {
         val app = requestedApp(transcript)
         val song = requestedSong(transcript)
         val chat = ContactChatParser.parse(normalized)
+        val draft = ChatDraftParser.parse(transcript)
         val intent = when {
             mode != null -> TestIntent.SWITCH_MODE
             normalized in setOf("abre asistente", "abrir asistente", "abre el asistente", "abrir el asistente",
@@ -117,6 +119,7 @@ object MinimalIntentRouter {
             normalized in setOf("llamar", "hacer llamada", "llamar al contacto", "llama al contacto") -> TestIntent.CALL_SELECTED
             contact != null -> TestIntent.CALL_NAMED
             volume != null -> TestIntent.VOLUME_SET
+            draft != null -> TestIntent.DRAFT_CONTACT_MESSAGE
             chat != null -> TestIntent.OPEN_CONTACT_CHAT
             app != null -> TestIntent.OPEN_APP
             normalized in setOf("subir volumen", "sube volumen", "sube el volumen", "subir el volumen", "mas volumen", "volumen mas alto", "aumenta el volumen", "aumentar volumen") -> TestIntent.VOLUME_UP
@@ -129,11 +132,13 @@ object MinimalIntentRouter {
             else -> TestIntent.UNKNOWN
         }
         return RoutedCommand(intent, if (intent == TestIntent.VOLUME_SET) volume else null,
-            if (intent == TestIntent.CALL_NAMED) contact else if (intent == TestIntent.OPEN_CONTACT_CHAT) chat?.contactName else null,
+            if (intent == TestIntent.CALL_NAMED) contact else if (intent == TestIntent.OPEN_CONTACT_CHAT) chat?.contactName
+                else if (intent == TestIntent.DRAFT_CONTACT_MESSAGE) draft?.recipient?.contactName else null,
             if (intent == TestIntent.OPEN_APP) app else null,
             if (intent == TestIntent.MEDIA_SEARCH) song else null,
-            if (intent == TestIntent.OPEN_CONTACT_CHAT) chat?.app else null,
-            if (intent == TestIntent.SWITCH_MODE) mode else null)
+            if (intent == TestIntent.OPEN_CONTACT_CHAT) chat?.app else if (intent == TestIntent.DRAFT_CONTACT_MESSAGE) draft?.recipient?.app else null,
+            if (intent == TestIntent.SWITCH_MODE) mode else null,
+            if (intent == TestIntent.DRAFT_CONTACT_MESSAGE) draft?.text else null)
     }
 
     fun resolve(transcript: String): TestIntent = route(transcript).intent

@@ -84,10 +84,17 @@ class TripOverlay(
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
             elevation = dp(6).toFloat()
+            setOnTouchListener { _, event ->
+                if (event.actionMasked == MotionEvent.ACTION_OUTSIDE && expanded) {
+                    minimize()
+                    true
+                } else false
+            }
         }
         val layout = WindowManager.LayoutParams(dp(56), WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
+                WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
             PixelFormat.TRANSLUCENT).apply { gravity = Gravity.TOP or Gravity.LEFT }
         view = root
         params = layout
@@ -116,6 +123,8 @@ class TripOverlay(
             setStroke(dp(1).coerceAtLeast(1), Color.rgb(45, 131, 151))
         }
         root.setPadding(if (expanded) dp(12) else 0, 0, if (expanded) dp(12) else 0, if (expanded) dp(8) else 0)
+        val header = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
+        root.addView(header, LinearLayout.LayoutParams(-1, dp(56)))
         badge = TextView(context).apply {
             gravity = Gravity.CENTER
             textSize = if (expanded) 16f else 12f
@@ -124,7 +133,15 @@ class TripOverlay(
             isClickable = true
             setOnClickListener { expanded = !expanded; buildContent(); updateState(); position() }
             drag(this)
-        }.also { root.addView(it, LinearLayout.LayoutParams(-1, dp(56))) }
+        }.also { header.addView(it, LinearLayout.LayoutParams(0, dp(56), 1f)) }
+        if (expanded) header.addView(Button(context).apply {
+            text = "×"
+            textSize = 22f
+            setTextColor(foreground)
+            backgroundTintList = ColorStateList.valueOf(background)
+            contentDescription = context.getString(R.string.overlay_minimize)
+            setOnClickListener { minimize() }
+        }, LinearLayout.LayoutParams(dp(48), dp(56)))
         status = null
         request = null
         body = null
@@ -147,8 +164,18 @@ class TripOverlay(
                 onRequestCommand()
             }
             button(R.string.overlay_open_app, onOpenApp)
-            button(R.string.overlay_hide) { close(); onHide() }
+            // Fuera del área desplazable: ocultar siempre queda a mano con texto grande.
+            body = root
+            button(R.string.overlay_hide) { onHide(); close() }
         }
+    }
+
+    private fun minimize() {
+        if (!expanded) return
+        expanded = false
+        buildContent()
+        updateState()
+        position()
     }
 
     private fun button(label: Int, action: () -> Unit): Button = Button(context).apply {

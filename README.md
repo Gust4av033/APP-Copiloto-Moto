@@ -6,6 +6,8 @@ En Ajustes y Pruebas, **Dispositivos de audio** permite elegir el casco de comun
 
 La burbuja del copiloto es opcional y se habilita en Ajustes para el viaje sobre otras apps. Los modos 1 (voz), 2 (botón) y 3 (experimental) pueden cambiarse por una orden capturada. Ver `docs/BURBUJA_Y_MODOS.md` para configuración y pruebas.
 
+El panel se minimiza con × o tocando fuera; Ocultar burbuja la retira durante el viaje. «Escribe a [nombre] en WhatsApp» permite dictar y revisar un borrador antes de abrirlo con uno/dos. El envío se realiza en WhatsApp; contestar/rechazar llamadas entrantes por voz todavía no está disponible. Lista de pruebas: `docs/PRUEBA_VIAJE_BORRADORES.md`.
+
 ## Abrir en Android Studio
 
 1. Clonar el repositorio con **File > New > Project from Version Control** e introducir su URL HTTPS de GitHub. También se puede usar `git clone <URL>`.

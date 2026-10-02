@@ -54,6 +54,10 @@ Los previews de `CopilotApp.kt` incluyen día/noche, texto grande, voz/botón, d
 
 La UI burbuja 01 incorpora la ventana opcional y cambio de modo durante una sesión. Ver `BURBUJA_Y_MODOS.md` para alcance, permisos y pruebas. Los estados proceden del servicio; la burbuja no inicia ni mantiene una captura por mostrarse. Todo continúa en la rama única de fase 1.
 
+La revisión **UI burbuja 02 · borradores** agrega minimizar con ×/toque fuera, ocultar sin desplazamiento y texto del borrador pendiente en Inicio/Viaje/Comandos. La guía distingue preparación de borradores y envío, y aclara que el control por voz de llamadas entrantes aún no existe. Ver `PRUEBA_VIAJE_BORRADORES.md`.
+
 ### Validación actual · 2 de octubre de 2026
 
 `clean`, `assembleDebug`, `testDebugUnitTest` y `lintDebug` completaron correctamente con la versión actual: 52 pruebas, cero fallos y cero errores. Lint terminó sin errores, con advertencias; su bloqueo anterior quedó resuelto. El APK regenerado es un archivo ZIP válido. También se comprobó la limpieza del diff. Quedan pendientes revisión visual de la ventana y pruebas reales de superposición, cambios de modo, micrófono y audio en el S22+ con el casco.
+
+La revisión de cierre/dictado completó nuevamente esos cuatro comandos: 59 pruebas correctas, APK generado y lint sin errores (53 advertencias, 9 sugerencias). Las comprobaciones de presentación y funcionamiento real permanecen pendientes en el teléfono.

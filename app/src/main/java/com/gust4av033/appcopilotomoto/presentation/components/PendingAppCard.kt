@@ -15,7 +15,8 @@ fun PendingAppCard(state: CopilotUiState, actions: CopilotActions) {
     val token = state.pendingAppToken
     SectionCard(stringResource(R.string.trip_pending_app)) {
         Text(name, style = MaterialTheme.typography.titleMedium)
-        SupportingText(stringResource(R.string.trip_pending_app_hint))
+        state.pendingDraftText?.let { Text(it, style = MaterialTheme.typography.bodyLarge) }
+        SupportingText(stringResource(if (state.pendingDraftText != null) R.string.chat_draft_pending_hint else R.string.trip_pending_app_hint))
         ActionButton(stringResource(R.string.trip_open_app),
             enabled = state.tripActive && token != null,
             onClick = { token?.let(actions.onOpenPendingApp) })

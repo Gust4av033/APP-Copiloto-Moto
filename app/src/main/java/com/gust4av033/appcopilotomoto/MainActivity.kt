@@ -239,6 +239,7 @@ class MainActivity : ComponentActivity() {
             tripStatus = TripTestState.status,
             lastCommandResult = TripTestState.lastCommandResult,
             pendingAppName = TripTestState.pendingAppName,
+            pendingDraftText = TripTestState.pendingDraftText,
             pendingAppToken = TripTestState.pendingAppToken,
             lastTripCommand = TripTestState.lastRoutedCommand?.toCommandUi(),
             lastTestCommand = lastTestCommand,
@@ -842,6 +843,7 @@ class MainActivity : ComponentActivity() {
                                 onFailure = { it.message ?: "No se encontró la aplicación." }
                             )
                             TestIntent.OPEN_CONTACT_CHAT -> "Escuché: ‘$heard’. Los chats con confirmación por voz se prueban en la sesión de viaje."
+                            TestIntent.DRAFT_CONTACT_MESSAGE -> "Borrador interpretado; dictado y confirmación se prueban en el viaje. No se abrió ni envió un mensaje."
                             TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.CONFIRM_CALL -> "Escuché: ‘$heard’. Las llamadas por nombre se prueban en la sesión de viaje."
                             TestIntent.STOP_SESSION -> "Escuché: ‘$heard’. ${if (fromWake) "Deteniendo sesión de activación." else "No hay sesión de activación en esta prueba manual."}"
                             TestIntent.UNKNOWN -> "Escuché: ‘$heard’. No coincide con las órdenes de esta prueba; no se ejecutó nada."

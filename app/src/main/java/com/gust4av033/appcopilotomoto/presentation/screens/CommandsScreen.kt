@@ -35,6 +35,9 @@ fun CommandsScreen(state: CopilotUiState, actions: CopilotActions) {
         SupportingText(stringResource(R.string.mode_switch_hint))
         Text(stringResource(R.string.commands_call))
         SupportingText(stringResource(R.string.commands_call_recovery))
+        SupportingText(stringResource(R.string.commands_incoming_calls))
+        Text(stringResource(R.string.commands_chat_draft))
+        SupportingText(stringResource(R.string.chat_draft_pending_hint))
         Text(stringResource(R.string.commands_cancel))
         SupportingText(stringResource(R.string.commands_stop))
     }

@@ -171,7 +171,7 @@
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Abrir por voz requiere APP visible y teléfono desbloqueado. También podés usar estos botones o el aviso; la solicitud vence a los 30 segundos.</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">UI burbuja 01</string>
+    <string name="ui_revision">UI burbuja 02 · borradores</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>
@@ -280,7 +280,8 @@
     <string name="overlay_hidden_hint">La burbuja quedó oculta hasta el próximo viaje. Podés mostrarla otra vez y volver a Waze.</string>
     <string name="overlay_show">Volver a mostrar la burbuja</string>
     <string name="overlay_open_app">Abrir APP</string>
-    <string name="overlay_hide">Ocultar durante este viaje</string>
+    <string name="overlay_hide">Ocultar burbuja</string>
+    <string name="overlay_minimize">Minimizar panel</string>
     <string name="overlay_panel_title">APP · Modo %1$d</string>
     <string name="overlay_description">Copiloto, modo %1$d: %2$s. Tocar para ver controles; arrastrar para mover.</string>
     <string name="overlay_wait_button">Esperando botón · micrófono cerrado</string>

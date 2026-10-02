@@ -26,6 +26,7 @@ fun IntegrationsCard(state: CopilotUiState, actions: CopilotActions) {
         ActionButton(stringResource(R.string.tests_apps_refresh), onClick = actions.onRefreshApps)
         if (state.chatIntegrationMessage.isNotBlank()) SupportingText(state.chatIntegrationMessage)
         SupportingText(stringResource(R.string.commands_chat))
+        SupportingText(stringResource(R.string.commands_chat_draft))
         SupportingText(stringResource(R.string.integrations_chat_hint))
     }
 }

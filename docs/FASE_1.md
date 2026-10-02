@@ -103,7 +103,7 @@ Validación local del avance: `:app:clean :app:testDebugUnitTest :app:assembleDe
 
 ## Apertura de chats por contacto e integraciones
 
-Extensión de los accesos a apps de fase 1: se puede pedir una acción concreta soportada por un proveedor. WhatsApp y WhatsApp Business tienen adaptadores explícitos de apertura por enlace `wa.me`, con destino restringido a la edición solicitada. No se automatizan pantallas mediante accesibilidad ni se promete controlar cualquier app. Dictado, lectura y envío de mensajes siguen siendo mensajería de fase 5.
+Extensión de los accesos a apps de fase 1: se puede pedir una acción concreta soportada por un proveedor. WhatsApp y WhatsApp Business tienen adaptadores explícitos de apertura por enlace `wa.me`, con destino restringido a la edición solicitada. No se automatizan pantallas mediante accesibilidad ni se promete controlar cualquier app. El avance del 02-10 adelanta dictado y lectura de un borrador; lectura de conversaciones y envío por voz continúan pendientes de mensajería de fase 5.
 
 En Ajustes y Comandos, «Integraciones y acciones» muestra accesos a apps, reproductores compatibles y disponibilidad de apertura de chats por edición de WhatsApp. «Habilitar contactos para chats» solicita solo READ_CONTACTS: no exige permisos de llamada. La agenda se consulta localmente al resolver la orden; no se transmite un catálogo de contactos.
 
@@ -129,3 +129,17 @@ Validación local de chats: `:app:clean :app:testDebugUnitTest :app:assembleDebu
 ## UI: burbuja y cambio de modo
 
 La sesión admite cambiar entre 1 (voz desde casco), 2 (botón) y 3 (experimental con teléfono para activación) mediante una orden capturada o Ajustes cuando está listo. La burbuja opcional agrega acceso sobre Waze/otras apps, sin cambiar la activación ni abrir otra captura. Permisos, límites y protocolo: `BURBUJA_Y_MODOS.md`. Los flujos de canciones, llamadas, aplicaciones y chats existentes se mantienen en la misma rama.
+
+## Avance 02-10-2026 · cierre de burbuja y borradores
+
+El panel tiene × y toque fuera para minimizar, y Ocultar burbuja fuera del área desplazable, siempre accesible. Ocultar mantiene viaje/preferencia y retira la ventana durante el viaje actual.
+
+«Escribe a Ana en WhatsApp» resuelve primero el contacto, anuncia destinatario/número y abre dictado. APP lee el mensaje: uno abre el chat con texto prellenado y dos descarta. También admite «escribe a Ana en WhatsApp mensaje voy llegando», preservando el texto original. Business se solicita explícitamente. Máximo 240 caracteres, sin recortar ni ejecutar el contenido como comandos. Cancelar/silencio en dictado descarta; detener invalida todo el flujo. Silencio de la notificación también interrumpe dictado/anuncio.
+
+El borrador aparece en la tarjeta de APP, permanece en memoria y vence a los 60 segundos; otras aperturas conservan 30. Abrir por voz sigue requiriendo APP visible/desbloqueada. El envío se hace con Enviar en WhatsApp: aún no existe un comando de envío automático. Descartar desde APP no elimina un borrador ya abierto en WhatsApp.
+
+Contestar, rechazar o colgar llamadas entrantes por voz aún no está implementado. Cancelar durante la confirmación de una llamada saliente evita marcar; no cuelga una llamada conectada. El flujo actual recupera el viaje tras llamadas iniciadas por APP. No se reemplaza la app Teléfono ni se agrega un control no validado antes de salir.
+
+Protocolo completo y lista de viaje: `PRUEBA_VIAJE_BORRADORES.md`.
+
+Validación local: clean, assembleDebug, testDebugUnitTest y lintDebug completos. 59 pruebas, cero fallos/errores; APK generado y lint sin errores (53 advertencias, 9 sugerencias). Cierre visual, enlace de borrador, dictado Bluetooth y recuperación musical requieren prueba física en el S22+.

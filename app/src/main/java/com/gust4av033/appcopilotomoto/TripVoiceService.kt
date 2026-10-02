@@ -39,6 +39,7 @@ object TripTestState {
     var running by mutableStateOf(false)
     var restoringAudio by mutableStateOf(false)
     var pendingAppName by mutableStateOf<String?>(null)
+    var pendingDraftText by mutableStateOf<String?>(null)
     var pendingAppToken by mutableStateOf<String?>(null)
     internal var pendingAppTarget: AppTarget? = null
     internal var pendingAppExpiresAtMs = 0L
@@ -191,6 +192,7 @@ class TripVoiceService : Service() {
     private val appRequests = PendingAppLaunch<AppTarget>()
     private val pendingApp: AppTarget? get() = appRequests.current?.target
     private var appChoiceToken: String? = null
+    private var draftCaptureToken: String? = null
     private var appExpirationTask: Runnable? = null
     private var appLaunchPendingIntent: PendingIntent? = null
     private var resumeAfterButtonRoute = false
@@ -236,10 +238,12 @@ class TripVoiceService : Service() {
         if (intent?.action == ACTION_APP_OPENED) {
             val token = intent.getStringExtra(EXTRA_APP_TOKEN)
             val label = pendingApp?.label
+            val hadDraft = pendingApp?.draftText != null
             if (active && token != null && clearPendingApp(token)) {
                 TripTestState.actions++
                 TripTestState.save(this)
-                TripTestState.lastCommandResult = "Solicitud de apertura de $label enviada; el viaje sigue activo."
+                TripTestState.lastCommandResult = if (hadDraft) "Borrador de $label abierto; mensaje sin enviar. El viaje sigue activo."
+                    else "Solicitud de apertura de $label enviada; el viaje sigue activo."
                 updateNotification("Aplicación abierta · viaje activo")
             } else if (!active) stopSelf(startId)
             return START_NOT_STICKY
@@ -253,6 +257,10 @@ class TripVoiceService : Service() {
             return START_NOT_STICKY
         }
         if (intent?.action == ACTION_SILENCE) {
+            if (draftCaptureToken != null) {
+                finishDraftCapture("Dictado cancelado; no se abrió ni envió el mensaje.")
+                return START_NOT_STICKY
+            }
             appChoiceToken?.let { token ->
                 clearPendingApp(token)
                 TripTestState.status = "Apertura de aplicación cancelada; esperando activación."
@@ -705,7 +713,8 @@ class TripVoiceService : Service() {
         }, playbackResumePolicy = { heard ->
             when (heard?.let(MinimalIntentRouter::resolve)) {
                 TestIntent.MEDIA_PAUSE -> PlaybackResumePolicy.KEEP_PAUSED
-                TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.OPEN_APP, TestIntent.OPEN_CONTACT_CHAT, TestIntent.MEDIA_SEARCH -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
+                TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.OPEN_APP, TestIntent.OPEN_CONTACT_CHAT,
+                TestIntent.DRAFT_CONTACT_MESSAGE, TestIntent.MEDIA_SEARCH -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 TestIntent.STOP_SESSION, TestIntent.SWITCH_MODE -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 else -> if (wakeAudioMode == WakeAudioMode.BUTTON) {
                     PlaybackResumePolicy.AFTER_ROUTE_RESTORED
@@ -720,7 +729,7 @@ class TripVoiceService : Service() {
             val intent = command.intent
             val cancelledApp = intent == TestIntent.CANCEL && pendingApp != null
             // Una orden nueva reemplaza cualquier apertura que aún estaba pendiente.
-            if (intent != TestIntent.OPEN_APP && intent != TestIntent.OPEN_CONTACT_CHAT) {
+            if (intent != TestIntent.OPEN_APP && intent != TestIntent.OPEN_CONTACT_CHAT && intent != TestIntent.DRAFT_CONTACT_MESSAGE) {
                 clearPendingApp()
             }
             if (intent == TestIntent.SWITCH_MODE && command.audioMode != null) {
@@ -777,15 +786,21 @@ class TripVoiceService : Service() {
                 stopSession("Sesión detenida por voz: ‘$heard’ en $elapsed ms.")
                 return@listenOnce
             }
-            if (intent == TestIntent.OPEN_APP || intent == TestIntent.OPEN_CONTACT_CHAT) {
+            if (intent == TestIntent.OPEN_APP || intent == TestIntent.OPEN_CONTACT_CHAT || intent == TestIntent.DRAFT_CONTACT_MESSAGE) {
                 clearPendingApp()
-                TripTestState.status = if (intent == TestIntent.OPEN_CONTACT_CHAT) "Buscando contacto para el chat…" else "Buscando aplicación…"
+                TripTestState.status = if (intent != TestIntent.OPEN_APP) "Buscando contacto para el chat…" else "Buscando aplicación…"
                 updateNotification(TripTestState.status)
                 worker.execute {
-                    val found = if (intent == TestIntent.OPEN_CONTACT_CHAT) actions.prepareContactChat(command)
+                    val found = if (intent != TestIntent.OPEN_APP) actions.prepareContactChat(command)
                         else actions.prepareApp(command)
                     mainHandler.post {
                         if (!active || detector !== provider || cycle != generation) return@post
+                        if (intent == TestIntent.DRAFT_CONTACT_MESSAGE && found.isSuccess) {
+                            val target = found.getOrThrow()
+                            if (command.messageText == null) requestDraftCapture(provider, cycle, target)
+                            else prepareDraftChoice(provider, cycle, target, command.messageText)
+                            return@post
+                        }
                         found.getOrNull()?.let(::preparePendingApp)
                         TripTestState.status = if (pendingApp != null) {
                             "$source: Encontré ${pendingApp?.label}. Escuchá la confirmación: uno para abrir o dos para cancelar."
@@ -877,13 +892,97 @@ class TripVoiceService : Service() {
         active && detector === provider && generation == cycle && appChoiceToken == token &&
             appRequests.current?.let { it.token == token && SystemClock.elapsedRealtime() < it.expiresAtMs } == true
 
+    private fun requestDraftCapture(provider: WakeWordProvider, cycle: Int, target: AppTarget) {
+        val token = UUID.randomUUID().toString()
+        draftCaptureToken = token
+        fun current() = active && detector === provider && generation == cycle && draftCaptureToken == token
+        TripTestState.interactionPhase = TripInteractionPhase.SPEAKING
+        TripTestState.status = "Preparando dictado para ${target.label}; Silencio cancela."
+        updateNotification("Preparando dictado · Silencio cancela")
+        runCatching {
+            callPrompt.askForDraft(target.spokenLabel) { announced ->
+                if (!current()) return@askForDraft
+                if (!announced) {
+                    finishDraftCapture("No se pudo anunciar el destinatario; dictado cancelado.")
+                    return@askForDraft
+                }
+                schedule(300L) {
+                    if (!current()) return@schedule
+                    TripTestState.interactionPhase = TripInteractionPhase.PREPARING
+                    schedule(22_000L) { if (current()) finishDraftCapture("Dictado sin respuesta; no se preparó el mensaje.") }
+                    speech.listenOnce(onState = { state ->
+                        if (current() && state == SpeechCaptureState.READY) {
+                            val input = speech.activeInputDescription()
+                            if (wakeAudioMode == WakeAudioMode.BUTTON && input.contains("micrófono del teléfono") && !input.contains("Bluetooth")) {
+                                finishDraftCapture("Android abrió el micrófono del teléfono; dictado cancelado.")
+                            } else {
+                                TripTestState.interactionPhase = TripInteractionPhase.LISTENING
+                                TripTestState.status = "Dictado listo: decí el mensaje breve o cancelar."
+                                updateNotification("Dictando mensaje · Silencio cancela")
+                                playHandoffTone()
+                            }
+                        }
+                    }, playbackResumePolicy = { PlaybackResumePolicy.AFTER_ROUTE_RESTORED }) { outcome ->
+                        if (!current()) return@listenOnce
+                        pendingTask?.let(mainHandler::removeCallbacks)
+                        pendingTask = null
+                        val text = outcome.getOrNull()
+                        val control = text?.let(MinimalIntentRouter::resolve)
+                        if (control == TestIntent.STOP_SESSION) {
+                            stopSession("Viaje detenido durante dictado; mensaje descartado.")
+                        } else if (text == null || control == TestIntent.CANCEL || control == TestIntent.STOP_TTS) {
+                            finishDraftCapture("Dictado cancelado o no entendido; no se preparó el mensaje.")
+                        } else {
+                            TripTestState.recognized++
+                            TripTestState.save(this)
+                            draftCaptureToken = null
+                            prepareDraftChoice(provider, cycle, target, text)
+                        }
+                    }
+                }
+            }
+        }.onFailure { if (current()) finishDraftCapture("No se pudo iniciar el dictado; no se preparó el mensaje.") }
+    }
+
+    private fun finishDraftCapture(message: String) {
+        if (draftCaptureToken == null) return
+        draftCaptureToken = null
+        val cycle = ++generation
+        pendingTask?.let(mainHandler::removeCallbacks)
+        pendingTask = null
+        if (callPromptLazy.isInitialized()) callPrompt.cancel()
+        if (speechLazy.isInitialized()) resumeAfterButtonRoute = speech.cancel(resumePlayback = false) || resumeAfterButtonRoute
+        TripTestState.status = message
+        TripTestState.lastCommandResult = message
+        updateNotification("Dictado cancelado · viaje activo")
+        detector?.let { provider ->
+            schedule(300L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+        }
+    }
+
+    private fun prepareDraftChoice(provider: WakeWordProvider, cycle: Int, target: AppTarget, text: String) {
+        if (!active || detector !== provider || generation != cycle) return
+        val draft = runCatching { WhatsAppChatAdapter.withDraft(target, text) }
+        draft.fold(onSuccess = {
+            preparePendingApp(it)
+            TripTestState.lastCommandResult = "Borrador preparado; revisá la lectura. Uno abre, dos descarta. No se envió."
+            requestAppChoice(provider, cycle, checkNotNull(appRequests.current))
+        }, onFailure = {
+            TripTestState.failures++
+            TripTestState.save(this)
+            TripTestState.status = "No se preparó el borrador: ${it.message}"
+            TripTestState.lastCommandResult = TripTestState.status
+            schedule(300L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+        })
+    }
+
     private fun requestAppChoice(provider: WakeWordProvider, cycle: Int, request: PendingAppLaunch.Request<AppTarget>) {
         val token = request.token
         appChoiceToken = token
         TripTestState.interactionPhase = TripInteractionPhase.SPEAKING
         TripTestState.status = "Anunciando ${request.target.label}: uno para abrir o dos para cancelar…"
         runCatching {
-            callPrompt.announceApp(request.target.spokenLabel) { announced ->
+            callPrompt.announceApp(request.target.spokenLabel, request.target.draftText) { announced ->
                 if (!isCurrentAppChoice(provider, cycle, token)) return@announceApp
                 if (!announced) {
                     finishAppChoice(provider, cycle, token, "No se pudo anunciar la app; la apertura quedó pendiente en el aviso.")
@@ -922,7 +1021,8 @@ class TripVoiceService : Service() {
                             AppChoice.OPEN -> {
                                 val opener = TripTestState.openPendingAppFromVoice
                                 val opened = runCatching { opener?.invoke(token) == true }.getOrDefault(false)
-                                val result = if (opened) "Solicitud de apertura de ${request.target.label} enviada por voz; viaje activo."
+                                val result = if (opened && request.target.draftText != null) "Borrador abierto en WhatsApp; mensaje sin enviar. Viaje activo."
+                                    else if (opened) "Solicitud de apertura de ${request.target.label} enviada por voz; viaje activo."
                                     else if (opener == null) "Para abrir por voz, APP debe estar visible y el teléfono desbloqueado. La apertura sigue en el aviso."
                                     else "No se pudo abrir ${request.target.label} por voz. Revisá que APP esté visible y el teléfono desbloqueado, o usá el aviso."
                                 finishAppChoice(provider, cycle, token, result)
@@ -1188,6 +1288,7 @@ class TripVoiceService : Service() {
     private fun stopSession(reason: String) {
         if (closing) return
         active = false
+        draftCaptureToken = null
         mainHandler.removeCallbacks(overlayTick)
         overlay.close()
         TripTestState.switchingMode = false
@@ -1293,15 +1394,18 @@ class TripVoiceService : Service() {
         TripTestState.pendingAppTarget = null
         TripTestState.pendingAppExpiresAtMs = 0L
         TripTestState.pendingAppName = null
+        TripTestState.pendingDraftText = null
         TripTestState.pendingAppToken = null
         getSystemService(NotificationManager::class.java).cancel(APP_NOTIFICATION_ID)
     }
 
     private fun preparePendingApp(target: AppTarget) {
-        val request = appRequests.prepare(target, UUID.randomUUID().toString(), SystemClock.elapsedRealtime())
+        val validity = if (target.draftText == null) PendingAppLaunch.VALIDITY_MS else PendingAppLaunch.DRAFT_VALIDITY_MS
+        val request = appRequests.prepare(target, UUID.randomUUID().toString(), SystemClock.elapsedRealtime(), validity)
         TripTestState.pendingAppTarget = target
         TripTestState.pendingAppExpiresAtMs = request.expiresAtMs
         TripTestState.pendingAppName = target.label
+        TripTestState.pendingDraftText = target.draftText
         TripTestState.pendingAppToken = request.token
         val expiration = Runnable {
             if (appRequests.expire(request.token, SystemClock.elapsedRealtime())) {
@@ -1312,7 +1416,7 @@ class TripVoiceService : Service() {
         }
         appExpirationTask = expiration
         // El vencimiento solo interrumpe la confirmación de esta misma solicitud.
-        mainHandler.postDelayed(expiration, PendingAppLaunch.VALIDITY_MS)
+        mainHandler.postDelayed(expiration, validity)
         showAppPrompt(request)
     }
 
@@ -1333,11 +1437,13 @@ class TripVoiceService : Service() {
         val notice = Notification.Builder(this, APP_CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setContentTitle("Abrir ${target.label}")
-            .setContentText("Tras el anuncio: 1 abrir · 2 cancelar. Aviso disponible 30 segundos.")
+            .setContentText(if (target.draftText == null) "Tras el anuncio: 1 abrir · 2 cancelar. Aviso disponible 30 segundos."
+                else "Borrador sin enviar. 1 abrir · 2 descartar. Aviso disponible 60 segundos.")
             .setContentIntent(launch)
             .setDeleteIntent(cancel)
             .setAutoCancel(true)
-            .setTimeoutAfter(PendingAppLaunch.VALIDITY_MS)
+            .setTimeoutAfter(if (target.draftText == null) PendingAppLaunch.VALIDITY_MS else PendingAppLaunch.DRAFT_VALIDITY_MS)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
             .addAction(android.R.drawable.ic_menu_view, "Abrir ${target.label}", launch)
             .addAction(android.R.drawable.ic_menu_close_clear_cancel, "Cancelar", cancel)
             .build()
@@ -1370,7 +1476,7 @@ class TripVoiceService : Service() {
                 notice.addAction(android.R.drawable.ic_menu_view, "Abrir ${target.label}", launch)
             }
         }
-        if (callPromptLazy.isInitialized() && callPrompt.isAnnouncing()) {
+        if (draftCaptureToken != null || (callPromptLazy.isInitialized() && callPrompt.isAnnouncing())) {
             val silence = PendingIntent.getService(this, 4,
                 Intent(this, TripVoiceService::class.java).setAction(ACTION_SILENCE),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)

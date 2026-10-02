@@ -10,6 +10,17 @@ import java.util.Locale
 
 /** Enlace oficial click-to-chat, dirigido exclusivamente a la edición solicitada. */
 class WhatsAppChatAdapter(private val context: Context, override val app: ChatApp) : ContactChatAdapter {
+    companion object {
+        fun withDraft(target: AppTarget, text: String): AppTarget {
+            val uri = checkNotNull(target.launchIntent.data)
+            check(uri.scheme == "https" && uri.host == "wa.me" && uri.query == null &&
+                ChatApp.entries.any { it.packageName == target.launchIntent.`package` })
+            val draft = ChatDraftParser.validateText(text)
+            val link = WhatsAppChatLink.fromInternationalNumber("+${uri.path.orEmpty().removePrefix("/")}", draft)
+            return target.copy(label = target.label.replace("chat con", "borrador para"),
+                launchIntent = Intent(target.launchIntent).setData(Uri.parse(link)), draftText = draft)
+        }
+    }
     private fun intentFor(link: String) = Intent(Intent.ACTION_VIEW, Uri.parse(link))
         .addCategory(Intent.CATEGORY_BROWSABLE).setPackage(app.packageName)
 
