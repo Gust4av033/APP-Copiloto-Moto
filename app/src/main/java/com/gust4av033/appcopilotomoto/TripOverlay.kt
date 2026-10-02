@@ -33,7 +33,7 @@ object TripOverlayPreferences {
 }
 
 data class TripOverlaySnapshot(val mode: WakeAudioMode, val phase: TripInteractionPhase,
-    val call: TripCallPhase, val ready: Boolean)
+    val call: TripCallPhase, val ready: Boolean, val manualActivationOnly: Boolean = false)
 
 /** Una sola ventana del servicio de viaje. No posee ni inicia micrófonos o detectores. */
 class TripOverlay(
@@ -193,7 +193,7 @@ class TripOverlay(
         val label = context.getString(when {
             state.call == TripCallPhase.CALL -> R.string.session_call
             state.call == TripCallPhase.RECOVERING -> R.string.session_call_recovering
-            state.phase == TripInteractionPhase.WAITING -> if (state.mode == WakeAudioMode.BUTTON)
+            state.phase == TripInteractionPhase.WAITING -> if (state.mode == WakeAudioMode.BUTTON || state.manualActivationOnly)
                 R.string.overlay_wait_button else R.string.overlay_wait_voice
             state.phase == TripInteractionPhase.LISTENING -> R.string.overlay_listening
             state.phase == TripInteractionPhase.PROCESSING -> R.string.overlay_processing
@@ -304,3 +304,4 @@ class TripOverlay(
         body = null
     }
 }
+

@@ -47,6 +47,7 @@ object TripTestState {
     internal var playMusicFromVoice: ((MusicSearchRequest) -> Result<Unit>)? = null
     var commandReady by mutableStateOf(false)
     var audioMode by mutableStateOf(WakeAudioMode.BLUETOOTH)
+    var manualActivationOnly by mutableStateOf(false)
     var switchingMode by mutableStateOf(false)
     var interactionPhase by mutableStateOf(TripInteractionPhase.PREPARING)
     var appVisible = false
@@ -131,6 +132,7 @@ class TripVoiceService : Service() {
         const val EXTRA_PHRASE = "phrase"
         const val EXTRA_SENSITIVITY = "sensitivity"
         const val EXTRA_AUDIO_MODE = "audio_mode"
+        const val EXTRA_MANUAL_ONLY = "manual_activation_only"
         private const val CHANNEL_ID = "trip_voice_test"
         private const val NOTIFICATION_ID = 103
         private const val APP_CHANNEL_ID = "trip_app_selection_v1"
@@ -171,15 +173,18 @@ class TripVoiceService : Service() {
                 if (TripTestState.switchingMode) {
                     TripTestState.switchingMode = false
                     getSharedPreferences("ui_settings", MODE_PRIVATE).edit()
-                        .putString("trip_audio_mode", wakeAudioMode.name).apply()
+                        .putString("trip_audio_mode", wakeAudioMode.name)
+                        .putBoolean(TripActivationPolicy.PREFERENCE, manualActivationOnly).apply()
                     TripTestState.actions++
                     TripTestState.lastLatencyMs = SystemClock.elapsedRealtime() - modeChangeStartedAt
                     TripTestState.save(this)
-                    TripTestState.lastCommandResult = "Modo ${wakeAudioMode.modeNumber} activado; el viaje sigue activo."
+                    TripTestState.lastCommandResult = "Modo ${wakeAudioMode.modeNumber} activado${if (manualActivationOnly) " con activación manual" else ""}; el viaje sigue activo."
                 }
             } else if (!TripTestState.switchingMode) TripTestState.interactionPhase = TripInteractionPhase.PREPARING
         }
     private var wakeAudioMode = WakeAudioMode.BLUETOOTH
+    private var manualActivationOnly = false
+    private val effectiveAudioMode get() = TripActivationPolicy.effectiveMode(wakeAudioMode, manualActivationOnly)
     private var modeChangeStartedAt = 0L
     private data class PendingRoutedCommand(
         val command: RoutedCommand,
@@ -215,7 +220,7 @@ class TripVoiceService : Service() {
                 !TripTestState.overlayHidden && !TripTestState.appVisible &&
                 !getSystemService(KeyguardManager::class.java).isKeyguardLocked
             overlay.render(visible, TripOverlaySnapshot(wakeAudioMode, TripTestState.interactionPhase,
-                TripTestState.callPhase, armed && !TripTestState.switchingMode && !callPending))
+                TripTestState.callPhase, armed && !TripTestState.switchingMode && !callPending, manualActivationOnly))
             mainHandler.postDelayed(this, 400L)
         }
     }
@@ -231,7 +236,8 @@ class TripVoiceService : Service() {
         if (intent?.action == ACTION_CHANGE_MODE) {
             val target = runCatching { WakeAudioMode.valueOf(intent.getStringExtra(EXTRA_AUDIO_MODE).orEmpty()) }.getOrNull()
             val provider = detector
-            if (active && armed && !callPending && provider != null && target != null) switchMode(provider, target)
+            if (active && armed && !callPending && provider != null && target != null) switchMode(provider, target,
+                intent.getBooleanExtra(EXTRA_MANUAL_ONLY, manualActivationOnly))
             else if (!active) stopSelf(startId)
             return START_NOT_STICKY
         }
@@ -310,12 +316,15 @@ class TripVoiceService : Service() {
         wakeAudioMode = runCatching {
             WakeAudioMode.valueOf(intent.getStringExtra(EXTRA_AUDIO_MODE) ?: WakeAudioMode.BLUETOOTH.name)
         }.getOrDefault(WakeAudioMode.BLUETOOTH)
+        manualActivationOnly = intent.getBooleanExtra(EXTRA_MANUAL_ONLY,
+            getSharedPreferences("ui_settings", MODE_PRIVATE).getBoolean(TripActivationPolicy.PREFERENCE, false))
+        TripTestState.manualActivationOnly = manualActivationOnly
         TripTestState.audioMode = wakeAudioMode
         TripTestState.switchingMode = false
         clearPendingApp()
         createChannel()
         try {
-            val notice = buildNotification(if (wakeAudioMode == WakeAudioMode.BUTTON) {
+            val notice = buildNotification(if (effectiveAudioMode == WakeAudioMode.BUTTON) {
                 "Preparando modo botón · música normal"
             } else "Preparando micrófono Bluetooth…")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -351,8 +360,8 @@ class TripVoiceService : Service() {
         }.getOrDefault(WakePhrase.ALEXA)
         val sensitivity = intent.getFloatExtra(EXTRA_SENSITIVITY, 80f).coerceIn(40f, 85f)
         providerFactory = {
-            if (wakeAudioMode == WakeAudioMode.BUTTON) ButtonWakeWordProvider(applicationContext)
-            else OpenWakeWordProvider(applicationContext, (100f - sensitivity) / 100f, phrase, wakeAudioMode)
+            if (effectiveAudioMode == WakeAudioMode.BUTTON) ButtonWakeWordProvider(applicationContext)
+            else OpenWakeWordProvider(applicationContext, (100f - sensitivity) / 100f, phrase, effectiveAudioMode)
         }
         val provider: WakeWordProvider = runCatching { checkNotNull(providerFactory).invoke() }.getOrElse {
             stopSession("No se pudo preparar la activación: ${it.message}")
@@ -364,10 +373,10 @@ class TripVoiceService : Service() {
     }
 
     /** El modo cambia dentro de la sesión; no reinicia métricas ni abre dos proveedores. */
-    private fun switchMode(provider: WakeWordProvider, target: WakeAudioMode) {
+    private fun switchMode(provider: WakeWordProvider, target: WakeAudioMode, manualOnly: Boolean = manualActivationOnly) {
         if (!active || callPending || closing || TripTestState.switchingMode || detector !== provider) return
         TripTestState.lastRoutedCommand = RoutedCommand(TestIntent.SWITCH_MODE, audioMode = target)
-        if (target == wakeAudioMode) {
+        if (target == wakeAudioMode && manualOnly == manualActivationOnly) {
             TripTestState.lastCommandResult = "El modo ${target.modeNumber} ya está seleccionado."
             if (!armed) startDetector(provider)
             return
@@ -404,20 +413,22 @@ class TripVoiceService : Service() {
                     stopSession("No se pudo liberar el modo anterior: ${released.exceptionOrNull()?.message}.")
                 } else {
                     detector = null
-                    completeModeSwitch(target, cycle, 0)
+                    completeModeSwitch(target, manualOnly, cycle, 0)
                 }
             }
         }
     }
 
-    private fun completeModeSwitch(target: WakeAudioMode, cycle: Int, attempt: Int) {
+    private fun completeModeSwitch(target: WakeAudioMode, manualOnly: Boolean, cycle: Int, attempt: Int) {
         if (!active || generation != cycle || !TripTestState.switchingMode) return
         if (!media.isMediaRouteReady()) {
-            if (attempt < 12) schedule(500L) { completeModeSwitch(target, cycle, attempt + 1) }
+            if (attempt < 12) schedule(500L) { completeModeSwitch(target, manualOnly, cycle, attempt + 1) }
             else stopSession("Android no liberó la ruta anterior; reiniciá el viaje cuando el audio vuelva a la normalidad.")
             return
         }
         wakeAudioMode = target
+        manualActivationOnly = manualOnly
+        TripTestState.manualActivationOnly = manualOnly
         TripTestState.audioMode = target
         activationGate.reset()
         runCatching { checkNotNull(providerFactory).invoke() }.fold(
@@ -435,7 +446,7 @@ class TripVoiceService : Service() {
     }.getOrDefault(false)
 
     private fun startDetector(provider: WakeWordProvider) {
-        if (wakeAudioMode != WakeAudioMode.BUTTON && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+        if (effectiveAudioMode != WakeAudioMode.BUTTON && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             !getSystemService(AudioManager::class.java).availableCommunicationDevices.any {
                 it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
             }) {
@@ -445,7 +456,7 @@ class TripVoiceService : Service() {
         if (!active || callPending || detector !== provider) return
         armed = false
         val cycle = ++generation
-        TripTestState.status = if (wakeAudioMode == WakeAudioMode.BUTTON) {
+        TripTestState.status = if (effectiveAudioMode == WakeAudioMode.BUTTON) {
             "Restaurando música; esperando el botón del casco…"
         } else "Preparando escucha de ‘${provider.phrase}’…"
         worker.execute {
@@ -457,10 +468,10 @@ class TripVoiceService : Service() {
                 if (result.isFailure) {
                     stopSession("Falló la escucha: ${result.exceptionOrNull()?.message}")
                 } else {
-                    TripTestState.status = if (wakeAudioMode == WakeAudioMode.BUTTON) {
+                    TripTestState.status = if (effectiveAudioMode == WakeAudioMode.BUTTON) {
                         "Comprobando que la música volvió a su salida normal…"
                     } else "Estabilizando audio; esperá un momento…"
-                    schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 500L else 1_500L) {
+                    schedule(if (effectiveAudioMode == WakeAudioMode.BUTTON) 500L else 1_500L) {
                         armDetector(provider, cycle, 0)
                     }
                 }
@@ -470,7 +481,7 @@ class TripVoiceService : Service() {
 
     private fun armDetector(provider: WakeWordProvider, cycle: Int, retry: Int) {
         if (!active || detector !== provider || cycle != generation) return
-        if (wakeAudioMode == WakeAudioMode.BUTTON) {
+        if (effectiveAudioMode == WakeAudioMode.BUTTON) {
             if (!media.isMediaRouteReady()) {
                 if (retry < 12) schedule(500L) { armDetector(provider, cycle, retry + 1) }
                 else stopSession("Android no devolvió la música a su salida normal tras la orden.")
@@ -493,14 +504,14 @@ class TripVoiceService : Service() {
             val reason = inputCheck.exceptionOrNull()?.message.orEmpty()
             if ((reason.startsWith("No se pudo verificar") || reason.contains("usa otro micrófono")) && retry < 4) {
                 schedule(1_000L) { armDetector(provider, cycle, retry + 1) }
-            } else stopSession("${if (wakeAudioMode == WakeAudioMode.PHONE_WAKE) "Modo experimental" else "Micrófono del casco"}: $reason")
+            } else stopSession("${if (effectiveAudioMode == WakeAudioMode.PHONE_WAKE) "Modo experimental" else "Micrófono del casco"}: $reason")
             return
         }
-        if (wakeAudioMode == WakeAudioMode.BLUETOOTH && !headsetRouteAvailable()) {
+        if (effectiveAudioMode == WakeAudioMode.BLUETOOTH && !headsetRouteAvailable()) {
             stopSession("El casco de voz cambió o se desconectó. Elegí el casco de música y reiniciá la sesión.")
             return
         }
-        finishPendingVolume(bluetoothVoice = wakeAudioMode == WakeAudioMode.BLUETOOTH)
+        finishPendingVolume(bluetoothVoice = effectiveAudioMode == WakeAudioMode.BLUETOOTH)
         val pausedBySpeech = if (speechLazy.isInitialized()) speech.cancel(resumePlayback = false) else false
         val resume = pausedBySpeech || resumeAfterButtonRoute
         resumeAfterButtonRoute = false
@@ -626,7 +637,7 @@ class TripVoiceService : Service() {
             mainHandler.post {
                 if (!active || detector !== provider || cycle != generation) return@post
                 if (paused.isFailure) {
-                    if (wakeAudioMode == WakeAudioMode.BUTTON) {
+                    if (effectiveAudioMode == WakeAudioMode.BUTTON) {
                         recoverButtonCommand(provider, cycle,
                             "No se pudo abrir el casco Bluetooth: ${paused.exceptionOrNull()?.message}")
                     } else stopSession("No se pudo liberar el micrófono: ${paused.exceptionOrNull()?.message}")
@@ -640,7 +651,7 @@ class TripVoiceService : Service() {
     /** La elección de SCO puede tardar después de setCommunicationDevice(), sobre todo con pantalla apagada. */
     private fun awaitManualRoute(provider: WakeWordProvider, cycle: Int, startedAt: Long, attempt: Int) {
         if (!active || detector !== provider || cycle != generation) return
-        if (wakeAudioMode == WakeAudioMode.BUTTON && !headsetRouteAvailable()) {
+        if (effectiveAudioMode == WakeAudioMode.BUTTON && !headsetRouteAvailable()) {
             if (attempt < 12) {
                 schedule(250L) { awaitManualRoute(provider, cycle, startedAt, attempt + 1) }
             } else {
@@ -694,7 +705,7 @@ class TripVoiceService : Service() {
         speech.listenOnce(onState = { state ->
             if (active && cycle == generation && state == SpeechCaptureState.READY) {
                 val input = speech.activeInputDescription()
-                if (wakeAudioMode == WakeAudioMode.BUTTON &&
+                if (effectiveAudioMode == WakeAudioMode.BUTTON &&
                     input.contains("micrófono del teléfono") && !input.contains("Bluetooth")) {
                     TripTestState.failures++
                     TripTestState.save(this)
@@ -716,7 +727,7 @@ class TripVoiceService : Service() {
                 TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.OPEN_APP, TestIntent.OPEN_CONTACT_CHAT,
                 TestIntent.DRAFT_CONTACT_MESSAGE, TestIntent.MEDIA_SEARCH -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 TestIntent.STOP_SESSION, TestIntent.SWITCH_MODE -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
-                else -> if (wakeAudioMode == WakeAudioMode.BUTTON) {
+                else -> if (effectiveAudioMode == WakeAudioMode.BUTTON) {
                     PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 } else PlaybackResumePolicy.NOW
             }
@@ -756,7 +767,7 @@ class TripVoiceService : Service() {
                 TripTestState.status = "$source: Escuché ‘$heard’; restaurando la ruta para ajustar volumen…"
                 TripTestState.lastCommandResult = TripTestState.status
                 updateNotification("$source · restaurando ruta de voz")
-                schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 100L else 350L) {
+                schedule(if (effectiveAudioMode == WakeAudioMode.BUTTON) 100L else 350L) {
                     if (active && detector === provider && cycle == generation) startDetector(provider)
                 }
                 return@listenOnce
@@ -767,7 +778,7 @@ class TripVoiceService : Service() {
                 pendingMusicCommand = PendingRoutedCommand(command, heard.orEmpty(), source, wakeAt)
                 TripTestState.status = "Restaurando audio antes de buscar ‘${command.musicQuery}’…"
                 updateNotification("Preparando búsqueda de canción")
-                schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 100L else 350L) {
+                schedule(if (effectiveAudioMode == WakeAudioMode.BUTTON) 100L else 350L) {
                     if (active && detector === provider && cycle == generation) startDetector(provider)
                 }
                 return@listenOnce
@@ -813,7 +824,7 @@ class TripVoiceService : Service() {
                         updateNotification(if (pendingApp != null) "Acción lista: ${pendingApp?.label}" else "No se pudo preparar la acción")
                         val request = appRequests.current
                         if (request != null) requestAppChoice(provider, cycle, request)
-                        else schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 100L else 2_000L) {
+                        else schedule(if (effectiveAudioMode == WakeAudioMode.BUTTON) 100L else 2_000L) {
                             if (active && detector === provider && cycle == generation) startDetector(provider)
                         }
                     }
@@ -827,7 +838,7 @@ class TripVoiceService : Service() {
                     TripTestState.save(this)
                     TripTestState.status = "Para llamar, elegí un contacto y concedé el permiso de teléfono desde APP antes del viaje."
                     updateNotification("Llamada sin configurar")
-                    schedule(if (wakeAudioMode == WakeAudioMode.BUTTON) 100L else 3_500L) {
+                    schedule(if (effectiveAudioMode == WakeAudioMode.BUTTON) 100L else 3_500L) {
                         if (active && detector === provider && cycle == generation) startDetector(provider)
                     }
                 } else requestCallConfirmation(provider, cycle, contact)
@@ -882,7 +893,7 @@ class TripVoiceService : Service() {
             TripTestState.lastCommandResult = TripTestState.status
             updateNotification("$source · orden terminada; esperando activación")
             // Ruido, silencio y órdenes desconocidas no terminan una sesión de viaje.
-            val delay = if (wakeAudioMode == WakeAudioMode.BUTTON) 100L
+            val delay = if (effectiveAudioMode == WakeAudioMode.BUTTON) 100L
                 else if (intent != TestIntent.UNKNOWN && outcome.isSuccess) 2_000L else 3_500L
             schedule(delay) { if (active && detector === provider && cycle == generation) startDetector(provider) }
         }
@@ -913,7 +924,7 @@ class TripVoiceService : Service() {
                     speech.listenOnce(onState = { state ->
                         if (current() && state == SpeechCaptureState.READY) {
                             val input = speech.activeInputDescription()
-                            if (wakeAudioMode == WakeAudioMode.BUTTON && input.contains("micrófono del teléfono") && !input.contains("Bluetooth")) {
+                            if (effectiveAudioMode == WakeAudioMode.BUTTON && input.contains("micrófono del teléfono") && !input.contains("Bluetooth")) {
                                 finishDraftCapture("Android abrió el micrófono del teléfono; dictado cancelado.")
                             } else {
                                 TripTestState.interactionPhase = TripInteractionPhase.LISTENING
@@ -1000,7 +1011,7 @@ class TripVoiceService : Service() {
                     speech.listenOnce(onState = { state ->
                         if (isCurrentAppChoice(provider, cycle, token) && state == SpeechCaptureState.READY) {
                             val input = speech.activeInputDescription()
-                            if (wakeAudioMode == WakeAudioMode.BUTTON && input.contains("micrófono del teléfono") &&
+                            if (effectiveAudioMode == WakeAudioMode.BUTTON && input.contains("micrófono del teléfono") &&
                                 !input.contains("Bluetooth")) {
                                 finishAppChoice(provider, cycle, token, "Android abrió el micrófono del teléfono; no se confirmó la apertura.")
                             } else {
@@ -1243,7 +1254,7 @@ class TripVoiceService : Service() {
         routeCheck?.let(mainHandler::removeCallbacks)
         val task = Runnable {
             routeCheck = null
-            if (active && armed && wakeAudioMode == WakeAudioMode.BLUETOOTH && !headsetRouteAvailable()) {
+            if (active && armed && effectiveAudioMode == WakeAudioMode.BLUETOOTH && !headsetRouteAvailable()) {
                 stopSession("Se perdió la ruta del casco. Sesión detenida para no escuchar con otro micrófono; seleccioná el casco y reiniciá.")
             }
         }
@@ -1314,7 +1325,7 @@ class TripVoiceService : Service() {
         val previous = detector
         detector = null
         val pausedForRoute = if (previous != null &&
-            (wakeAudioMode != WakeAudioMode.BUTTON || !media.isMediaRouteReady())) {
+            (effectiveAudioMode != WakeAudioMode.BUTTON || !media.isMediaRouteReady())) {
             runCatching { media.pauseIfPlaying() }.getOrDefault(false)
         } else false
         val resumeAfterRoute = pausedBySpeech || pausedForRoute
@@ -1461,11 +1472,11 @@ class TripVoiceService : Service() {
                 WakeAudioMode.BUTTON -> "APP · modo 2, botón"
                 WakeAudioMode.PHONE_WAKE -> "APP · modo 3, experimental"
                 WakeAudioMode.BLUETOOTH -> "APP · modo 1, voz"
-            })
+            } + if (manualActivationOnly) " · solo activación manual" else "")
             .setContentText(detail)
             .setContentIntent(open)
             .setOngoing(true)
-        if (wakeAudioMode == WakeAudioMode.BUTTON) {
+        if (effectiveAudioMode == WakeAudioMode.BUTTON) {
             val listen = PendingIntent.getService(this, 2,
                 Intent(this, TripVoiceService::class.java).setAction(ACTION_MANUAL_COMMAND),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -1501,3 +1512,4 @@ class TripVoiceService : Service() {
         super.onDestroy()
     }
 }
+

@@ -19,6 +19,7 @@ import android.os.SystemClock
 import android.provider.ContactsContract
 import android.provider.Settings
 import android.widget.Toast
+import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.lifecycle.Lifecycle
 import androidx.activity.ComponentActivity
@@ -26,6 +27,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -96,6 +98,15 @@ class MainActivity : ComponentActivity() {
     private var overlayEnabled by mutableStateOf(false)
     private var overlayPermission by mutableStateOf(false)
     private var overlayMessage by mutableStateOf("")
+    private var manualActivationOnly by mutableStateOf(false)
+    private var buttonProbeActive by mutableStateOf(false)
+    private var buttonProbeLog by mutableStateOf<List<String>>(emptyList())
+    private var buttonProbeMessage by mutableStateOf("")
+    private val buttonProbe by lazy { HeadsetButtonProbe(this) { active, log, status ->
+        buttonProbeActive = active
+        buttonProbeLog = log
+        buttonProbeMessage = status
+    } }
     private var selectedScreen by mutableStateOf(CopilotScreen.HOME)
     private var result by mutableStateOf<AudioProbeResult?>(null)
     private var pendingAction: (() -> Unit)? = null
@@ -202,6 +213,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         TripTestState.restore(this)
+        manualActivationOnly = getSharedPreferences("ui_settings", MODE_PRIVATE)
+            .getBoolean(TripActivationPolicy.PREFERENCE, false)
         selectedMusicPlayer = actions.preferredMusicPlayer()
         keepScreenOnDuringTrip = getSharedPreferences("ui_settings", MODE_PRIVATE)
             .getBoolean("keep_screen_on_during_trip", true)
@@ -257,6 +270,10 @@ class MainActivity : ComponentActivity() {
             sensitivity = wakeSensitivity,
             inputId = if (TripTestState.running) TripTestState.audioMode.name else tripAudioMode.name,
             switchingMode = TripTestState.switchingMode,
+            manualActivationOnly = if (TripTestState.running) TripTestState.manualActivationOnly else manualActivationOnly,
+            buttonProbeActive = buttonProbeActive,
+            buttonProbeLog = buttonProbeLog,
+            buttonProbeMessage = buttonProbeMessage,
             overlayEnabled = overlayEnabled,
             overlayPermissionGranted = overlayPermission,
             overlayHidden = TripTestState.overlayHidden,
@@ -288,6 +305,9 @@ class MainActivity : ComponentActivity() {
                     it.sampleCount, it.rmsDbfs, it.peakDbfs, it.warning)
             }
         )
+        LaunchedEffect(state.tripActive, state.switchingMode) {
+            if (!state.switchingMode) syncTripPresentation()
+        }
         DisposableEffect(state.tripActive, state.keepScreenOnDuringTrip) {
             if (state.tripActive && state.keepScreenOnDuringTrip) {
                 window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -297,7 +317,10 @@ class MainActivity : ComponentActivity() {
         CopilotApp(
             state = state,
             selectedScreen = selectedScreen,
-            onScreenChange = { selectedScreen = it },
+            onScreenChange = {
+                if (it != CopilotScreen.TESTS && buttonProbeActive) buttonProbe.stop()
+                selectedScreen = it
+            },
             actions = CopilotActions(
                 onToggleTrip = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
                 onManualTripCommand = ::requestManualTripCommand,
@@ -345,6 +368,11 @@ class MainActivity : ComponentActivity() {
                 onPhraseChange = { wakePhrase = WakePhrase.valueOf(it) },
                 onSensitivityChange = { wakeSensitivity = it },
                 onInputChange = ::selectTripMode,
+                onManualActivationOnlyChange = ::selectManualActivationOnly,
+                onToggleButtonProbe = {
+                    if (buttonProbeActive) buttonProbe.stop()
+                    else if (!audioBusy()) buttonProbe.start()
+                },
                 onOverlayEnabledChange = { enabled ->
                     TripOverlayPreferences.setEnabled(this@MainActivity, enabled)
                     overlayEnabled = enabled
@@ -369,7 +397,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun audioBusy() = TripTestState.running || TripTestState.restoringAudio ||
-        running || listening || wakeEnabled || wakeTransition
+        running || listening || wakeEnabled || wakeTransition || buttonProbeActive
 
     private fun requestDeviceRefresh() {
         audioDeviceMessage = ""
@@ -492,6 +520,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun syncTripPresentation() {
+        manualActivationOnly = if (TripTestState.running) TripTestState.manualActivationOnly else
+            getSharedPreferences("ui_settings", MODE_PRIVATE).getBoolean(TripActivationPolicy.PREFERENCE, false)
         overlayEnabled = TripOverlayPreferences.enabled(this)
         overlayPermission = Settings.canDrawOverlays(this)
         tripAudioMode = if (TripTestState.running) TripTestState.audioMode else runCatching {
@@ -521,6 +551,37 @@ class MainActivity : ComponentActivity() {
             tripAudioMode = mode
             getSharedPreferences("ui_settings", MODE_PRIVATE).edit().putString("trip_audio_mode", mode.name).apply()
         }
+    }
+
+    private fun selectManualActivationOnly(enabled: Boolean) {
+        if (TripTestState.running) {
+            if (!TripTestState.commandReady || TripTestState.switchingMode || TripTestState.restoringAudio ||
+                TripTestState.callPhase != TripCallPhase.NONE) return
+            runCatching {
+                startService(Intent(this, TripVoiceService::class.java).setAction(TripVoiceService.ACTION_CHANGE_MODE)
+                    .putExtra(TripVoiceService.EXTRA_AUDIO_MODE, TripTestState.audioMode.name)
+                    .putExtra(TripVoiceService.EXTRA_MANUAL_ONLY, enabled))
+            }.onFailure { TripTestState.lastCommandResult = "No se pudo cambiar la activación: ${it.message}." }
+        } else if (!audioBusy()) {
+            manualActivationOnly = enabled
+            getSharedPreferences("ui_settings", MODE_PRIVATE).edit()
+                .putBoolean(TripActivationPolicy.PREFERENCE, enabled).apply()
+        }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (buttonProbeActive && buttonProbe.recordActivityKey(event)) return true
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (buttonProbeActive && buttonProbe.recordActivityKey(event)) return true
+        return super.onKeyUp(keyCode, event)
+    }
+
+    override fun onStop() {
+        if (buttonProbeActive) buttonProbe.stop("Prueba detenida al salir de APP; controles multimedia liberados.")
+        super.onStop()
     }
 
     private fun refreshAppCatalog() {
@@ -622,6 +683,12 @@ class MainActivity : ComponentActivity() {
             Intent.ACTION_VOICE_COMMAND -> "VOICE_COMMAND"
             else -> return
         }
+        if (buttonProbeActive || HeadsetButtonProbe.isAssistantGuarded()) {
+            setIntent(Intent(this, MainActivity::class.java))
+            selectedScreen = CopilotScreen.TESTS
+            buttonProbe.recordAssistant(source)
+            return
+        }
         // Consumir el intent: una recreación de la pantalla no debe iniciar otra escucha.
         setIntent(Intent(this, MainActivity::class.java))
         if (TripTestState.running) {
@@ -694,6 +761,7 @@ class MainActivity : ComponentActivity() {
             .putExtra(TripVoiceService.EXTRA_PHRASE, wakePhrase.name)
             .putExtra(TripVoiceService.EXTRA_SENSITIVITY, wakeSensitivity)
             .putExtra(TripVoiceService.EXTRA_AUDIO_MODE, tripAudioMode.name)
+            .putExtra(TripVoiceService.EXTRA_MANUAL_ONLY, manualActivationOnly)
         runCatching { startForegroundService(intent) }.onFailure {
             TripTestState.status = "No se pudo iniciar la sesión: ${it.message ?: it.javaClass.simpleName}"
         }
@@ -1010,6 +1078,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        if (buttonProbeActive) buttonProbe.stop()
         releaseVoiceAppOpener()
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         mainHandler.removeCallbacks(refreshDevicesTask)

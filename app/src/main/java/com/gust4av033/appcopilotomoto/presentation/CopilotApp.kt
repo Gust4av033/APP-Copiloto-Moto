@@ -331,3 +331,22 @@ private fun WhatsAppDraftPreview() {
         tripStatus = "Confirmación: uno abre el borrador, dos lo descarta."),
         CopilotScreen.TRIP, {}, CopilotActions())
 }
+
+@Preview(name = "Continuo: activación manual", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Preview(name = "Continuo manual: texto grande", showBackground = true, widthDp = 360, heightDp = 800, locale = "es", fontScale = 1.5f)
+@Composable
+private fun ManualContinuousTripPreview() {
+    CopilotApp(PreviewState.copy(inputId = "BLUETOOTH", manualActivationOnly = true,
+        tripActive = true, commandReady = true, audioDevices = PreviewDevices,
+        tripStatus = "Esperando activación manual; micrófono cerrado."),
+        CopilotScreen.TRIP, {}, CopilotActions())
+}
+
+@Preview(name = "Prueba Y12: evento recibido", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Composable
+private fun HeadsetButtonTestPreview() {
+    CopilotApp(PreviewState.copy(buttonProbeActive = true,
+        buttonProbeMessage = "Prueba activa; micrófono cerrado.",
+        buttonProbeLog = listOf("3400 ms · MediaSession · KEYCODE_MEDIA_PLAY_PAUSE · DOWN · repeticiones=0")),
+        CopilotScreen.TESTS, {}, CopilotActions())
+}

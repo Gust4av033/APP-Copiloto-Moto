@@ -94,6 +94,10 @@ data class CopilotUiState(
     val phraseLabel: String = "Alexa",
     val sensitivity: Float = 80f,
     val inputId: String = "BLUETOOTH",
+    val manualActivationOnly: Boolean = false,
+    val buttonProbeActive: Boolean = false,
+    val buttonProbeLog: List<String> = emptyList(),
+    val buttonProbeMessage: String = "",
     val audioCaptureGeneration: Long = 0,
     val audioDevices: AudioDevicesUi = AudioDevicesUi(),
     val phrases: List<ChoiceUi> = listOf(
@@ -127,12 +131,12 @@ data class CopilotUiState(
     val fixedContact: String? = null,
     val probe: ProbeUi? = null
 ) {
-    val buttonMode: Boolean get() = inputId == "BUTTON"
+    val buttonMode: Boolean get() = inputId == "BUTTON" || manualActivationOnly
     val canStartTrip: Boolean get() = !busy && !audioDevices.selectionMissing
     val canRequestTripCommand: Boolean get() = tripActive && commandReady && !restoringAudio && !switchingMode && callPhase == TripCallPhase.NONE
-    val busy: Boolean get() = tripActive || restoringAudio || measuring || listening || wakeEnabled || wakeTransition
-    val canListen: Boolean get() = !measuring && !wakeEnabled && !wakeTransition && !tripActive && !restoringAudio
-    val canToggleWake: Boolean get() = !tripActive && !restoringAudio && !measuring &&
+    val busy: Boolean get() = tripActive || restoringAudio || measuring || listening || wakeEnabled || wakeTransition || buttonProbeActive
+    val canListen: Boolean get() = !buttonProbeActive && !measuring && !wakeEnabled && !wakeTransition && !tripActive && !restoringAudio
+    val canToggleWake: Boolean get() = !buttonProbeActive && !tripActive && !restoringAudio && !measuring &&
         (wakeEnabled || (!listening && !wakeTransition))
 }
 
@@ -158,6 +162,8 @@ data class CopilotActions(
     val onPhraseChange: (String) -> Unit = {},
     val onSensitivityChange: (Float) -> Unit = {},
     val onInputChange: (String) -> Unit = {},
+    val onManualActivationOnlyChange: (Boolean) -> Unit = {},
+    val onToggleButtonProbe: () -> Unit = {},
     val onOverlayEnabledChange: (Boolean) -> Unit = {},
     val onOverlayPermission: () -> Unit = {},
     val onShowOverlay: () -> Unit = {},
@@ -165,3 +171,4 @@ data class CopilotActions(
     val onChooseContact: () -> Unit = {},
     val onClearContact: () -> Unit = {}
 )
+

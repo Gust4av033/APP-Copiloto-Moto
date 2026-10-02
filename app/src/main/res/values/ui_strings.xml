@@ -171,7 +171,7 @@
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Abrir por voz requiere APP visible y teléfono desbloqueado. También podés usar estos botones o el aviso; la solicitud vence a los 30 segundos.</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">UI burbuja 02 · borradores</string>
+    <string name="ui_revision">UI burbuja 02 · activación manual y prueba Y12</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>

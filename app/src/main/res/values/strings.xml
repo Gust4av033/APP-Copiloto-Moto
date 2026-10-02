@@ -18,4 +18,16 @@
     <string name="commands_chat_draft">“Escribe a [nombre] en WhatsApp”. Después del tono, dictá el mensaje. APP lo lee: uno abre el borrador, dos lo descarta.</string>
     <string name="chat_draft_pending_hint">Mensaje sin enviar. Abrir coloca este texto en WhatsApp; revisalo y tocá Enviar desde allí. Si está incorrecto, cancelá y dictalo de nuevo.</string>
     <string name="commands_incoming_calls">Contestar, rechazar y colgar llamadas entrantes por voz todavía no están disponibles.</string>
+    <string name="manual_activation_title">Solo escuchar al pedir una orden</string>
+    <string name="manual_activation_hint">Conserva el modo elegido y cierra el micrófono entre órdenes. Alexa queda inactiva; usá el botón de asistente del casco, la app o la burbuja. El toque corto requiere la prueba del Y12.</string>
+    <string name="manual_activation_summary">Activación manual: viaje activo y micrófono cerrado entre órdenes. La palabra de activación está suspendida.</string>
+    <string name="button_probe_title">Prueba del botón Y12</string>
+    <string name="button_probe_hint">Con la moto detenida, detené el viaje y conectá el casco. Esta prueba registra eventos durante 60 segundos sin abrir el micrófono.</string>
+    <string name="button_probe_controls">Emite un tono breve por la salida musical para solicitar los botones multimedia: pueden dejar de controlar Poweramp hasta terminar la prueba. No pausa la música ni solicita foco de audio. Se detiene al salir de APP o de esta pantalla.</string>
+    <string name="button_probe_steps">1. Toque corto en el botón pequeño del micrófono, tres veces separadas. 2. Pulsación larga del mismo botón (APP debe ser el asistente). 3. Un toque en M para comparar. Anotá si seguiste esa secuencia.</string>
+    <string name="button_probe_start">Iniciar prueba · 60 segundos</string>
+    <string name="button_probe_stop">Detener prueba</string>
+    <string name="button_probe_empty">Todavía no hay eventos registrados.</string>
+    <string name="button_probe_copy">Copiar registro del botón</string>
+    <string name="button_probe_scope">Sin evento observado no significa botón incompatible: Android puede enrutarlo a otra app o el casco puede usarlo internamente. El toque corto aún no está asignado para escuchar órdenes.</string>
 </resources>

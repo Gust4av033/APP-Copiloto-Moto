@@ -23,7 +23,8 @@ fun ActivationSummary(state: CopilotUiState) {
                 "PHONE_WAKE" -> R.string.mode_phone_title
                 else -> R.string.mode_voice_title
             }), style = MaterialTheme.typography.titleMedium)
-            SupportingText(if (state.buttonMode) stringResource(R.string.mode_button_detail)
+            SupportingText(if (state.manualActivationOnly) stringResource(R.string.manual_activation_summary)
+                else if (state.buttonMode) stringResource(R.string.mode_button_detail)
                 else if (state.inputId == "PHONE_WAKE") stringResource(R.string.trip_phone_wake_trial)
                 else stringResource(R.string.mode_voice_instruction, state.phraseLabel))
         }
@@ -49,3 +50,4 @@ fun AudioLevels(state: CopilotUiState) {
         else if (state.inputId == "BLUETOOTH") R.string.volume_voice_hint else R.string.volume_phone_hint))
     SupportingText(stringResource(R.string.volume_reading_scope))
 }
+

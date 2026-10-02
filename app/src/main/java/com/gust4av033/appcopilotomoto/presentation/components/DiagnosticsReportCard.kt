@@ -17,7 +17,7 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 @Composable
 fun DiagnosticsReportCard(state: CopilotUiState, actions: CopilotActions) {
     val devices = state.audioDevices
-    val roundKey = "${state.audioCaptureGeneration}:${state.inputId}:${devices.selectedId}:${devices.automaticHeadset}"
+    val roundKey = "${state.audioCaptureGeneration}:${state.inputId}:${state.manualActivationOnly}:${devices.selectedId}:${devices.automaticHeadset}"
     var savedRoundKey by rememberSaveable { mutableStateOf(roundKey) }
     var audible by rememberSaveable { mutableStateOf("PENDING") }
     var restored by rememberSaveable { mutableStateOf("PENDING") }
@@ -60,6 +60,7 @@ fun DiagnosticsReportCard(state: CopilotUiState, actions: CopilotActions) {
                 appendLine("$heading · $revision")
                 appendLine(reportConfig)
                 appendLine(modeLabel)
+                if (state.manualActivationOnly) appendLine("Activación manual: micrófono cerrado entre órdenes")
                 if (!state.buttonMode) appendLine("${state.phraseLabel} · ${state.sensitivity.toInt()} %")
                 appendLine("Casco: ${devices.selectedLabel.ifBlank { devices.automaticHeadset }}")
                 appendLine("Estado: ${state.tripStatus}")
@@ -91,3 +92,4 @@ fun DiagnosticsReportCard(state: CopilotUiState, actions: CopilotActions) {
         SupportingText(scope)
     }
 }
+
