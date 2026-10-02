@@ -3,7 +3,7 @@ package com.gust4av033.appcopilotomoto
 import java.text.Normalizer
 import java.util.Locale
 
-enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, MEDIA_SEARCH, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, OPEN_APP, OPEN_CONTACT_CHAT, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, UNKNOWN }
+enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, MEDIA_SEARCH, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, OPEN_APP, OPEN_CONTACT_CHAT, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, SWITCH_MODE, OPEN_ASSISTANT, UNKNOWN }
 
 data class VolumeRequest(val amount: Int, val percent: Boolean)
 data class RoutedCommand(
@@ -12,7 +12,8 @@ data class RoutedCommand(
     val contactName: String? = null,
     val appName: String? = null,
     val musicQuery: String? = null,
-    val chatApp: ChatApp? = null
+    val chatApp: ChatApp? = null,
+    val audioMode: WakeAudioMode? = null
 )
 
 /** Las órdenes claras pasan por reglas locales; una frase desconocida no ejecuta nada. */
@@ -91,19 +92,23 @@ object MinimalIntentRouter {
         val reserved = setOf("musica", "la musica", "pausa", "la pausa", "cancion", "la cancion", "pista", "la pista",
             "siguiente", "la siguiente", "siguiente cancion", "anterior", "la anterior", "anterior cancion",
             "cancelar", "silencio", "detener sesion")
-        if (normalized in reserved || normalized.startsWith("volumen") || normalized.startsWith("el volumen") ||
+        if (normalize(match.groupValues[1]).startsWith("modo ") || normalized in reserved || normalized.startsWith("volumen") || normalized.startsWith("el volumen") ||
             normalized.startsWith("la musica ") || Regex("\\by (?:llama|abre|sube|baja|cancela|deten)\\b").containsMatchIn(normalized)) return null
         return title.takeIf { it.length in 2..200 && it.any(Char::isLetterOrDigit) }
     }
 
     fun route(transcript: String): RoutedCommand {
         val normalized = commandText(transcript)
+        val mode = TripModeCommands.parse(normalized)
         val volume = requestedVolume(transcript)
         val contact = requestedContact(transcript)
         val app = requestedApp(transcript)
         val song = requestedSong(transcript)
         val chat = ContactChatParser.parse(normalized)
         val intent = when {
+            mode != null -> TestIntent.SWITCH_MODE
+            normalized in setOf("abre asistente", "abrir asistente", "abre el asistente", "abrir el asistente",
+                "abre copiloto", "abrir copiloto", "abre app copiloto") -> TestIntent.OPEN_ASSISTANT
             normalized in setOf("detener sesion", "terminar sesion", "finalizar sesion") -> TestIntent.STOP_SESSION
             normalized in setOf("callate", "silencio", "deja de hablar", "para de hablar") -> TestIntent.STOP_TTS
             normalized in setOf("cancelar", "cancela", "olvidalo",
@@ -127,9 +132,9 @@ object MinimalIntentRouter {
             if (intent == TestIntent.CALL_NAMED) contact else if (intent == TestIntent.OPEN_CONTACT_CHAT) chat?.contactName else null,
             if (intent == TestIntent.OPEN_APP) app else null,
             if (intent == TestIntent.MEDIA_SEARCH) song else null,
-            if (intent == TestIntent.OPEN_CONTACT_CHAT) chat?.app else null)
+            if (intent == TestIntent.OPEN_CONTACT_CHAT) chat?.app else null,
+            if (intent == TestIntent.SWITCH_MODE) mode else null)
     }
 
     fun resolve(transcript: String): TestIntent = route(transcript).intent
 }
-

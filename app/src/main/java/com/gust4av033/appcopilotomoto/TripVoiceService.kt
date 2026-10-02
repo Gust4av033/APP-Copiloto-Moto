@@ -2,6 +2,7 @@ package com.gust4av033.appcopilotomoto
 
 import android.Manifest
 import android.app.Notification
+import android.app.KeyguardManager
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -21,6 +22,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
+import android.provider.Settings
 import android.telecom.TelecomManager
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
@@ -43,6 +45,12 @@ object TripTestState {
     internal var openPendingAppFromVoice: ((String) -> Boolean)? = null
     internal var playMusicFromVoice: ((MusicSearchRequest) -> Result<Unit>)? = null
     var commandReady by mutableStateOf(false)
+    var audioMode by mutableStateOf(WakeAudioMode.BLUETOOTH)
+    var switchingMode by mutableStateOf(false)
+    var interactionPhase by mutableStateOf(TripInteractionPhase.PREPARING)
+    var appVisible = false
+    var overlayHidden by mutableStateOf(false)
+    var overlayMessage by mutableStateOf("")
     var callPhase by mutableStateOf(TripCallPhase.NONE)
     var status by mutableStateOf("Iniciá la sesión de prueba con la app abierta.")
     var lastCommandResult by mutableStateOf("Aún no hay órdenes en esta sesión.")
@@ -112,6 +120,8 @@ class TripVoiceService : Service() {
     companion object {
         const val ACTION_START = "com.gust4av033.appcopilotomoto.START_TRIP_TEST"
         const val ACTION_STOP = "com.gust4av033.appcopilotomoto.STOP_TRIP_TEST"
+        const val ACTION_CHANGE_MODE = "com.gust4av033.appcopilotomoto.CHANGE_TRIP_MODE"
+        const val ACTION_SHOW_OVERLAY = "com.gust4av033.appcopilotomoto.SHOW_TRIP_OVERLAY"
         const val ACTION_MANUAL_COMMAND = "com.gust4av033.appcopilotomoto.MANUAL_TRIP_COMMAND"
         const val ACTION_SILENCE = "com.gust4av033.appcopilotomoto.SILENCE_TRIP_SPEECH"
         const val ACTION_APP_OPENED = "com.gust4av033.appcopilotomoto.PENDING_APP_OPENED"
@@ -154,9 +164,22 @@ class TripVoiceService : Service() {
         set(value) {
             field = value
             TripTestState.commandReady = value
-            if (value) TripTestState.callPhase = TripCallPhase.NONE
+            if (value) {
+                TripTestState.callPhase = TripCallPhase.NONE
+                TripTestState.interactionPhase = TripInteractionPhase.WAITING
+                if (TripTestState.switchingMode) {
+                    TripTestState.switchingMode = false
+                    getSharedPreferences("ui_settings", MODE_PRIVATE).edit()
+                        .putString("trip_audio_mode", wakeAudioMode.name).apply()
+                    TripTestState.actions++
+                    TripTestState.lastLatencyMs = SystemClock.elapsedRealtime() - modeChangeStartedAt
+                    TripTestState.save(this)
+                    TripTestState.lastCommandResult = "Modo ${wakeAudioMode.modeNumber} activado; el viaje sigue activo."
+                }
+            } else if (!TripTestState.switchingMode) TripTestState.interactionPhase = TripInteractionPhase.PREPARING
         }
     private var wakeAudioMode = WakeAudioMode.BLUETOOTH
+    private var modeChangeStartedAt = 0L
     private data class PendingRoutedCommand(
         val command: RoutedCommand,
         val heard: String,
@@ -174,10 +197,42 @@ class TripVoiceService : Service() {
     private var providerFactory: (() -> WakeWordProvider)? = null
     private var phoneListener: PhoneStateListener? = null
     private var callWasActive = false
+    private val overlay by lazy {
+        TripOverlay(this,
+            onRequestCommand = { detector?.let { if (active && armed && !callPending) startManualCommand(it) } },
+            onOpenApp = {
+                if (!openAssistant()) android.widget.Toast.makeText(this, R.string.overlay_open_error, android.widget.Toast.LENGTH_SHORT).show()
+            },
+            onHide = { TripTestState.overlayHidden = true },
+            onFailure = { TripTestState.overlayMessage = getString(R.string.overlay_error) })
+    }
+    private val overlayTick = object : Runnable {
+        override fun run() {
+            if (!active) return
+            val visible = TripOverlayPreferences.enabled(this@TripVoiceService) &&
+                !TripTestState.overlayHidden && !TripTestState.appVisible &&
+                !getSystemService(KeyguardManager::class.java).isKeyguardLocked
+            overlay.render(visible, TripOverlaySnapshot(wakeAudioMode, TripTestState.interactionPhase,
+                TripTestState.callPhase, armed && !TripTestState.switchingMode && !callPending))
+            mainHandler.postDelayed(this, 400L)
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent?.action == ACTION_SHOW_OVERLAY) {
+            if (active) { TripTestState.overlayHidden = false; TripTestState.overlayMessage = "" }
+            else stopSelf(startId)
+            return START_NOT_STICKY
+        }
+        if (intent?.action == ACTION_CHANGE_MODE) {
+            val target = runCatching { WakeAudioMode.valueOf(intent.getStringExtra(EXTRA_AUDIO_MODE).orEmpty()) }.getOrNull()
+            val provider = detector
+            if (active && armed && !callPending && provider != null && target != null) switchMode(provider, target)
+            else if (!active) stopSelf(startId)
+            return START_NOT_STICKY
+        }
         if (intent?.action == ACTION_APP_OPENED) {
             val token = intent.getStringExtra(EXTRA_APP_TOKEN)
             val label = pendingApp?.label
@@ -247,6 +302,8 @@ class TripVoiceService : Service() {
         wakeAudioMode = runCatching {
             WakeAudioMode.valueOf(intent.getStringExtra(EXTRA_AUDIO_MODE) ?: WakeAudioMode.BLUETOOTH.name)
         }.getOrDefault(WakeAudioMode.BLUETOOTH)
+        TripTestState.audioMode = wakeAudioMode
+        TripTestState.switchingMode = false
         clearPendingApp()
         createChannel()
         try {
@@ -268,6 +325,10 @@ class TripVoiceService : Service() {
             stopSession("No se pudo observar el casco Bluetooth: ${hardwareMonitor.exceptionOrNull()?.message}.")
             return START_NOT_STICKY
         }
+        TripTestState.overlayHidden = false
+        TripTestState.overlayMessage = ""
+        mainHandler.removeCallbacks(overlayTick)
+        mainHandler.post(overlayTick)
         TripTestState.running = true
         TripTestState.markRunning(this, true)
         TripTestState.reset(this)
@@ -293,6 +354,77 @@ class TripVoiceService : Service() {
         startDetector(provider)
         return START_NOT_STICKY // No reiniciar el micrófono sin una nueva acción visible.
     }
+
+    /** El modo cambia dentro de la sesión; no reinicia métricas ni abre dos proveedores. */
+    private fun switchMode(provider: WakeWordProvider, target: WakeAudioMode) {
+        if (!active || callPending || closing || TripTestState.switchingMode || detector !== provider) return
+        TripTestState.lastRoutedCommand = RoutedCommand(TestIntent.SWITCH_MODE, audioMode = target)
+        if (target == wakeAudioMode) {
+            TripTestState.lastCommandResult = "El modo ${target.modeNumber} ya está seleccionado."
+            if (!armed) startDetector(provider)
+            return
+        }
+        val supported = runCatching {
+            checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED &&
+                Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
+                BluetoothAudioRouteSelector.communicationHeadset(audioManager) != null
+        }.getOrDefault(false)
+        if (!supported) {
+            TripTestState.lastCommandResult = "No se cambió el modo: revisá permisos y el casco seleccionado en Ajustes."
+            if (!armed) startDetector(provider)
+            return
+        }
+        modeChangeStartedAt = SystemClock.elapsedRealtime()
+        TripTestState.switchingMode = true
+        armed = false
+        TripTestState.interactionPhase = TripInteractionPhase.SWITCHING
+        val cycle = ++generation
+        pendingTask?.let(mainHandler::removeCallbacks)
+        pendingTask = null
+        clearPendingApp()
+        if (speechLazy.isInitialized()) resumeAfterButtonRoute = speech.cancel(resumePlayback = false) || resumeAfterButtonRoute
+        if (callPromptLazy.isInitialized()) callPrompt.cancel()
+        TripTestState.status = "Cambiando al modo ${target.modeNumber}; liberando audio…"
+        updateNotification(TripTestState.status)
+        // Se conserva hasta cerrar: Detener también debe poder limpiar el proveedor anterior.
+        worker.execute {
+            val released = runCatching { provider.close() }
+            mainHandler.post {
+                if (!active || generation != cycle || detector !== provider) return@post
+                if (released.isFailure) {
+                    stopSession("No se pudo liberar el modo anterior: ${released.exceptionOrNull()?.message}.")
+                } else {
+                    detector = null
+                    completeModeSwitch(target, cycle, 0)
+                }
+            }
+        }
+    }
+
+    private fun completeModeSwitch(target: WakeAudioMode, cycle: Int, attempt: Int) {
+        if (!active || generation != cycle || !TripTestState.switchingMode) return
+        if (!media.isMediaRouteReady()) {
+            if (attempt < 12) schedule(500L) { completeModeSwitch(target, cycle, attempt + 1) }
+            else stopSession("Android no liberó la ruta anterior; reiniciá el viaje cuando el audio vuelva a la normalidad.")
+            return
+        }
+        wakeAudioMode = target
+        TripTestState.audioMode = target
+        activationGate.reset()
+        runCatching { checkNotNull(providerFactory).invoke() }.fold(
+            onSuccess = { detector = it; startDetector(it) },
+            onFailure = { stopSession("No se pudo activar el modo ${target.modeNumber}: ${it.message}.") }
+        )
+    }
+
+    private fun openAssistant(): Boolean = runCatching {
+        check(!getSystemService(KeyguardManager::class.java).isKeyguardLocked)
+        check(TripTestState.appVisible || Settings.canDrawOverlays(this))
+        startActivity(Intent(this, MainActivity::class.java).setAction(MainActivity.ACTION_OPEN_ASSISTANT)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP))
+        true
+    }.getOrDefault(false)
 
     private fun startDetector(provider: WakeWordProvider) {
         if (wakeAudioMode != WakeAudioMode.BUTTON && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
@@ -550,6 +682,7 @@ class TripVoiceService : Service() {
         TripTestState.status = "$source: abriendo reconocedor; decí la orden cuando esté listo…"
         updateNotification("$source · abriendo reconocedor")
         val cycle = generation
+        TripTestState.interactionPhase = TripInteractionPhase.PREPARING
         speech.listenOnce(onState = { state ->
             if (active && cycle == generation && state == SpeechCaptureState.READY) {
                 val input = speech.activeInputDescription()
@@ -562,6 +695,7 @@ class TripVoiceService : Service() {
                     TripTestState.lastCommandResult = TripTestState.status
                     schedule(100L) { if (active && detector === provider && cycle == generation) startDetector(provider) }
                 } else {
+                    TripTestState.interactionPhase = TripInteractionPhase.LISTENING
                     TripTestState.lastWakeToSttMs = SystemClock.elapsedRealtime() - wakeAt
                     TripTestState.save(this)
                     TripTestState.status = "$source: reconocedor listo; entrada: $input. Decí música, volumen, ‘abre [aplicación]’ o ‘llama a [nombre]’."
@@ -572,13 +706,14 @@ class TripVoiceService : Service() {
             when (heard?.let(MinimalIntentRouter::resolve)) {
                 TestIntent.MEDIA_PAUSE -> PlaybackResumePolicy.KEEP_PAUSED
                 TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.OPEN_APP, TestIntent.OPEN_CONTACT_CHAT, TestIntent.MEDIA_SEARCH -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
-                TestIntent.STOP_SESSION -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
+                TestIntent.STOP_SESSION, TestIntent.SWITCH_MODE -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 else -> if (wakeAudioMode == WakeAudioMode.BUTTON) {
                     PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 } else PlaybackResumePolicy.NOW
             }
         }) { outcome ->
             if (!active || cycle != generation) return@listenOnce
+            TripTestState.interactionPhase = TripInteractionPhase.PROCESSING
             val heard = outcome.getOrNull()
             val command = heard?.let(MinimalIntentRouter::route) ?: RoutedCommand(TestIntent.UNKNOWN)
             TripTestState.lastRoutedCommand = if (heard != null) command else null
@@ -587,6 +722,22 @@ class TripVoiceService : Service() {
             // Una orden nueva reemplaza cualquier apertura que aún estaba pendiente.
             if (intent != TestIntent.OPEN_APP && intent != TestIntent.OPEN_CONTACT_CHAT) {
                 clearPendingApp()
+            }
+            if (intent == TestIntent.SWITCH_MODE && command.audioMode != null) {
+                TripTestState.recognized++
+                TripTestState.save(this)
+                switchMode(provider, command.audioMode)
+                return@listenOnce
+            }
+            if (intent == TestIntent.OPEN_ASSISTANT) {
+                TripTestState.recognized++
+                val opened = openAssistant()
+                if (opened) TripTestState.actions++ else TripTestState.failures++
+                TripTestState.lastCommandResult = if (opened) "APP abierta; el viaje sigue activo."
+                    else "No se pudo abrir APP. Desbloqueá el teléfono y usá la burbuja o la notificación."
+                TripTestState.save(this)
+                schedule(100L) { if (active && detector === provider && cycle == generation) startDetector(provider) }
+                return@listenOnce
             }
             if (intent == TestIntent.VOLUME_UP || intent == TestIntent.VOLUME_DOWN ||
                 intent == TestIntent.VOLUME_SET) {
@@ -729,6 +880,7 @@ class TripVoiceService : Service() {
     private fun requestAppChoice(provider: WakeWordProvider, cycle: Int, request: PendingAppLaunch.Request<AppTarget>) {
         val token = request.token
         appChoiceToken = token
+        TripTestState.interactionPhase = TripInteractionPhase.SPEAKING
         TripTestState.status = "Anunciando ${request.target.label}: uno para abrir o dos para cancelar…"
         runCatching {
             callPrompt.announceApp(request.target.spokenLabel) { announced ->
@@ -753,6 +905,7 @@ class TripVoiceService : Service() {
                                 !input.contains("Bluetooth")) {
                                 finishAppChoice(provider, cycle, token, "Android abrió el micrófono del teléfono; no se confirmó la apertura.")
                             } else {
+                                TripTestState.interactionPhase = TripInteractionPhase.CONFIRMING
                                 TripTestState.status = "Confirmación lista: uno para abrir ${request.target.label}; dos para cancelar."
                                 playHandoffTone()
                             }
@@ -824,6 +977,7 @@ class TripVoiceService : Service() {
 
     private fun requestCallConfirmation(provider: WakeWordProvider, cycle: Int, contact: TripCallContact) {
         if (!active || detector !== provider || generation != cycle) return
+        TripTestState.interactionPhase = TripInteractionPhase.SPEAKING
         TripTestState.status = "Anunciando destinatario: ${contact.display}…"
         updateNotification("Anunciando a ${contact.name}")
         runCatching { callPrompt.announce(contact.name) { announced ->
@@ -850,6 +1004,7 @@ class TripVoiceService : Service() {
                 }
                 speech.listenOnce(onState = { state ->
                     if (active && generation == cycle && state == SpeechCaptureState.READY) {
+                        TripTestState.interactionPhase = TripInteractionPhase.CONFIRMING
                         TripTestState.status = "Confirmación lista: decí ‘confirmar llamada’ o ‘cancelar’."
                     }
                 }, playbackResumePolicy = { _ ->
@@ -1033,6 +1188,9 @@ class TripVoiceService : Service() {
     private fun stopSession(reason: String) {
         if (closing) return
         active = false
+        mainHandler.removeCallbacks(overlayTick)
+        overlay.close()
+        TripTestState.switchingMode = false
         stopPhoneMonitoring()
         stopMonitoringHardware()
         closing = true
@@ -1193,7 +1351,11 @@ class TripVoiceService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notice = Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(android.R.drawable.ic_btn_speak_now)
-            .setContentTitle(if (wakeAudioMode == WakeAudioMode.BUTTON) "APP · viaje por botón" else "APP · prueba de voz activa")
+            .setContentTitle(when (wakeAudioMode) {
+                WakeAudioMode.BUTTON -> "APP · modo 2, botón"
+                WakeAudioMode.PHONE_WAKE -> "APP · modo 3, experimental"
+                WakeAudioMode.BLUETOOTH -> "APP · modo 1, voz"
+            })
             .setContentText(detail)
             .setContentIntent(open)
             .setOngoing(true)
@@ -1224,6 +1386,8 @@ class TripVoiceService : Service() {
     }
 
     override fun onDestroy() {
+        mainHandler.removeCallbacks(overlayTick)
+        overlay.close()
         clearPendingApp()
         stopMonitoringHardware()
         if (active) stopSession("Sesión interrumpida por Android; iniciá una nueva prueba.")
@@ -1231,4 +1395,3 @@ class TripVoiceService : Service() {
         super.onDestroy()
     }
 }
-

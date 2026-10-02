@@ -72,6 +72,11 @@ data class CopilotUiState(
     val keepScreenOnDuringTrip: Boolean = true,
     val restoringAudio: Boolean = false,
     val commandReady: Boolean = false,
+    val switchingMode: Boolean = false,
+    val overlayEnabled: Boolean = false,
+    val overlayPermissionGranted: Boolean = false,
+    val overlayHidden: Boolean = false,
+    val overlayMessage: String = "",
     val callPhase: TripCallPhase = TripCallPhase.NONE,
     val measuring: Boolean = false,
     val listening: Boolean = false,
@@ -123,7 +128,7 @@ data class CopilotUiState(
 ) {
     val buttonMode: Boolean get() = inputId == "BUTTON"
     val canStartTrip: Boolean get() = !busy && !audioDevices.selectionMissing
-    val canRequestTripCommand: Boolean get() = tripActive && commandReady && !restoringAudio
+    val canRequestTripCommand: Boolean get() = tripActive && commandReady && !restoringAudio && !switchingMode && callPhase == TripCallPhase.NONE
     val busy: Boolean get() = tripActive || restoringAudio || measuring || listening || wakeEnabled || wakeTransition
     val canListen: Boolean get() = !measuring && !wakeEnabled && !wakeTransition && !tripActive && !restoringAudio
     val canToggleWake: Boolean get() = !tripActive && !restoringAudio && !measuring &&
@@ -152,8 +157,10 @@ data class CopilotActions(
     val onPhraseChange: (String) -> Unit = {},
     val onSensitivityChange: (Float) -> Unit = {},
     val onInputChange: (String) -> Unit = {},
+    val onOverlayEnabledChange: (Boolean) -> Unit = {},
+    val onOverlayPermission: () -> Unit = {},
+    val onShowOverlay: () -> Unit = {},
     val onEnableNamedCalls: () -> Unit = {},
     val onChooseContact: () -> Unit = {},
     val onClearContact: () -> Unit = {}
 )
-

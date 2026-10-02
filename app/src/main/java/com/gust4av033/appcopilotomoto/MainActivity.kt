@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioManager
@@ -43,7 +44,10 @@ import com.gust4av033.appcopilotomoto.presentation.toCommandUi
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
-    companion object { const val ACTION_OPEN_PENDING_APP = "com.gust4av033.appcopilotomoto.OPEN_PENDING_APP" }
+    companion object {
+        const val ACTION_OPEN_PENDING_APP = "com.gust4av033.appcopilotomoto.OPEN_PENDING_APP"
+        const val ACTION_OPEN_ASSISTANT = "com.gust4av033.appcopilotomoto.OPEN_ASSISTANT"
+    }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     private val speech by lazy { AndroidSpeechToTextProvider(applicationContext) }
@@ -55,6 +59,7 @@ class MainActivity : ComponentActivity() {
     private val refreshDevicesTask = object : Runnable {
         override fun run() {
             refreshAudioDevices()
+            syncTripPresentation()
             mainHandler.postDelayed(this, 1_000L)
         }
     }
@@ -88,6 +93,9 @@ class MainActivity : ComponentActivity() {
     private var lastTestCommand by mutableStateOf<CommandUi?>(null)
     private var assistantMessage by mutableStateOf("Opcional: probá el botón del Y12 como acceso a una orden corta.")
     private var audioDiagnostic by mutableStateOf("Actualizá los niveles con la moto detenida y la sesión activa.")
+    private var overlayEnabled by mutableStateOf(false)
+    private var overlayPermission by mutableStateOf(false)
+    private var overlayMessage by mutableStateOf("")
     private var selectedScreen by mutableStateOf(CopilotScreen.HOME)
     private var result by mutableStateOf<AudioProbeResult?>(null)
     private var pendingAction: (() -> Unit)? = null
@@ -246,7 +254,12 @@ class MainActivity : ComponentActivity() {
             phraseId = wakePhrase.name,
             phraseLabel = wakePhrase.label,
             sensitivity = wakeSensitivity,
-            inputId = tripAudioMode.name,
+            inputId = if (TripTestState.running) TripTestState.audioMode.name else tripAudioMode.name,
+            switchingMode = TripTestState.switchingMode,
+            overlayEnabled = overlayEnabled,
+            overlayPermissionGranted = overlayPermission,
+            overlayHidden = TripTestState.overlayHidden,
+            overlayMessage = overlayMessage.ifBlank { TripTestState.overlayMessage },
             audioCaptureGeneration = TripTestState.audioCaptureGeneration,
             audioDevices = audioDevices,
             assistantSelected = isSelectedAssistant(),
@@ -330,10 +343,18 @@ class MainActivity : ComponentActivity() {
                 onToggleWake = { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) },
                 onPhraseChange = { wakePhrase = WakePhrase.valueOf(it) },
                 onSensitivityChange = { wakeSensitivity = it },
-                onInputChange = {
-                    tripAudioMode = WakeAudioMode.valueOf(it)
-                    getSharedPreferences("ui_settings", MODE_PRIVATE).edit()
-                        .putString("trip_audio_mode", tripAudioMode.name).apply()
+                onInputChange = ::selectTripMode,
+                onOverlayEnabledChange = { enabled ->
+                    TripOverlayPreferences.setEnabled(this@MainActivity, enabled)
+                    overlayEnabled = enabled
+                    overlayMessage = ""
+                    if (enabled && !Settings.canDrawOverlays(this@MainActivity)) requestOverlayPermission()
+                },
+                onOverlayPermission = ::requestOverlayPermission,
+                onShowOverlay = {
+                    if (TripTestState.running) runCatching {
+                        startService(Intent(this@MainActivity, TripVoiceService::class.java).setAction(TripVoiceService.ACTION_SHOW_OVERLAY))
+                    }.onFailure { overlayMessage = getString(R.string.overlay_error) }
                 },
                 onEnableNamedCalls = ::requestNamedCallPermissions,
                 onChooseContact = ::chooseTripCallContact,
@@ -458,6 +479,8 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        TripTestState.appVisible = true
+        syncTripPresentation()
         TripTestState.openPendingAppFromVoice = voiceAppOpener
         TripTestState.playMusicFromVoice = voiceMusicSearcher
         chatContactsGranted = checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
@@ -465,6 +488,38 @@ class MainActivity : ComponentActivity() {
         refreshAppCatalog()
         mainHandler.removeCallbacks(refreshDevicesTask)
         mainHandler.post(refreshDevicesTask)
+    }
+
+    private fun syncTripPresentation() {
+        overlayEnabled = TripOverlayPreferences.enabled(this)
+        overlayPermission = Settings.canDrawOverlays(this)
+        tripAudioMode = if (TripTestState.running) TripTestState.audioMode else runCatching {
+            WakeAudioMode.valueOf(getSharedPreferences("ui_settings", MODE_PRIVATE)
+                .getString("trip_audio_mode", tripAudioMode.name).orEmpty())
+        }.getOrDefault(tripAudioMode)
+    }
+
+    private fun requestOverlayPermission() {
+        if (Settings.canDrawOverlays(this)) { syncTripPresentation(); return }
+        runCatching {
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
+        }.recoverCatching {
+            startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION))
+        }.onFailure { overlayMessage = getString(R.string.overlay_permission_error) }
+    }
+
+    private fun selectTripMode(id: String) {
+        val mode = runCatching { WakeAudioMode.valueOf(id) }.getOrNull() ?: return
+        if (TripTestState.running) {
+            if (!TripTestState.commandReady || TripTestState.switchingMode || TripTestState.restoringAudio) return
+            runCatching {
+                startService(Intent(this, TripVoiceService::class.java).setAction(TripVoiceService.ACTION_CHANGE_MODE)
+                    .putExtra(TripVoiceService.EXTRA_AUDIO_MODE, mode.name))
+            }.onFailure { TripTestState.lastCommandResult = "No se pudo cambiar de modo: ${it.message}." }
+        } else if (!audioBusy()) {
+            tripAudioMode = mode
+            getSharedPreferences("ui_settings", MODE_PRIVATE).edit().putString("trip_audio_mode", mode.name).apply()
+        }
     }
 
     private fun refreshAppCatalog() {
@@ -503,6 +558,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        TripTestState.appVisible = false
         releaseVoiceAppOpener()
         mainHandler.removeCallbacks(refreshDevicesTask)
         super.onPause()
@@ -511,7 +567,7 @@ class MainActivity : ComponentActivity() {
     override fun onSaveInstanceState(outState: Bundle) {
         outState.putString("ui_screen", selectedScreen.name)
         outState.putString("ui_phrase", wakePhrase.name)
-        outState.putString("ui_input", tripAudioMode.name)
+        outState.putString("ui_input", if (TripTestState.running) TripTestState.audioMode.name else tripAudioMode.name)
         outState.putFloat("ui_sensitivity", wakeSensitivity)
         super.onSaveInstanceState(outState)
     }
@@ -549,6 +605,11 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handleAssistantInvocation(incoming: Intent?) {
+        if (incoming?.action == ACTION_OPEN_ASSISTANT) {
+            setIntent(Intent(this, MainActivity::class.java))
+            selectedScreen = CopilotScreen.TRIP
+            return
+        }
         if (incoming?.action == ACTION_OPEN_PENDING_APP) {
             setIntent(Intent(this, MainActivity::class.java))
             selectedScreen = CopilotScreen.TRIP
@@ -766,6 +827,8 @@ class MainActivity : ComponentActivity() {
                                     onFailure = { "No se envió la búsqueda: ${it.message}." }
                                 )
                             }
+                            TestIntent.SWITCH_MODE -> "Se reconoció modo ${command.audioMode?.modeNumber}; el cambio por voz se ejecuta durante una sesión de viaje."
+                            TestIntent.OPEN_ASSISTANT -> { selectedScreen = CopilotScreen.TRIP; "APP abierta." }
                             TestIntent.STOP_TTS -> "Escuché: ‘$heard’. Orden Silencio reconocida; aún no hay voz sintetizada para interrumpir."
                             TestIntent.CANCEL -> "Escuché: ‘$heard’. Orden Cancelar reconocida; no se ejecutó ninguna acción."
                             TestIntent.OPEN_APP -> actions.prepareApp(command).fold(
@@ -962,4 +1025,3 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 }
-

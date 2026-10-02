@@ -125,3 +125,7 @@ El usuario confirmó en su teléfono que la búsqueda reproduce canciones, que s
 La base de integraciones distingue acciones soportadas y disponibles por proveedor. Un siguiente incremento de mensajería sería dictar un borrador, leerlo y permitir corregir/cancelar; el envío requiere una vía compatible y una confirmación explícita. Navegación y las demás fases conservan su alcance en la documentación del proyecto.
 
 Validación local de chats: `:app:clean :app:testDebugUnitTest :app:assembleDebug :app:lintDebug` completos. 45 pruebas, cero fallos y errores; APK compilado; lint sin errores, con 47 advertencias y 9 sugerencias. Queda pendiente la prueba de apertura del contacto en el teléfono.
+
+## UI: burbuja y cambio de modo
+
+La sesión admite cambiar entre 1 (voz desde casco), 2 (botón) y 3 (experimental con teléfono para activación) mediante una orden capturada o Ajustes cuando está listo. La burbuja opcional agrega acceso sobre Waze/otras apps, sin cambiar la activación ni abrir otra captura. Permisos, límites y protocolo: `BURBUJA_Y_MODOS.md`. Los flujos de canciones, llamadas, aplicaciones y chats existentes se mantienen en la misma rama.

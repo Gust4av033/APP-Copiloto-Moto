@@ -97,6 +97,7 @@ fun TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommands: (
             else stringResource(R.string.commands_voice_intro, state.phraseLabel))
         Text(stringResource(R.string.commands_music))
         Text(stringResource(R.string.commands_volume))
+        Text(stringResource(R.string.commands_modes))
         Text(stringResource(R.string.commands_apps))
         Text(stringResource(R.string.commands_call))
         Text(stringResource(R.string.commands_cancel))
@@ -206,7 +207,7 @@ fun TestsScreen(state: CopilotUiState, actions: CopilotActions) {
 
 @Composable
 fun SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommands: () -> Unit, onOpenTests: () -> Unit) {
-    if (state.busy) SupportingText(stringResource(R.string.settings_busy))
+    if (state.busy) SupportingText(stringResource(if (state.tripActive) R.string.settings_trip_active else R.string.settings_busy))
     SectionCard(stringResource(R.string.settings_screen_on)) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(stringResource(R.string.settings_screen_on_toggle), modifier = Modifier.weight(1f))
@@ -214,8 +215,25 @@ fun SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommand
         }
         SupportingText(stringResource(R.string.settings_screen_on_hint))
     }
+    SectionCard(stringResource(R.string.overlay_settings_title)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(stringResource(R.string.overlay_settings_toggle), modifier = Modifier.weight(1f))
+            Switch(checked = state.overlayEnabled, onCheckedChange = actions.onOverlayEnabledChange)
+        }
+        SupportingText(stringResource(R.string.overlay_settings_hint))
+        if (state.overlayEnabled && !state.overlayPermissionGranted) {
+            SupportingText(stringResource(R.string.overlay_permission_hint))
+            ActionButton(stringResource(R.string.overlay_permission_button), onClick = actions.onOverlayPermission)
+        } else if (state.overlayEnabled && state.tripActive && state.overlayHidden) {
+            SupportingText(stringResource(R.string.overlay_hidden_hint))
+            ActionButton(stringResource(R.string.overlay_show), onClick = actions.onShowOverlay)
+        }
+        if (state.overlayMessage.isNotBlank()) SupportingText(state.overlayMessage)
+    }
     SectionCard(stringResource(R.string.settings_input)) {
-        ChoiceGroup(state.inputs, state.inputId, !state.busy, actions.onInputChange)
+        ChoiceGroup(state.inputs, state.inputId, if (state.tripActive) state.canRequestTripCommand else !state.busy, actions.onInputChange)
+        SupportingText(stringResource(R.string.mode_switch_hint))
+        if (state.switchingMode) SupportingText(stringResource(R.string.overlay_switching))
         if (state.buttonMode) SupportingText(stringResource(R.string.trip_button_hint))
     }
     if (state.inputId != "BUTTON") SectionCard(stringResource(R.string.settings_phrase)) {
@@ -266,4 +284,3 @@ private fun AudioComparison(state: CopilotUiState) {
     SupportingText(stringResource(R.string.audio_during, state.audioDuring))
     SupportingText(stringResource(R.string.audio_after, state.audioAfter))
 }
-

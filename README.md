@@ -4,6 +4,8 @@ Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta 
 
 En Ajustes y Pruebas, **Dispositivos de audio** permite elegir el casco de comunicación o mantener Automático. Muestra salida musical prevista, ruta de voz, niveles y la última entrada medida por separado. La salida de música de otras apps se elige en Android. Los cambios y nuevas capturas quedan bloqueados durante el viaje y la restauración del audio. Ver el protocolo de comparación en `docs/PRUEBA_AUDIO_PERFILES_Y12_SKULLCANDY.md`.
 
+La burbuja del copiloto es opcional y se habilita en Ajustes para el viaje sobre otras apps. Los modos 1 (voz), 2 (botón) y 3 (experimental) pueden cambiarse por una orden capturada. Ver `docs/BURBUJA_Y_MODOS.md` para configuración y pruebas.
+
 ## Abrir en Android Studio
 
 1. Clonar el repositorio con **File > New > Project from Version Control** e introducir su URL HTTPS de GitHub. También se puede usar `git clone <URL>`.

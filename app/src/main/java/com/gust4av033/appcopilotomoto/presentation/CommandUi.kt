@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.RoutedCommand
 import com.gust4av033.appcopilotomoto.TestIntent
+import com.gust4av033.appcopilotomoto.modeNumber
 
 @Immutable
 data class CommandUi(val titleRes: Int, val detailRes: Int? = null, val detailValue: String = "")
@@ -29,6 +30,7 @@ fun RoutedCommand.toCommandUi(): CommandUi = when (intent) {
     TestIntent.CANCEL -> CommandUi(R.string.command_cancel)
     TestIntent.STOP_TTS -> CommandUi(R.string.command_silence)
     TestIntent.STOP_SESSION -> CommandUi(R.string.command_stop_session)
+    TestIntent.SWITCH_MODE -> CommandUi(R.string.command_switch_mode, R.string.command_mode_number, audioMode?.modeNumber?.toString().orEmpty())
+    TestIntent.OPEN_ASSISTANT -> CommandUi(R.string.command_open_assistant)
     TestIntent.UNKNOWN -> CommandUi(R.string.command_unknown)
 }
-

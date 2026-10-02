@@ -31,6 +31,8 @@ fun CommandsScreen(state: CopilotUiState, actions: CopilotActions) {
             else stringResource(R.string.commands_voice_intro, state.phraseLabel))
         Text(stringResource(R.string.commands_music))
         Text(stringResource(R.string.commands_volume))
+        Text(stringResource(R.string.commands_modes))
+        SupportingText(stringResource(R.string.mode_switch_hint))
         Text(stringResource(R.string.commands_call))
         SupportingText(stringResource(R.string.commands_call_recovery))
         Text(stringResource(R.string.commands_cancel))
@@ -60,4 +62,3 @@ fun CommandsScreen(state: CopilotUiState, actions: CopilotActions) {
         }
     }
 }
-

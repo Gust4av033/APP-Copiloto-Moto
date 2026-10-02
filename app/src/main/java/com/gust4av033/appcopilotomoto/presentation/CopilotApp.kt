@@ -306,3 +306,18 @@ private fun CallRecoveryPreview() {
     CopilotApp(PreviewState.copy(tripActive = true, inputId = "BUTTON", callPhase = TripCallPhase.RECOVERING,
         tripStatus = "Llamada terminada; recuperando modo viaje…"), CopilotScreen.HOME, {}, CopilotActions())
 }
+
+@Preview(name = "Burbuja: permiso pendiente", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Preview(name = "Burbuja: texto grande", showBackground = true, widthDp = 360, heightDp = 800, locale = "es", fontScale = 1.5f)
+@Composable
+private fun OverlaySettingsPreview() {
+    CopilotApp(PreviewState.copy(overlayEnabled = true), CopilotScreen.SETTINGS, {}, CopilotActions())
+}
+
+@Preview(name = "Cambio de modo: controles bloqueados", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
+@Composable
+private fun SwitchingModePreview() {
+    CopilotApp(PreviewState.copy(tripActive = true, switchingMode = true, inputId = "BUTTON",
+        overlayEnabled = true, overlayPermissionGranted = true,
+        tripStatus = "Cambiando al modo 1; liberando audio…"), CopilotScreen.SETTINGS, {}, CopilotActions())
+}
