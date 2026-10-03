@@ -43,3 +43,10 @@ La arquitectura prevista conserva límites entre `presentation`, `application`, 
 ### Sincronizar cambios de GitHub
 
 En Android Studio: **Git > Pull** sobre `feature/fase-1-intent-router` o `git pull --ff-only origin feature/fase-1-intent-router` desde la terminal del proyecto. Para subir cambios propios: **Commit** y luego **Push** (o `git add . && git commit -m "..." && git push`).
+
+
+## Estabilización del núcleo y botón configurable
+
+Documento 04 aplicado: captura opcional de un control multimedia durante el viaje, métricas por etapa y extracción gradual del servicio. La recepción del botón con Poweramp/Waze/pantalla bloqueada requiere regresión física.
+
+[Diseño y alcance](docs/ESTABILIZACION_1_0.md) · [Pruebas S22+/Y12](docs/PRUEBA_ESTABILIZACION_1_0.md)

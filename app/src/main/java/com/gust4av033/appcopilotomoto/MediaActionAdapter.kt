@@ -17,7 +17,7 @@ data class VolumeAdjustment(
     val stream: Int
 )
 
-class MediaActionAdapter(context: Context) {
+class MediaActionAdapter(private val context: Context) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
 
     /** Confirma envío del evento, no que otra app haya cambiado de pista. */
@@ -200,11 +200,14 @@ class MediaActionAdapter(context: Context) {
     fun resumePlayback() = dispatch(KeyEvent.KEYCODE_MEDIA_PLAY)
 
     private fun dispatch(keyCode: Int) {
+        if (TripButtonRuntime.intercepting) {
+            TripMediaAccess.dispatchPair(context, keyCode)
+            return
+        }
         val downTime = SystemClock.uptimeMillis()
         for (action in listOf(KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP)) {
-            audioManager.dispatchMediaKeyEvent(
-                KeyEvent(downTime, SystemClock.uptimeMillis(), action, keyCode, 0)
-            )
+            val event = KeyEvent(downTime, SystemClock.uptimeMillis(), action, keyCode, 0)
+            audioManager.dispatchMediaKeyEvent(event)
         }
     }
 }

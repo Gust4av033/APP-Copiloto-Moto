@@ -33,3 +33,10 @@ MediaSession sólo recibe los eventos que Android le enruta; no observar un even
 - Detener la prueba del botón o dejar APP: controles de Poweramp vuelven a su enrutamiento habitual; no se ha abierto ningún micrófono.
 
 La compilación, pruebas unitarias y lint no sustituyen esta prueba física de Bluetooth/Android.
+
+
+## Estabilización del núcleo y botón configurable
+
+Documento 04 aplicado: captura opcional de un control multimedia durante el viaje, métricas por etapa y extracción gradual del servicio. La recepción del botón con Poweramp/Waze/pantalla bloqueada requiere regresión física.
+
+[Diseño y alcance](ESTABILIZACION_1_0.md) · [Pruebas S22+/Y12](PRUEBA_ESTABILIZACION_1_0.md)

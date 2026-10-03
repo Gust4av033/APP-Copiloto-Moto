@@ -249,6 +249,7 @@ fun SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommand
         if (state.switchingMode) SupportingText(stringResource(R.string.overlay_switching))
         if (state.buttonMode) SupportingText(stringResource(R.string.trip_button_hint))
     }
+    com.gust4av033.appcopilotomoto.presentation.components.TripButtonSettingsCard(state, actions)
     if (!state.buttonMode) SectionCard(stringResource(R.string.settings_phrase)) {
         ChoiceGroup(state.phrases, state.phraseId, !state.busy, actions.onPhraseChange)
         SupportingText(stringResource(R.string.settings_phrase_hint))
@@ -297,4 +298,5 @@ private fun AudioComparison(state: CopilotUiState) {
     SupportingText(stringResource(R.string.audio_during, state.audioDuring))
     SupportingText(stringResource(R.string.audio_after, state.audioAfter))
 }
+
 

@@ -143,3 +143,10 @@ Contestar, rechazar o colgar llamadas entrantes por voz aún no está implementa
 Protocolo completo y lista de viaje: `PRUEBA_VIAJE_BORRADORES.md`.
 
 Validación local: clean, assembleDebug, testDebugUnitTest y lintDebug completos. 59 pruebas, cero fallos/errores; APK generado y lint sin errores (53 advertencias, 9 sugerencias). Cierre visual, enlace de borrador, dictado Bluetooth y recuperación musical requieren prueba física en el S22+.
+
+
+## Estabilización del núcleo y botón configurable
+
+Documento 04 aplicado: captura opcional de un control multimedia durante el viaje, métricas por etapa y extracción gradual del servicio. La recepción del botón con Poweramp/Waze/pantalla bloqueada requiere regresión física.
+
+[Diseño y alcance](ESTABILIZACION_1_0.md) · [Pruebas S22+/Y12](PRUEBA_ESTABILIZACION_1_0.md)

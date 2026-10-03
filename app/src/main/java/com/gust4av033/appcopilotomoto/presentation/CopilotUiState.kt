@@ -95,6 +95,9 @@ data class CopilotUiState(
     val sensitivity: Float = 80f,
     val inputId: String = "BLUETOOTH",
     val manualActivationOnly: Boolean = false,
+    val tripButtonBinding: String = "NONE",
+    val mediaAccessGranted: Boolean = false,
+    val pipelineMetrics: com.gust4av033.appcopilotomoto.TripPipelineMetrics = com.gust4av033.appcopilotomoto.TripPipelineMetrics(),
     val buttonProbeActive: Boolean = false,
     val buttonProbeLog: List<String> = emptyList(),
     val buttonProbeMessage: String = "",
@@ -163,6 +166,9 @@ data class CopilotActions(
     val onSensitivityChange: (Float) -> Unit = {},
     val onInputChange: (String) -> Unit = {},
     val onManualActivationOnlyChange: (Boolean) -> Unit = {},
+    val onTripButtonBindingChange: (String) -> Unit = {},
+    val onMediaAccessSettings: () -> Unit = {},
+    val onTestObservation: (com.gust4av033.appcopilotomoto.PipelineEvent) -> Unit = {},
     val onToggleButtonProbe: () -> Unit = {},
     val onOverlayEnabledChange: (Boolean) -> Unit = {},
     val onOverlayPermission: () -> Unit = {},
@@ -171,4 +177,5 @@ data class CopilotActions(
     val onChooseContact: () -> Unit = {},
     val onClearContact: () -> Unit = {}
 )
+
 

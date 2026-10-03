@@ -81,6 +81,8 @@ fun DiagnosticsReportCard(state: CopilotUiState, actions: CopilotActions) {
                 }
                 appendLine("Última orden: ${state.lastCommandResult}")
                 state.pendingAppName?.let { appendLine("Aplicación pendiente: $it") }
+                appendLine("Botón dedicado: ${state.tripButtonBinding}; acceso multimedia=${state.mediaAccessGranted}")
+                appendLine(state.pipelineMetrics.report())
                 appendLine(reportMetrics)
                 appendLine("Voz: ${state.metrics.detections}; manuales: ${state.metrics.manualCommands}; transcripciones: ${state.metrics.recognized}")
                 appendLine("Solicitudes: ${state.metrics.actions}; fallos: ${state.metrics.failures}; latencia: ${state.metrics.totalLatencyMs} ms")
@@ -89,7 +91,24 @@ fun DiagnosticsReportCard(state: CopilotUiState, actions: CopilotActions) {
                 appendLine(scope)
             })
         })
+        SupportingText(stringResource(R.string.pipeline_observation_hint))
+        ActionButton(stringResource(R.string.pipeline_attempt), onClick = {
+            actions.onTestObservation(com.gust4av033.appcopilotomoto.PipelineEvent.ACTIVATION_ATTEMPT_ANNOTATED)
+        })
+        ActionButton(stringResource(R.string.pipeline_false_positive), onClick = {
+            actions.onTestObservation(com.gust4av033.appcopilotomoto.PipelineEvent.FALSE_POSITIVE_ANNOTATED)
+        })
+        ActionButton(stringResource(R.string.pipeline_external_effect), onClick = {
+            actions.onTestObservation(com.gust4av033.appcopilotomoto.PipelineEvent.EXTERNAL_EFFECT_ANNOTATED)
+        })
+        ActionButton(stringResource(R.string.pipeline_audible_restore), onClick = {
+            actions.onTestObservation(com.gust4av033.appcopilotomoto.PipelineEvent.AUDIO_RESTORED_AUDIBLE_ANNOTATED)
+        })
+        SupportingText("STT: ${state.pipelineMetrics.count(com.gust4av033.appcopilotomoto.PipelineEvent.STT_SUCCESS)} correctos / " +
+            "${state.pipelineMetrics.count(com.gust4av033.appcopilotomoto.PipelineEvent.STT_FAILURE)} fallidos. " +
+            "Despachos: ${state.pipelineMetrics.count(com.gust4av033.appcopilotomoto.PipelineEvent.ACTION_DISPATCHED)}")
         SupportingText(scope)
     }
 }
+
 

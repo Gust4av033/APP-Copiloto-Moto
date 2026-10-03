@@ -98,6 +98,8 @@ class MainActivity : ComponentActivity() {
     private var overlayEnabled by mutableStateOf(false)
     private var overlayPermission by mutableStateOf(false)
     private var overlayMessage by mutableStateOf("")
+    private var tripButtonBinding by mutableStateOf(TripButtonBinding.NONE)
+    private var mediaAccessGranted by mutableStateOf(false)
     private var manualActivationOnly by mutableStateOf(false)
     private var buttonProbeActive by mutableStateOf(false)
     private var buttonProbeLog by mutableStateOf<List<String>>(emptyList())
@@ -271,6 +273,9 @@ class MainActivity : ComponentActivity() {
             inputId = if (TripTestState.running) TripTestState.audioMode.name else tripAudioMode.name,
             switchingMode = TripTestState.switchingMode,
             manualActivationOnly = if (TripTestState.running) TripTestState.manualActivationOnly else manualActivationOnly,
+            tripButtonBinding = tripButtonBinding.name,
+            mediaAccessGranted = mediaAccessGranted,
+            pipelineMetrics = TripTestState.pipeline,
             buttonProbeActive = buttonProbeActive,
             buttonProbeLog = buttonProbeLog,
             buttonProbeMessage = buttonProbeMessage,
@@ -369,6 +374,22 @@ class MainActivity : ComponentActivity() {
                 onSensitivityChange = { wakeSensitivity = it },
                 onInputChange = ::selectTripMode,
                 onManualActivationOnlyChange = ::selectManualActivationOnly,
+                onTripButtonBindingChange = { id ->
+                    if (!audioBusy() && !buttonProbeActive) {
+                        tripButtonBinding = TripButtonBinding.parse(id)
+                        getSharedPreferences("ui_settings", MODE_PRIVATE).edit()
+                            .putString(TripButtonBinding.PREFERENCE, tripButtonBinding.name).apply()
+                    }
+                },
+                onMediaAccessSettings = {
+                    runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                        .onFailure { assistantMessage = "No se pudieron abrir los ajustes de acceso multimedia." }
+                },
+                onTestObservation = { event ->
+                    if (event in listOf(PipelineEvent.ACTIVATION_ATTEMPT_ANNOTATED, PipelineEvent.FALSE_POSITIVE_ANNOTATED,
+                            PipelineEvent.EXTERNAL_EFFECT_ANNOTATED, PipelineEvent.AUDIO_RESTORED_AUDIBLE_ANNOTATED))
+                        TripTestState.record(this, event)
+                },
                 onToggleButtonProbe = {
                     if (buttonProbeActive) buttonProbe.stop()
                     else if (!audioBusy()) buttonProbe.start()
@@ -520,6 +541,9 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun syncTripPresentation() {
+        tripButtonBinding = TripButtonBinding.parse(getSharedPreferences("ui_settings", MODE_PRIVATE)
+            .getString(TripButtonBinding.PREFERENCE, null))
+        mediaAccessGranted = TripMediaAccess.granted(this)
         manualActivationOnly = if (TripTestState.running) TripTestState.manualActivationOnly else
             getSharedPreferences("ui_settings", MODE_PRIVATE).getBoolean(TripActivationPolicy.PREFERENCE, false)
         overlayEnabled = TripOverlayPreferences.enabled(this)
@@ -571,11 +595,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
         if (buttonProbeActive && buttonProbe.recordActivityKey(event)) return true
+        if (TripButtonRuntime.handler?.invoke(event) == true) return true
         return super.onKeyDown(keyCode, event)
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
         if (buttonProbeActive && buttonProbe.recordActivityKey(event)) return true
+        if (TripButtonRuntime.handler?.invoke(event) == true) return true
         return super.onKeyUp(keyCode, event)
     }
 
@@ -1096,3 +1122,4 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 }
+
