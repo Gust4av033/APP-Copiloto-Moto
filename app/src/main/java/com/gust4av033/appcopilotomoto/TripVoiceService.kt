@@ -276,9 +276,17 @@ class TripVoiceService : Service() {
                 audioManager.mode != AudioManager.MODE_IN_CALL && audioManager.mode != AudioManager.MODE_RINGTONE },
             onActivate = { detector?.let { startManualCommand(it) } },
             onStatus = { TripTestState.pipeline = TripTestState.pipeline.copy(lastButtonStatus = it); TripTestState.save(this) },
-            onReceived = { activated ->
-                TripTestState.record(this, PipelineEvent.BUTTON_DOWN_RECEIVED)
-                if (activated) TripTestState.record(this, PipelineEvent.BUTTON_ACTIVATION)
+            onReceived = { key, decision, ready ->
+                val reason = when (decision) {
+                    ButtonDecision.ACTIVATE -> "escuchar orden"
+                    ButtonDecision.CONSUME -> if (ready) "pulsación repetida; descartada" else "APP ocupada; descartada"
+                    ButtonDecision.PASS -> "control del reproductor"
+                }
+                var metrics = TripTestState.pipeline.record(PipelineEvent.BUTTON_DOWN_RECEIVED)
+                if (decision == ButtonDecision.ACTIVATE) metrics = metrics.record(PipelineEvent.BUTTON_ACTIVATION)
+                TripTestState.pipeline = metrics.copy(lastButtonEvent =
+                    "$reason; key=${key.keyCode}; downTime=${key.downTime}; eventTime=${key.eventTime}; device=${key.deviceId}; listo=$ready")
+                TripTestState.save(this)
             })
         TripTestState.audioCaptureGeneration++
         TripTestState.audioBefore = media.audioRouteDiagnostic()

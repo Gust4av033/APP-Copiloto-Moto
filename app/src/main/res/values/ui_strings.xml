@@ -171,7 +171,7 @@
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps. También podés usar estos botones o el aviso; el aviso vence 30 segundos después del anuncio (60 para borradores).</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">Estabilización 04 · permiso del botón identificado</string>
+    <string name="ui_revision">Estabilización 05 · pulsaciones consecutivas del botón</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>

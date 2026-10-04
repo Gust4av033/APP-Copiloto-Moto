@@ -35,7 +35,7 @@ class TripButtonOwnershipTest {
         assertFalse(owner.shouldRecover(false, 30_000L))
     }
 
-    @Test fun tenCommandsEachReturnToWaitingAndKeepPreviousReserved() {
+    @Test fun tenBluetoothCommandsWithZeroTimestampsReturnToWaitingAndKeepPreviousReserved() {
         val owner = TripButtonOwnership()
         val buttons = TripButtonPolicy()
         repeat(10) { i ->
@@ -44,11 +44,11 @@ class TripButtonOwnershipTest {
             assertTrue(owner.shouldRecover(false, time))
             assertFalse(owner.shouldRecover(true, time + 350L))
             assertEquals(ButtonDecision.ACTIVATE, buttons.decide(TripButtonBinding.PREVIOUS,
-                true, true, 88, true, 0, time, 1))
+                true, true, 88, true, 0, 0, -1, time))
             owner.suspend()
             assertFalse(owner.shouldRecover(false, time + 400L))
             assertEquals(ButtonDecision.CONSUME, buttons.decide(TripButtonBinding.PREVIOUS,
-                true, false, 88, false, 0, time, 1))
+                true, false, 88, false, 0, 0, -1, time + 400L))
             assertEquals(ButtonDecision.PASS, buttons.decide(TripButtonBinding.PREVIOUS,
                 true, false, 87, true, 0, time + 500L, 1))
         }

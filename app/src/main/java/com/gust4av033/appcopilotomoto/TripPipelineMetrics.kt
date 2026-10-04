@@ -14,7 +14,8 @@ data class TripPipelineMetrics(
     val lastSttMs: Long = 0L,
     val lastCaptureContext: String = "Sin captura.",
     val lastEndReason: String = "Sin cierre inesperado.",
-    val lastButtonStatus: String = "Sin botón dedicado."
+    val lastButtonStatus: String = "Sin botón dedicado.",
+    val lastButtonEvent: String = "Sin pulsación recibida."
 ) {
     fun count(event: PipelineEvent) = counts[event] ?: 0
     fun record(event: PipelineEvent) = copy(counts = counts + (event to count(event) + 1))
@@ -24,6 +25,7 @@ data class TripPipelineMetrics(
         appendLine("stt_latency_ms=$lastSttMs")
         appendLine("Captura: $lastCaptureContext")
         appendLine("Botón: $lastButtonStatus")
+        appendLine("Última pulsación: $lastButtonEvent")
         append("Último cierre inesperado: $lastEndReason")
     }
 }

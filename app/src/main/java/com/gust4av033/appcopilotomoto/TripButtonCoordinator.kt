@@ -21,7 +21,7 @@ internal class TripButtonCoordinator(
     private val canActivate: () -> Boolean,
     private val onActivate: () -> Unit,
     private val onStatus: (String) -> Unit,
-    private val onReceived: (Boolean) -> Unit
+    private val onReceived: (KeyEvent, ButtonDecision, Boolean) -> Unit
 ) {
     private val main = Handler(Looper.getMainLooper())
     private val policy = TripButtonPolicy()
@@ -198,9 +198,12 @@ internal class TripButtonCoordinator(
             return false
         }
         if (!TripMediaAccess.granted(context)) { close(); return false }
-        val decision = policy.decide(binding, true, canActivate(), key.keyCode,
-            key.action == KeyEvent.ACTION_DOWN, key.repeatCount, key.downTime, key.deviceId)
-        if (key.action == KeyEvent.ACTION_DOWN && key.repeatCount == 0) onReceived(decision == ButtonDecision.ACTIVATE)
+        val ready = canActivate()
+        val decision = policy.decide(binding, true, ready, key.keyCode,
+            key.action == KeyEvent.ACTION_DOWN, key.repeatCount, key.downTime, key.deviceId, SystemClock.uptimeMillis())
+        if (key.keyCode == binding.keyCode && key.action == KeyEvent.ACTION_DOWN && key.repeatCount == 0) {
+            onReceived(key, decision, ready)
+        }
         when (decision) {
             ButtonDecision.ACTIVATE -> onActivate()
             ButtonDecision.CONSUME -> Unit
