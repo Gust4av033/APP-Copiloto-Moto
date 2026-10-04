@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -35,6 +36,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
     private var recognitionTimeout: Runnable? = null
 
     fun listenOnce(
+        mode: SpeechCaptureMode = SpeechCaptureMode.COMMAND,
         onState: (SpeechCaptureState) -> Unit = {},
         playbackResumePolicy: (String?) -> PlaybackResumePolicy = { PlaybackResumePolicy.NOW },
         onResult: (Result<String>) -> Unit
@@ -47,6 +49,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
             return
         }
         val session = generation
+        val deadline = SpeechCaptureDeadline(mode, SystemClock.elapsedRealtime())
         try {
             var ready = false
             var speechOnset = false
@@ -61,9 +64,11 @@ class AndroidSpeechToTextProvider(private val context: Context) {
             recognizer = current
             current.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {
-                    if (session == generation) {
+                    if (session == generation && deadline.ready(SystemClock.elapsedRealtime())) {
                         ready = true
                         activeInputs = activeInputDevices()
+                        armRecognitionTimeout(session, (deadline.expiresAtMs - SystemClock.elapsedRealtime()).coerceAtLeast(1L),
+                            "La escucha terminó sin respuesta.", playbackResumePolicy, onResult)
                         onState(SpeechCaptureState.READY)
                     }
                 }
@@ -104,13 +109,14 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale.toLanguageTag())
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
                 putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                if (mode == SpeechCaptureMode.DICTATION) {
+                    // Son sugerencias: cada motor puede aplicar su propia detección de silencio.
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2_000L)
+                    putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2_000L)
+                }
             }
-            val watchdog = Runnable {
-                finish(Result.failure(IllegalStateException("El reconocedor no respondió en 15 segundos; orden cancelada.")),
-                    session, playbackResumePolicy, onResult)
-            }
-            recognitionTimeout = watchdog
-            mainHandler.postDelayed(watchdog, 15_000L)
+            armRecognitionTimeout(session, (deadline.expiresAtMs - SystemClock.elapsedRealtime()).coerceAtLeast(1L),
+                "El reconocedor no llegó a estar listo; captura cancelada.", playbackResumePolicy, onResult)
             // Da un momento al reproductor para responder a la pérdida temporal de foco.
             mainHandler.postDelayed({
                 if (session == generation) {
@@ -159,6 +165,14 @@ class AndroidSpeechToTextProvider(private val context: Context) {
     private fun resumePlayback() {
         // PLAY es idempotente; se evita si otra reproducción sigue activa.
         runCatching { if (!audioManager.isMusicActive) media.resumePlayback() }
+    }
+
+    private fun armRecognitionTimeout(session: Int, durationMs: Long, message: String,
+        policy: (String?) -> PlaybackResumePolicy, callback: (Result<String>) -> Unit) {
+        clearRecognitionTimeout()
+        recognitionTimeout = Runnable {
+            finish(Result.failure(IllegalStateException(message)), session, policy, callback)
+        }.also { mainHandler.postDelayed(it, durationMs) }
     }
 
     private fun clearRecognitionTimeout() {

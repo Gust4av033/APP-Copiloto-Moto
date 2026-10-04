@@ -23,14 +23,12 @@ class TripCallPrompt(private val context: Context) {
         "Llamar a $name. Después del tono, di confirmar llamada o cancelar.", onFinished)
 
     fun announceApp(name: String, draft: String? = null, onFinished: (Boolean) -> Unit) = speak(
-        if (draft == null) "Abrir $name. Después del tono, di uno para abrir o dos para cancelar."
-        else "Preparar un borrador para $name. El mensaje dice: $draft. No se enviará. Después del tono, di uno para abrir el borrador o dos para descartarlo.",
-        onFinished, if (draft == null) 10_000L else 28_000L)
+        VoiceInteractionTiming.appAnnouncement(name, draft), onFinished)
 
     fun askForDraft(name: String, onFinished: (Boolean) -> Unit) = speak(
         "Mensaje para $name. Después del tono, dicta un mensaje breve o di cancelar.", onFinished)
 
-    private fun speak(text: String, onFinished: (Boolean) -> Unit, timeoutMs: Long = 10_000L) {
+    private fun speak(text: String, onFinished: (Boolean) -> Unit) {
         cancel()
         val cycle = ++generation
         announcing = true
@@ -55,14 +53,20 @@ class TripCallPrompt(private val context: Context) {
                         handler.post { finish(cycle, false, onFinished) }
                     }
                 })
+                armTimeout(cycle, VoiceInteractionTiming.playbackMs(text), onFinished)
                 if (speaker.speak(text, TextToSpeech.QUEUE_FLUSH, Bundle(), "trip-prompt-$cycle") != TextToSpeech.SUCCESS) {
                     finish(cycle, false, onFinished)
                 }
             }
         }
         engine = instance
+        armTimeout(cycle, VoiceInteractionTiming.PREPARATION_MS, onFinished)
+    }
+
+    private fun armTimeout(cycle: Int, durationMs: Long, onFinished: (Boolean) -> Unit) {
+        timeout?.let(handler::removeCallbacks)
         timeout = Runnable { finish(cycle, false, onFinished) }.also {
-            handler.postDelayed(it, timeoutMs)
+            handler.postDelayed(it, durationMs)
         }
     }
 

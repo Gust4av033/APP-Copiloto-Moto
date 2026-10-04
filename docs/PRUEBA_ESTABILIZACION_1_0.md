@@ -35,7 +35,7 @@ Primero probar detenido. Realizar **dos sesiones independientes**, exportando el
 | Desactivar reasignación y volver a iniciar | 1 | No captura botones; flujo anterior sigue funcionando |
 | Revocar acceso multimedia durante viaje | 1 | Captura suspendida; no recursión de órdenes; usar acceso alternativo |
 
-Para apps y chats se mantienen las restricciones actuales de Activity visible/pantalla desbloqueada. El caso Waze al frente verifica activación y órdenes de música; no convierte la apertura desde segundo plano en una capacidad garantizada.
+Para apps y chats, con pantalla desbloqueada y permiso **Mostrar sobre otras apps**, el servicio puede abrir el destino después de «uno» aunque Waze esté al frente. Sin ese permiso, mantener APP visible o usar el aviso. Repetir ambos casos y registrar restricciones del fabricante. Ver [corrección de confirmación y tiempos](CORRECCION_APPS_WHATSAPP_2026-10-04.md).
 
 ## Lectura del reporte
 

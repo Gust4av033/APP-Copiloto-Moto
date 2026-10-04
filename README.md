@@ -50,3 +50,5 @@ En Android Studio: **Git > Pull** sobre `feature/fase-1-intent-router` o `git pu
 Documento 04 aplicado: captura opcional de un control multimedia durante el viaje, métricas por etapa y extracción gradual del servicio. La recepción del botón con Poweramp/Waze/pantalla bloqueada requiere regresión física.
 
 [Diseño y alcance](docs/ESTABILIZACION_1_0.md) · [Pruebas S22+/Y12](docs/PRUEBA_ESTABILIZACION_1_0.md)
+
+Corrección del 04-10-2026: confirmación de apps desde el servicio de viaje con teléfono desbloqueado y permiso Mostrar sobre otras apps; lectura de borradores y dictado con plazos separados. Prueba detallada: [apps y WhatsApp](docs/CORRECCION_APPS_WHATSAPP_2026-10-04.md).

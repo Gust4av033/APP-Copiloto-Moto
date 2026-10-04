@@ -53,7 +53,7 @@
     <string name="trip_commands">Lo que podés decir</string>
     <string name="commands_music">“Siguiente canción”, “pasa de canción”, “anterior canción”, “pon la música en pausa”, “reanudar” o “pon [nombre de canción]”. Elegí el reproductor de búsqueda en Ajustes → Música.</string>
     <string name="commands_volume">“Subir volumen”, “bajar volumen”, “volumen al 40 por ciento” o “volumen a 6”. El porcentaje se adapta al rango de Android; el número elige un nivel.</string>
-    <string name="commands_apps">“Abre [nombre de la aplicación]”. Durante el viaje APP anuncia el nombre y escucha “uno” para abrir o “dos” para cancelar. Abrir por voz requiere APP visible y teléfono desbloqueado; el aviso emergente también permite abrir o cancelar.</string>
+    <string name="commands_apps">“Abre [nombre de la aplicación]”. Durante el viaje APP anuncia el nombre y escucha “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps; el aviso emergente también permite abrir o cancelar.</string>
     <string name="tests_apps_title">Aplicaciones del teléfono</string>
     <string name="tests_apps_refresh">Actualizar aplicaciones</string>
     <string name="tests_apps_show">Ver nombres para órdenes</string>
@@ -168,10 +168,10 @@
     <string name="tests_volume_protocol">1. Poné música a un nivel medio, lejos del máximo.\n2. Iniciá el viaje y decí “Alexa, bajar volumen”, luego “Alexa, subir volumen”.\n3. Revisá los niveles en la última orden y anotá si cambia el sonido.\n4. Detené el viaje, cambiá la salida en Android y elegí el otro casco. Repetí con la misma canción.</string>
     <string name="tests_volume_result_hint">Si cambia el número pero no el sonido, registrá “cambia nivel, no sonido”. LE Audio disponible tampoco confirma mejor calidad.</string>
     <string name="trip_pending_app">Acción pendiente</string>
-    <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Abrir por voz requiere APP visible y teléfono desbloqueado. También podés usar estos botones o el aviso; la solicitud vence a los 30 segundos.</string>
+    <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps. También podés usar estos botones o el aviso; el aviso vence 30 segundos después del anuncio (60 para borradores).</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">Estabilización 01 · botón dedicado y métricas</string>
+    <string name="ui_revision">Estabilización 02 · apps y tiempos de WhatsApp</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>
@@ -243,12 +243,12 @@
     <string name="phrase_check_limits">Una orden por frase. “Detener” pausa música; “detener sesión” cierra el viaje. Para porcentajes, indicá “por ciento”: “volumen al 80” no es un nivel admitido.</string>
     <string name="prepared_app_title">Acceso en la notificación</string>
     <string name="prepared_app_name">Abrir %1$s</string>
-    <string name="prepared_app_hint">APP preparó el acceso “Abrir %1$s”. Durante la confirmación decí “uno” para abrir o “dos” para cancelar. Si APP está detrás de otra app, usá el aviso con la moto detenida.</string>
+    <string name="prepared_app_hint">APP preparó el acceso “Abrir %1$s”. Durante la confirmación decí “uno” para abrir o “dos” para cancelar. Con otra app al frente, habilitá Mostrar sobre otras apps y mantené el teléfono desbloqueado. También podés usar el aviso.</string>
     <string name="nav_commands">Comandos</string>
     <string name="session_call">Viaje en espera · llamada</string>
     <string name="session_call_recovering">Recuperando viaje</string>
     <string name="commands_call_recovery">Habilitá llamadas y estado del teléfono en Ajustes. Al terminar la llamada, APP recupera el modo viaje; esperá a que esté listo antes de pedir otra orden.</string>
-    <string name="commands_apps_catalog_hint">Usá el comando completo de la lista. Después del anuncio y el tono, decí “uno” para abrir o “dos” para cancelar. Abrir por voz requiere APP visible y teléfono desbloqueado. El aviso queda disponible 30 segundos.</string>
+    <string name="commands_apps_catalog_hint">Usá el comando completo de la lista. Después del anuncio y el tono, decí “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps. El aviso queda disponible 30 segundos después del anuncio.</string>
     <string name="commands_apps_search">Buscar aplicación o comando</string>
     <string name="commands_apps_count">%1$d comandos de aplicaciones</string>
     <string name="commands_apps_empty">La lista está vacía. Actualizá las aplicaciones y revisá el resultado de la consulta.</string>
