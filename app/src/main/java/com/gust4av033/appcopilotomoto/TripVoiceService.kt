@@ -240,12 +240,17 @@ class TripVoiceService : Service() {
         TripTestState.switchingMode = false
         clearPendingApp()
         createChannel()
+        val binding = TripButtonBinding.parse(getSharedPreferences("ui_settings", MODE_PRIVATE)
+            .getString(TripButtonBinding.PREFERENCE, null))
         try {
             val notice = buildNotification(if (effectiveAudioMode == WakeAudioMode.BUTTON) {
                 "Preparando modo botón · música normal"
             } else "Preparando micrófono Bluetooth…")
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                startForeground(NOTIFICATION_ID, notice, ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE)
+                val serviceTypes = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
+                    if (binding != TripButtonBinding.NONE && TripMediaAccess.granted(this))
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0
+                startForeground(NOTIFICATION_ID, notice, serviceTypes)
             } else startForeground(NOTIFICATION_ID, notice)
         } catch (e: Exception) {
             TripTestState.status = "No se pudo iniciar la sesión: ${e.message ?: e.javaClass.simpleName}"
@@ -266,8 +271,6 @@ class TripVoiceService : Service() {
         TripTestState.running = true
         TripTestState.markRunning(this, true)
         TripTestState.reset(this)
-        val binding = TripButtonBinding.parse(getSharedPreferences("ui_settings", MODE_PRIVATE)
-            .getString(TripButtonBinding.PREFERENCE, null))
         buttonCoordinator = TripButtonCoordinator(this, binding,
             canActivate = { active && armed && !callPending && !closing && !TripTestState.switchingMode &&
                 audioManager.mode != AudioManager.MODE_IN_CALL && audioManager.mode != AudioManager.MODE_RINGTONE },
@@ -374,6 +377,7 @@ class TripVoiceService : Service() {
     }.getOrDefault(false)
 
     private fun startDetector(provider: WakeWordProvider) {
+        buttonCoordinator?.beforeCapture()
         if (effectiveAudioMode != WakeAudioMode.BUTTON && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             !getSystemService(AudioManager::class.java).availableCommunicationDevices.any {
                 it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
@@ -640,6 +644,7 @@ class TripVoiceService : Service() {
     }
 
     private fun listenForCommand(provider: WakeWordProvider, wakeAt: Long, source: String) {
+        buttonCoordinator?.beforeCapture()
         TripTestState.status = "$source: abriendo reconocedor; decí la orden cuando esté listo…"
         updateNotification("$source · abriendo reconocedor")
         val cycle = generation

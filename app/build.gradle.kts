@@ -18,6 +18,16 @@ android {
         versionName = "0.1.0"
     }
 
+    buildTypes {
+        create("fieldTest") {
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".pruebas"
+            versionNameSuffix = "-boton03"
+            matchingFallbacks += listOf("debug")
+            resValue("string", "app_name", "APP · Prueba botón 03")
+        }
+    }
+
     buildFeatures {
         compose = true
     }

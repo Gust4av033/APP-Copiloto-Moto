@@ -192,7 +192,9 @@ class MediaActionAdapter(private val context: Context) {
 
     /** Solicita una pausa solo si Android informa reproducción activa. */
     fun pauseIfPlaying(): Boolean {
-        if (!audioManager.isMusicActive) return false
+        val playing = if (TripButtonRuntime.intercepting) TripMediaAccess.isPlaying(context)
+            else audioManager.isMusicActive
+        if (!playing) return false
         dispatch(KeyEvent.KEYCODE_MEDIA_PAUSE)
         return true
     }

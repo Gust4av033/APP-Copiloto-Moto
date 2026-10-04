@@ -6,13 +6,15 @@ import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
 import android.media.session.MediaSession
+import android.media.session.MediaSessionManager
+import android.os.SystemClock
 import android.media.session.PlaybackState
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 
-/** Captura opcional, sin micrófono ni SCO. Android puede enrutar botones a otra sesión. */
+/** Captura opcional durante espera. Mantiene una salida PCM de ceros, sin foco ni micrófono. */
 internal class TripButtonCoordinator(
     private val context: Context,
     private val binding: TripButtonBinding,
@@ -24,16 +26,28 @@ internal class TripButtonCoordinator(
     private val main = Handler(Looper.getMainLooper())
     private val policy = TripButtonPolicy()
     private var session: MediaSession? = null
-    private var pulse: AudioTrack? = null
-    private val releasePulse = Runnable { releasePulse() }
-    private val reclaimLater = Runnable { if (session != null && canActivate()) reclaim() }
+    private var anchor: AudioTrack? = null
+    private val ownership = TripButtonOwnership()
+    private val manager = context.getSystemService(MediaSessionManager::class.java)
+    private var ownerListener: MediaSessionManager.OnMediaKeyEventSessionChangedListener? = null
+    private var waiting = false
+    private var outputSuspended = false
+    private var lastStatus = ""
+    private val verifyOwner = Runnable { verifyOwnership() }
+    private val reclaimLater = Runnable { if (session != null && waiting && canActivate()) requestRecovery() }
     private val handler: (KeyEvent) -> Boolean = ::handle
     private val forwardedDown = mutableMapOf<Int, android.media.session.MediaController>()
+
+    private fun reportStatus(message: String) {
+        if (lastStatus == message) return
+        lastStatus = message
+        onStatus(message)
+    }
 
     fun start() {
         if (session != null || binding == TripButtonBinding.NONE) return
         if (!TripMediaAccess.granted(context)) {
-            onStatus("Botón dedicado suspendido: falta acceso multimedia; usá el asistente largo o la burbuja.")
+            reportStatus("Botón dedicado suspendido: falta acceso multimedia; usá el asistente largo o la burbuja.")
             return
         }
         val candidate = MediaSession(context, "APP: botón de viaje")
@@ -53,41 +67,119 @@ internal class TripButtonCoordinator(
             // No permitir que un botón reviva una sesión terminada.
             @Suppress("DEPRECATION")
             candidate.setMediaButtonReceiver(null)
-            candidate.setPlaybackState(PlaybackState.Builder()
-                .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
-                    PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_SKIP_TO_NEXT or
-                    PlaybackState.ACTION_SKIP_TO_PREVIOUS or PlaybackState.ACTION_STOP)
-                .setState(PlaybackState.STATE_PAUSED, 0L, 0f).build())
+            setPlaybackState(candidate, false)
             session = candidate
             candidate.isActive = true
             TripButtonRuntime.handler = handler
+            observeOwner()
         } catch (error: Exception) {
             candidate.release()
             session = null
-            onStatus("No se pudo capturar el botón: ${error.message}.")
+            reportStatus("No se pudo capturar el botón: ${error.message}.")
         }
     }
 
-    /** Pulso musical silencioso de 100 ms, solo al volver a espera. Sin reproducción continua. */
+    /** Conserva la prioridad mientras espera, también si ya había música al iniciar el viaje. */
     fun reclaim() {
         start()
-        if (session == null) return
-        if (!TripMediaAccess.granted(context)) { close(); onStatus("Acceso multimedia revocado; botón liberado."); return }
-        main.removeCallbacks(releasePulse)
-        releasePulse()
+        if (session == null || !canActivate()) return
+        if (!TripMediaAccess.granted(context)) { close(); reportStatus("Acceso multimedia revocado; botón liberado."); return }
+        waiting = true
+        outputSuspended = false
+        ownership.beginWaiting()
+        holdSilentOutput()
+        main.removeCallbacks(verifyOwner)
+        main.postDelayed(verifyOwner, 350L)
+    }
+
+    private fun setPlaybackState(target: MediaSession, playing: Boolean) {
+        target.setPlaybackState(PlaybackState.Builder()
+            .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
+                PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_SKIP_TO_NEXT or
+                PlaybackState.ACTION_SKIP_TO_PREVIOUS or PlaybackState.ACTION_STOP)
+            .setState(if (playing) PlaybackState.STATE_PLAYING else PlaybackState.STATE_PAUSED,
+                0L, if (playing) 1f else 0f).build())
+    }
+
+    private fun holdSilentOutput() {
+        val current = session ?: return
+        releaseAnchor()
         runCatching {
+            // Bucle estático de ceros: no escribe audio continuamente desde un hilo ni solicita foco.
             val samples = ShortArray(2_400)
             val track = AudioTrack.Builder()
-                .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build())
+                .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC).build())
                 .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                     .setSampleRate(24_000).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
                 .setTransferMode(AudioTrack.MODE_STATIC).setBufferSizeInBytes(samples.size * 2).build()
-            pulse = track
+            anchor = track
             check(track.write(samples, 0, samples.size) == samples.size)
+            check(track.setLoopPoints(0, samples.size, -1) == AudioTrack.SUCCESS)
+            setPlaybackState(current, true)
             track.play()
-            main.postDelayed(releasePulse, 300L)
-            onStatus("Botón dedicado ${binding.name}: captura solicitada; confirmá recepción con el casco.")
-        }.onFailure { releasePulse(); onStatus("Captura sin pulso multimedia: ${it.message}.") }
+        }.onFailure {
+            releaseAnchor()
+            setPlaybackState(current, false)
+            reportStatus("No se pudo mantener el botón dedicado: ${it.message}. Usá el asistente largo o la burbuja.")
+        }
+    }
+
+    private fun observeOwner() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        val observedSession = session ?: return
+        val listener = MediaSessionManager.OnMediaKeyEventSessionChangedListener { _, _ ->
+            // Una notificación encolada de la sesión anterior no revive su salida de audio.
+            if (session === observedSession && waiting) {
+                main.removeCallbacks(verifyOwner)
+                main.postDelayed(verifyOwner, 350L)
+            }
+        }
+        runCatching {
+            manager.addOnMediaKeyEventSessionChangedListener(context.mainExecutor, listener)
+            ownerListener = listener
+        }.onFailure { reportStatus("No se pudo observar el dueño del botón: ${it.message}.") }
+    }
+
+    private fun verifyOwnership() {
+        val current = session ?: return
+        if (!waiting) return
+        if (!TripMediaAccess.granted(context)) { close(); reportStatus("Acceso multimedia revocado; botón liberado."); return }
+        if (!canActivate()) {
+            releaseAnchor()
+            setPlaybackState(current, false)
+            ownership.suspend()
+            outputSuspended = true
+            main.postDelayed(verifyOwner, 2_000L)
+            return
+        }
+        if (outputSuspended) {
+            outputSuspended = false
+            ownership.beginWaiting()
+            holdSilentOutput()
+        }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            runCatching { manager.mediaKeyEventSession }.fold(onSuccess = { token ->
+                val owned = token == current.sessionToken
+                if (owned) reportStatus("Botón dedicado ${binding.name}: Android confirmó que APP recibe las teclas.")
+                else {
+                    if (ownership.shouldRecover(false, SystemClock.uptimeMillis())) {
+                        reportStatus("Otro reproductor tiene el botón; recuperando ${binding.name}…")
+                        holdSilentOutput()
+                    } else reportStatus("Android aún entrega el botón a otra app; usá el asistente largo o la burbuja.")
+                }
+                if (owned) ownership.shouldRecover(true, SystemClock.uptimeMillis())
+            }, onFailure = { reportStatus("No se pudo verificar el dueño del botón: ${it.message}.") })
+        } else reportStatus("Botón dedicado ${binding.name}: salida mantenida; verificá recepción con el casco.")
+        // Comprueba también una revocación del permiso sin callbacks del reproductor.
+        main.removeCallbacks(verifyOwner)
+        main.postDelayed(verifyOwner, 2_000L)
+    }
+
+    private fun requestRecovery() {
+        // Reenviar PLAY/NEXT puede cambiar el destinatario. Verificarlo sin rearmar un bucle de reintentos.
+        main.removeCallbacks(verifyOwner)
+        main.postDelayed(verifyOwner, 350L)
     }
 
     private fun handle(key: KeyEvent): Boolean {
@@ -115,7 +207,7 @@ internal class TripButtonCoordinator(
                     } else forwardedDown.remove(key.keyCode) ?: TripMediaAccess.controller(context)
                     check(target.dispatchMediaButtonEvent(key)) { "El reproductor rechazó el control multimedia." }
                 }
-                    .onFailure { onStatus("Control no enviado al reproductor: ${it.message}.") }
+                    .onFailure { reportStatus("Control no enviado al reproductor: ${it.message}.") }
                 if (key.action == KeyEvent.ACTION_UP) {
                     main.removeCallbacks(reclaimLater)
                     main.postDelayed(reclaimLater, 500L)
@@ -125,21 +217,29 @@ internal class TripButtonCoordinator(
         return true
     }
 
-    private fun releasePulse() {
-        val previous = pulse ?: return
-        pulse = null
+    private fun releaseAnchor() {
+        val previous = anchor ?: return
+        anchor = null
         runCatching { previous.stop() }
-        previous.release()
+        runCatching { previous.release() }
     }
 
     fun beforeCapture() {
+        waiting = false
+        outputSuspended = false
+        ownership.suspend()
         main.removeCallbacks(reclaimLater)
-        main.removeCallbacks(releasePulse)
-        releasePulse()
+        main.removeCallbacks(verifyOwner)
+        releaseAnchor()
+        session?.let { setPlaybackState(it, false) }
     }
 
     fun close() {
         beforeCapture()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            ownerListener?.let { runCatching { manager.removeOnMediaKeyEventSessionChangedListener(it) } }
+        }
+        ownerListener = null
         forwardedDown.clear()
         if (TripButtonRuntime.handler === handler) TripButtonRuntime.handler = null
         val previous = session ?: return

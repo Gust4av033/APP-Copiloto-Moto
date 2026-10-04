@@ -171,7 +171,7 @@
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps. También podés usar estos botones o el aviso; el aviso vence 30 segundos después del anuncio (60 para borradores).</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">Estabilización 02 · apps y tiempos de WhatsApp</string>
+    <string name="ui_revision">Estabilización 03 · botón con música activa</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>
@@ -308,7 +308,7 @@
     <string name="trip_button_pause">Pausa → Escuchar orden</string>
     <string name="trip_button_toggle">Reproducir/Pausa → Escuchar orden</string>
     <string name="trip_button_manual_hint">Para cerrar el micro entre órdenes, elegí modo botón o activá Solo escuchar al pedir una orden. El botón de emparejamiento no se puede convertir si el casco no envía una señal.</string>
-    <string name="trip_button_access_hint">Android pide acceso a notificaciones para consultar las sesiones multimedia y reenviar controles a tu reproductor. APP no lee mensajes ni guarda notificaciones. La captura depende del enrutamiento de Android; si el botón no llega, usá pulsación larga del asistente o la burbuja.</string>
+    <string name="trip_button_access_hint">Android pide acceso a notificaciones para consultar las sesiones multimedia y reenviar controles a tu reproductor. APP no lee mensajes ni guarda notificaciones. Durante la espera APP mantiene una salida silenciosa para recibir el botón y comprueba su destinatario en Android 13 o superior. Puede aumentar el consumo de batería y aparecer en controles multimedia. Si Android entrega el botón a otra app, el diagnóstico lo indicará.</string>
     <string name="trip_button_access">Configurar acceso multimedia</string>
     <string name="pipeline_observation_hint">Prueba controlada con la moto detenida: anotá cada intento, incluso si APP no lo detecta. Los efectos externos y la calidad audible se anotan manualmente; no se deducen del despacho. Los contadores se reinician al iniciar un viaje.</string>
     <string name="pipeline_attempt">Anotar intento de activación</string>

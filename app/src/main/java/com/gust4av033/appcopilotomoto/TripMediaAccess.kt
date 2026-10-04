@@ -33,6 +33,11 @@ internal object TripMediaAccess {
             ?: sessions.singleOrNull() ?: error("No hay un reproductor único; elegilo en Ajustes → Música.")
     }
 
+    fun isPlaying(context: Context): Boolean = runCatching {
+        controller(context).playbackState?.state in setOf(PlaybackState.STATE_PLAYING,
+            PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING)
+    }.getOrDefault(false)
+
     fun dispatchPair(context: Context, keyCode: Int) {
         val controller = controller(context)
         val time = android.os.SystemClock.uptimeMillis()

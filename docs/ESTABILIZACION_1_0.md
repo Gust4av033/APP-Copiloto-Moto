@@ -18,13 +18,13 @@ Android exige acceso a notificaciones para consultar sesiones multimedia de otra
 
 El reenvío usa MediaController del reproductor, excluye la propia sesión y evita que una orden de voz como «anterior» vuelva a convertirse en activación de APP. Sin reasignación, permanece la vía multimedia anterior.
 
-**La recepción desde Poweramp/Waze/pantalla bloqueada no está garantizada por código.** Android elige la sesión que recibe las teclas, normalmente basándose en reproducción local reciente. APP realiza un pulso musical silencioso de 100 ms al volver a espera y tras controles reenviados, sin foco de audio, grabación, SCO nuevo ni reproducción continua. Se libera tras 300 ms y antes de la captura. Es un mecanismo experimental que se debe comprobar en el hardware, incluido su posible efecto en Poweramp/A2DP. Si otro reproductor retiene los botones, quedan disponibles el asistente largo, la notificación y la burbuja. No se usa accesibilidad ni se modifica el firmware del casco.
+**Corrección 04-10-2026 — Estabilización 03:** el pulso breve falló en la prueba del usuario: funcionaba una vez sin música y el reproductor recuperaba el botón al sonar/reanudarse. Se sustituye por una salida PCM silenciosa en bucle durante la espera, sin pedir foco ni abrir micrófono/SCO. Se libera antes de STT, cambios de preparación, llamadas salientes y al cerrar el viaje. Android 13+ permite consultar y observar la sesión destinataria; APP verifica el token real y limita la recuperación a tres intentos por pérdida. Si Android conserva otro destinatario, lo informa en el diagnóstico. Puede mantener activa la salida multimedia y aumentar el consumo; sigue pendiente de prueba física de calidad/consumo y recepción con el casco. Los controles restantes se reenvían directamente al reproductor. No se usa accesibilidad ni se modifica el firmware del casco. Ver [regresión y APK de prueba](CORRECCION_BOTON_MUSICA_2026-10-04.md).
 
 Referencia Android: https://developer.android.com/media/legacy/media-buttons
 
 ## Estabilización y extracción gradual
 
-- `TripButtonCoordinator` es dueño de la MediaSession, pulsos y callbacks de botones. Limpia su puente a la Activity y tareas pendientes al cerrar.
+- `TripButtonCoordinator` es dueño de la MediaSession, salida silenciosa y observación del destinatario de botones. Limpia su puente a la Activity y tareas pendientes al cerrar.
 - `TripButtonPolicy` concentra selección, duplicados, repeticiones y espera ocupada.
 - `TripCaptureCoordinator` registra las capturas, invalida callbacks tras cancelar y conserva la política de reanudación existente.
 - `TripTestState` deja de estar embebido en `TripVoiceService`; mantiene el estado de presentación y persistencia.
