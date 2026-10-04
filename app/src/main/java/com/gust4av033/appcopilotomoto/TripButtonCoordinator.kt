@@ -45,9 +45,13 @@ internal class TripButtonCoordinator(
     }
 
     fun start() {
-        if (session != null || binding == TripButtonBinding.NONE) return
+        if (binding == TripButtonBinding.NONE) {
+            reportStatus("Botón dedicado desactivado en esta instalación. Elegí Anterior canción → Escuchar orden y reiniciá el viaje.")
+            return
+        }
+        if (session != null) return
         if (!TripMediaAccess.granted(context)) {
-            reportStatus("Botón dedicado suspendido: falta acceso multimedia; usá el asistente largo o la burbuja.")
+            reportStatus("Botón dedicado suspendido: falta acceso multimedia para esta instalación. Habilitalo desde Ajustes de APP y reiniciá el viaje.")
             return
         }
         val candidate = MediaSession(context, "APP: botón de viaje")

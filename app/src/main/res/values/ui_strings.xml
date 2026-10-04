@@ -171,7 +171,7 @@
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps. También podés usar estos botones o el aviso; el aviso vence 30 segundos después del anuncio (60 para borradores).</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">Estabilización 03 · botón con música activa</string>
+    <string name="ui_revision">Estabilización 04 · permiso del botón identificado</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>
@@ -315,5 +315,8 @@
     <string name="pipeline_false_positive">Anotar activación sin pedirla</string>
     <string name="pipeline_external_effect">Anotar efecto externo comprobado</string>
     <string name="pipeline_audible_restore">Anotar música restaurada al escuchar</string>
+    <string name="trip_button_access_ready">Acceso multimedia habilitado para %1$s.</string>
+    <string name="trip_button_access_missing">Falta habilitar acceso multimedia para %1$s. Si hay otra copia de APP, su permiso no habilita esta. Después, detené e iniciá el viaje.</string>
+    <string name="trip_button_access_review">Revisar permiso de esta instalación</string>
 </resources>
 

@@ -382,7 +382,8 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 onMediaAccessSettings = {
-                    runCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                    runCatching { startActivity(TripMediaAccess.settingsIntent(this)) }
+                        .recoverCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                         .onFailure { assistantMessage = "No se pudieron abrir los ajustes de acceso multimedia." }
                 },
                 onTestObservation = { event ->

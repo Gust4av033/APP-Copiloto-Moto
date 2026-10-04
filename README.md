@@ -54,3 +54,5 @@ Documento 04 aplicado: captura opcional de un control multimedia durante el viaj
 Corrección del 04-10-2026: confirmación de apps desde el servicio de viaje con teléfono desbloqueado y permiso Mostrar sobre otras apps; lectura de borradores y dictado con plazos separados. Prueba detallada: [apps y WhatsApp](docs/CORRECCION_APPS_WHATSAPP_2026-10-04.md).
 
 Estabilización 03 corrige la pérdida del botón dedicado con música activa. El APK independiente **APP · Prueba botón 03** se compila con `assembleFieldTest` y permite probar sin reemplazar la instalación habitual. [Configuración y pruebas](docs/CORRECCION_BOTON_MUSICA_2026-10-04.md).
+
+Estabilización 04 distingue el permiso multimedia de la copia de prueba, abre su pantalla específica y muestra si está habilitado. El APK **APP · Prueba botón 04** actualiza la copia 03 manteniendo su identificador. [Permiso y diagnóstico](docs/PERMISO_BOTON_2026-10-04.md).

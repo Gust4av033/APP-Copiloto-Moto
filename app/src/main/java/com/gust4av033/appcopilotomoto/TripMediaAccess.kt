@@ -2,6 +2,8 @@ package com.gust4av033.appcopilotomoto
 
 import android.content.ComponentName
 import android.content.Context
+import android.content.Intent
+import android.os.Build
 import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
@@ -14,6 +16,12 @@ class TripMediaAccessService : NotificationListenerService()
 
 internal object TripMediaAccess {
     private fun component(context: Context) = ComponentName(context, TripMediaAccessService::class.java)
+
+    /** Abre el permiso de esta instalación, también con un applicationIdSuffix de prueba. */
+    fun settingsIntent(context: Context): Intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+            .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, component(context).flattenToString())
+    } else Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
 
     fun granted(context: Context): Boolean = Settings.Secure.getString(context.contentResolver,
         "enabled_notification_listeners").orEmpty().split(':').any {

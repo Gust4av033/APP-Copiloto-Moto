@@ -18,9 +18,10 @@ fun TripButtonSettingsCard(state: CopilotUiState, actions: CopilotActions) {
         if (state.tripButtonBinding != "NONE") {
             SupportingText(stringResource(R.string.trip_button_manual_hint))
             SupportingText(stringResource(R.string.trip_button_access_hint))
-            if (!state.mediaAccessGranted) {
-                ActionButton(stringResource(R.string.trip_button_access), onClick = actions.onMediaAccessSettings)
-            }
+            SupportingText(stringResource(if (state.mediaAccessGranted) R.string.trip_button_access_ready
+                else R.string.trip_button_access_missing, stringResource(R.string.app_name)))
+            ActionButton(stringResource(if (state.mediaAccessGranted) R.string.trip_button_access_review
+                else R.string.trip_button_access), onClick = actions.onMediaAccessSettings)
             SupportingText(state.pipelineMetrics.lastButtonStatus)
         }
     }
