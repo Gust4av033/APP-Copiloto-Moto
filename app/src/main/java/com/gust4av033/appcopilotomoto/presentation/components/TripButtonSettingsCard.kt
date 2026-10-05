@@ -11,6 +11,9 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 fun TripButtonSettingsCard(state: CopilotUiState, actions: CopilotActions) {
     SectionCard(stringResource(R.string.trip_button_title)) {
         SupportingText(stringResource(R.string.trip_button_hint_mapping))
+        HeadsetControlsSummary(state)
+        ActionButton(stringResource(R.string.headset_controls_check), enabled = !state.busy,
+            onClick = actions.onOpenButtonProbe)
         ChoiceGroup(listOf(ChoiceUi("NONE", R.string.trip_button_none),
             ChoiceUi("PREVIOUS", R.string.trip_button_previous), ChoiceUi("NEXT", R.string.trip_button_next),
             ChoiceUi("PAUSE", R.string.trip_button_pause), ChoiceUi("PLAY_PAUSE", R.string.trip_button_toggle)),

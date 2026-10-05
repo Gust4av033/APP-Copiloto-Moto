@@ -395,6 +395,7 @@ class MainActivity : ComponentActivity() {
                     if (buttonProbeActive) buttonProbe.stop()
                     else if (!audioBusy()) buttonProbe.start()
                 },
+                onOpenButtonProbe = { selectedScreen = CopilotScreen.TESTS },
                 onOverlayEnabledChange = { enabled ->
                     TripOverlayPreferences.setEnabled(this@MainActivity, enabled)
                     overlayEnabled = enabled
@@ -475,6 +476,7 @@ class MainActivity : ComponentActivity() {
         }
         audioDevices = runCatching {
             val headsets = BluetoothAudioRouteSelector.availableHeadsets(audioManager)
+            HeadsetControlStore.forgetDisconnected(headsets.map(BluetoothAudioRouteSelector::identity).toSet())
             val bluetoothOutputs = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
                 .filter { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
                     it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
@@ -485,6 +487,8 @@ class MainActivity : ComponentActivity() {
                     it.type == AudioDeviceInfo.TYPE_BLE_HEADSET }
                 .map(::audioDeviceLabel).distinct()
             val resolved = BluetoothAudioRouteSelector.communicationHeadset(audioManager)
+            val controlHeadset = resolved?.let(BluetoothAudioRouteSelector::identity)
+            val controls = HeadsetControlStore.read(this, controlHeadset)
             val outputs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 runCatching {
                     audioManager.getAudioDevicesForAttributes(
@@ -502,6 +506,10 @@ class MainActivity : ComponentActivity() {
                 }.orEmpty(),
                 selectionMissing = preferred != null && resolved == null,
                 automaticHeadset = if (preferred == null) resolved?.let(::audioDeviceLabel).orEmpty() else "",
+                controlHeadsetName = controlHeadset?.name?.ifBlank { "Casco Bluetooth" }.orEmpty(),
+                observedControlKeys = controls.mediaKeys,
+                assistantInvocationObserved = controls.assistantInvocation,
+                controlProfilePersistent = controlHeadset?.let { HeadsetControlEvidence.persistentId(it) } != null,
                 communicationRoute = audioManager.communicationDevice?.let(::audioDeviceLabel).orEmpty(),
                 voiceRoute = when (audioManager.communicationDevice?.type) {
                     null -> VoiceRouteUi.NONE
@@ -882,6 +890,9 @@ class MainActivity : ComponentActivity() {
                     }
                     // El motor puede confundir música o ruido con voz: no es una orden reconocida.
                     SpeechCaptureState.SPEECH_ONSET -> Unit
+                    SpeechCaptureState.RESTARTING -> {
+                        voiceMessage = "Reabriendo confirmación tras silencio; esperá a que esté lista."
+                    }
                 }
             }, playbackResumePolicy = { heard ->
                 when (heard?.let(MinimalIntentRouter::resolve)) {
@@ -1123,4 +1134,3 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 }
-

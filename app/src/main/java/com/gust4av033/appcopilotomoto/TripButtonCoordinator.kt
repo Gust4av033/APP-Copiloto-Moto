@@ -198,6 +198,9 @@ internal class TripButtonCoordinator(
             return false
         }
         if (!TripMediaAccess.granted(context)) { close(); return false }
+        if (key.action == KeyEvent.ACTION_DOWN && key.repeatCount == 0) {
+            HeadsetControlStore.observeKey(context, HeadsetControlStore.connected(context), key.keyCode)
+        }
         val ready = canActivate()
         val decision = policy.decide(binding, true, ready, key.keyCode,
             key.action == KeyEvent.ACTION_DOWN, key.repeatCount, key.downTime, key.deviceId, SystemClock.uptimeMillis())

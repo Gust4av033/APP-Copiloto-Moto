@@ -14,6 +14,7 @@ fun HeadsetButtonProbeCard(state: CopilotUiState, actions: CopilotActions) {
         SupportingText(stringResource(R.string.button_probe_hint))
         SupportingText(stringResource(R.string.button_probe_controls))
         SupportingText(stringResource(R.string.button_probe_steps))
+        HeadsetControlsSummary(state)
         ActionButton(stringResource(if (state.buttonProbeActive) R.string.button_probe_stop else R.string.button_probe_start),
             enabled = state.buttonProbeActive || !state.busy,
             primary = true,
@@ -25,10 +26,11 @@ fun HeadsetButtonProbeCard(state: CopilotUiState, actions: CopilotActions) {
             enabled = state.buttonProbeMessage.isNotBlank(),
             onClick = {
                 actions.onCopyDiagnostics(buildString {
-                    appendLine("Y12 Pro · prueba de eventos del botón · límite 60 s")
+                    appendLine("Prueba de controles del casco · límite 60 s")
+                    appendLine("Casco seleccionado: ${state.audioDevices.controlHeadsetName.ifBlank { "sin identificar" }}")
                     appendLine("${state.buttonProbeMessage} · activa=${state.buttonProbeActive}")
-                    appendLine("Orden propuesta: micrófono corto ×3; micrófono largo ×1; M corto ×1")
-                    appendLine("Anotá si seguiste esa secuencia y qué botón pulsaste en cada momento.")
+                    appendLine("Orden propuesta: anterior ×3; siguiente ×3; pausa/reproducir; gesto de asistente")
+                    appendLine("Anotá qué control físico usaste; una señal sin origen informado no identifica por sí sola el botón.")
                     if (state.buttonProbeLog.isEmpty()) appendLine("Sin eventos observados en APP.")
                     state.buttonProbeLog.forEach { appendLine(it) }
                 })

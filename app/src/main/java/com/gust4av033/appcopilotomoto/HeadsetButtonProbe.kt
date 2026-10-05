@@ -24,13 +24,15 @@ class HeadsetButtonProbe(
     private var tone: AudioTrack? = null
     private var startedAt = 0L
     private val lines = mutableListOf<String>()
+    private var testedHeadset: HeadsetIdentity? = null
     val active: Boolean get() = session != null
     private val timeout = Runnable { stop("Prueba terminada a los 60 segundos; controles multimedia liberados.") }
-    private val releaseTone = Runnable { releaseTone() }
 
     fun start() {
         if (active) return
         lines.clear()
+        testedHeadset = HeadsetControlStore.connected(context)
+        guardedHeadset = testedHeadset
         startedAt = SystemClock.elapsedRealtime()
         val candidate = MediaSession(context, "APP: prueba de botones")
         try {
@@ -48,7 +50,7 @@ class HeadsetButtonProbe(
                 }
             }, handler)
             // Android moderno prioriza sesiones que hayan reproducido audio localmente.
-            // La sesión queda disponible tras un tono corto por la ruta musical normal.
+            // Tras el tono, una salida silenciosa mantiene la sesión durante la prueba visible.
             candidate.setPlaybackState(PlaybackState.Builder()
                 .setActions(PlaybackState.ACTION_PLAY or PlaybackState.ACTION_PAUSE or
                     PlaybackState.ACTION_PLAY_PAUSE or PlaybackState.ACTION_SKIP_TO_NEXT or
@@ -59,7 +61,7 @@ class HeadsetButtonProbe(
             assistantGuardUntil = startedAt + 65_000L
             playProbeTone()
             handler.postDelayed(timeout, 60_000L)
-            publish("Prueba activa: mantené APP visible y probá el botón pequeño del micrófono.")
+            publish("Prueba activa con ${testedHeadset?.name ?: "casco sin identificar"}: mantené APP visible y probá los controles uno por uno.")
         } catch (error: Exception) {
             releaseTone()
             candidate.release()
@@ -77,8 +79,17 @@ class HeadsetButtonProbe(
     }
 
     fun recordAssistant(source: String) {
-        if (active) append("Asistente: $source (sin abrir micrófono)")
+        if (active) {
+            if (testedHeadset != null && testedHeadset == HeadsetControlStore.connected(context)) {
+                HeadsetControlStore.observeAssistant(context, testedHeadset)
+            }
+            append("Asistente: $source (sin abrir micrófono)")
+        }
         else if (isAssistantGuarded()) {
+            val guarded = guardedHeadset
+            if (guarded != null && guarded == HeadsetControlStore.connected(context)) {
+                HeadsetControlStore.observeAssistant(context, guarded)
+            }
             lines.add("Tras cerrar la prueba · Asistente: $source (sin abrir micrófono)")
             publish("Invocación de asistente registrada tras cerrar la prueba; micrófono cerrado.")
         }
@@ -86,7 +97,6 @@ class HeadsetButtonProbe(
 
     fun stop(reason: String = "Prueba detenida; controles multimedia liberados.") {
         handler.removeCallbacks(timeout)
-        handler.removeCallbacks(releaseTone)
         releaseTone()
         val previous = session ?: return
         session = null
@@ -98,9 +108,11 @@ class HeadsetButtonProbe(
     }
 
     private fun playProbeTone() {
-        val samples = ShortArray(3_600) { index ->
-            val fade = minOf(index / 360.0, (3_599 - index) / 360.0, 1.0)
-            (sin(2 * Math.PI * 880 * index / 24_000) * 3_000 * fade).toInt().toShort()
+        val samples = ShortArray(6_000) { index ->
+            if (index >= 3_600) 0 else {
+                val fade = minOf(index / 360.0, (3_599 - index) / 360.0, 1.0)
+                (sin(2 * Math.PI * 880 * index / 24_000) * 3_000 * fade).toInt().toShort()
+            }
         }
         val track = AudioTrack.Builder()
             .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA)
@@ -110,8 +122,8 @@ class HeadsetButtonProbe(
             .setTransferMode(AudioTrack.MODE_STATIC).setBufferSizeInBytes(samples.size * 2).build()
         tone = track
         check(track.write(samples, 0, samples.size) == samples.size) { "No se pudo preparar el tono de prueba" }
+        check(track.setLoopPoints(3_600, samples.size, -1) == AudioTrack.SUCCESS) { "No se pudo mantener la prueba de controles" }
         track.play()
-        handler.postDelayed(releaseTone, 500L)
         // No se solicita foco ni se pausa el reproductor; nunca se elige una ruta de comunicación.
     }
 
@@ -123,6 +135,10 @@ class HeadsetButtonProbe(
     }
 
     private fun recordKey(source: String, event: KeyEvent) {
+        if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0 &&
+            testedHeadset != null && testedHeadset == HeadsetControlStore.connected(context)) {
+            HeadsetControlStore.observeKey(context, testedHeadset, event.keyCode)
+        }
         val action = when (event.action) {
             KeyEvent.ACTION_DOWN -> "DOWN"
             KeyEvent.ACTION_UP -> "UP"
@@ -143,6 +159,7 @@ class HeadsetButtonProbe(
 
     companion object {
         private var assistantGuardUntil = 0L
+        private var guardedHeadset: HeadsetIdentity? = null
         fun isAssistantGuarded(): Boolean = SystemClock.elapsedRealtime() < assistantGuardUntil
         private val observedKeys = setOf(KeyEvent.KEYCODE_HEADSETHOOK, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE,
             KeyEvent.KEYCODE_ASSIST, KeyEvent.KEYCODE_VOICE_ASSIST, KeyEvent.KEYCODE_UNKNOWN,

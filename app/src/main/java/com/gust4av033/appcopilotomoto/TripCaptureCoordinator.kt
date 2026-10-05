@@ -7,22 +7,46 @@ import android.os.SystemClock
 internal class TripCaptureCoordinator(
     private val context: Context,
     private val speech: () -> AndroidSpeechToTextProvider,
-    private val captureContext: () -> String
+    private val captureContext: () -> String,
+    private val readyValidation: () -> Result<Unit> = { Result.success(Unit) }
 ) {
     private var current = 0L
     private var sequence = 0L
+    private val readyCue = TripReadyCue(context)
 
     fun listenOnce(mode: SpeechCaptureMode = SpeechCaptureMode.COMMAND, onState: (SpeechCaptureState) -> Unit = {},
         playbackResumePolicy: (String?) -> PlaybackResumePolicy = { PlaybackResumePolicy.NOW },
         onResult: (Result<String>) -> Unit) {
         if (current != 0L) TripTestState.record(context, PipelineEvent.STT_CANCELLED)
+        readyCue.cancel()
         val id = ++sequence
         current = id
         val startedAt = SystemClock.elapsedRealtime()
         TripTestState.pipeline = TripTestState.pipeline.copy(lastCaptureContext = captureContext())
         TripTestState.record(context, PipelineEvent.STT_STARTED)
-        speech().listenOnce(mode = mode, onState = { if (current == id) onState(it) }, playbackResumePolicy = playbackResumePolicy) onCaptureResult@ { result ->
+        speech().listenOnce(mode = mode, onState = { state ->
+            if (current == id) {
+                if (state == SpeechCaptureState.RESTARTING) {
+                    TripTestState.record(context, PipelineEvent.STT_SILENCE_RESTART)
+                    TripTestState.interactionPhase = TripInteractionPhase.PREPARING
+                    TripTestState.status = "La confirmación cerró por silencio; reabriendo. Esperá la señal para responder."
+                }
+                onState(state)
+            }
+        }, readySignal = {
+            if (current != id) Result.failure(IllegalStateException("Captura cancelada antes del tono."))
+            else {
+                val result = readyValidation().mapCatching {
+                    readyCue.play().getOrThrow()
+                }
+                TripTestState.pipeline = TripTestState.pipeline.copy(lastReadyCue =
+                    result.getOrNull() ?: "Falló la señal: ${result.exceptionOrNull()?.message}")
+                TripTestState.record(context, if (result.isSuccess) PipelineEvent.READY_CUE_STARTED else PipelineEvent.READY_CUE_FAILED)
+                result.map { Unit }
+            }
+        }, playbackResumePolicy = playbackResumePolicy) onCaptureResult@ { result ->
             if (current != id) return@onCaptureResult
+            readyCue.cancel()
             current = 0L
             TripTestState.pipeline = TripTestState.pipeline.copy(lastSttMs = SystemClock.elapsedRealtime() - startedAt)
             TripTestState.record(context, if (result.isSuccess) PipelineEvent.STT_SUCCESS else PipelineEvent.STT_FAILURE)
@@ -31,6 +55,7 @@ internal class TripCaptureCoordinator(
     }
 
     fun cancel(resumePlayback: Boolean = true): Boolean {
+        readyCue.cancel()
         if (current != 0L) {
             current = 0L
             TripTestState.record(context, PipelineEvent.STT_CANCELLED)

@@ -14,7 +14,6 @@ import android.content.pm.ServiceInfo
 import android.media.AudioDeviceInfo
 import android.media.AudioDeviceCallback
 import android.media.AudioManager
-import android.media.ToneGenerator
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -57,6 +56,10 @@ class TripVoiceService : Service() {
     private val speech by speechLazy
     private val capture by lazy { TripCaptureCoordinator(this, { speech }, {
         "modo=${wakeAudioMode.name}; manual=$manualActivationOnly; bloqueada=${getSystemService(KeyguardManager::class.java).isKeyguardLocked}; visible=${TripTestState.appVisible}; ${media.audioRouteDiagnostic()}"
+    }, readyValidation = {
+        if (effectiveAudioMode == WakeAudioMode.BUTTON && !headsetRouteAvailable()) {
+            Result.failure(IllegalStateException("La ruta del casco no está lista; se canceló esta escucha."))
+        } else Result.success(Unit)
     }) }
     private val callPromptLazy = lazy { TripCallPrompt(applicationContext) }
     private val callPrompt by callPromptLazy
@@ -561,13 +564,7 @@ class TripVoiceService : Service() {
                     val handoff = generation
                     schedule(350L) {
                         if (active && detector === provider && handoff == generation) {
-                            // El sonido termina ANTES de abrir SpeechRecognizer para evitar autoactivación.
-                            playHandoffTone()
-                            schedule(400L) {
-                                if (active && detector === provider && handoff == generation) {
-                                    listenForCommand(provider, now, provider.phrase)
-                                }
-                            }
+                            listenForCommand(provider, now, provider.phrase)
                         }
                     }
                 }
@@ -616,12 +613,7 @@ class TripVoiceService : Service() {
         }
         schedule(350L) {
             if (active && detector === provider && cycle == generation) {
-                playHandoffTone()
-                schedule(400L) {
-                    if (active && detector === provider && cycle == generation) {
-                        listenForCommand(provider, startedAt, "Casco")
-                    }
-                }
+                listenForCommand(provider, startedAt, "Casco")
             }
         }
     }
@@ -639,15 +631,6 @@ class TripVoiceService : Service() {
         updateNotification("Orden cancelada · restaurando música")
         schedule(100L) {
             if (active && detector === provider && cycle == generation) startDetector(provider)
-        }
-    }
-
-    private fun playHandoffTone() {
-        runCatching {
-            val tone = ToneGenerator(AudioManager.STREAM_VOICE_CALL, 65)
-            if (tone.startTone(ToneGenerator.TONE_PROP_BEEP, 100)) {
-                mainHandler.postDelayed({ tone.release() }, 200L)
-            } else tone.release()
         }
     }
 
@@ -672,7 +655,7 @@ class TripVoiceService : Service() {
                     TripTestState.interactionPhase = TripInteractionPhase.LISTENING
                     TripTestState.lastWakeToSttMs = SystemClock.elapsedRealtime() - wakeAt
                     TripTestState.save(this)
-                    TripTestState.status = "$source: reconocedor listo; entrada: $input. Decí música, volumen, ‘abre [aplicación]’ o ‘llama a [nombre]’."
+                    TripTestState.status = "$source: después de la señal, decí música, volumen, ‘abre [aplicación]’ o ‘llama a [nombre]’. Entrada: $input."
                     updateNotification("$source · reconocedor listo; decí la orden")
                 }
             }
@@ -892,7 +875,6 @@ class TripVoiceService : Service() {
                                 TripTestState.interactionPhase = TripInteractionPhase.LISTENING
                                 TripTestState.status = "Dictado listo: decí el mensaje breve o cancelar."
                                 updateNotification("Dictando mensaje · Silencio cancela")
-                                playHandoffTone()
                             }
                         }
                     }, playbackResumePolicy = { PlaybackResumePolicy.AFTER_ROUTE_RESTORED }) { outcome ->
@@ -976,7 +958,6 @@ class TripVoiceService : Service() {
                                 renewAppChoiceWindow(token)
                                 TripTestState.interactionPhase = TripInteractionPhase.CONFIRMING
                                 TripTestState.status = "Confirmación lista: uno para abrir ${request.target.label}; dos para cancelar."
-                                playHandoffTone()
                             }
                         }
                     }, playbackResumePolicy = { PlaybackResumePolicy.AFTER_ROUTE_RESTORED }) { answer ->
@@ -1089,19 +1070,11 @@ class TripVoiceService : Service() {
                 schedule(2_000L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
                 return@announce
             }
-            TripTestState.status = "Llamar a ${contact.display}: después del segundo tono decí ‘confirmar llamada’ o ‘cancelar’."
+            TripTestState.status = "Llamar a ${contact.display}: después de la señal decí ‘confirmar llamada’ o ‘cancelar’."
             updateNotification("Confirmar llamada a ${contact.name}")
-            playHandoffTone()
-            schedule(400L) {
+            schedule(300L) {
                 if (!active || detector !== provider || generation != cycle) return@schedule
-                schedule(12_000L) {
-                    if (active && detector === provider && generation == cycle) {
-                        resumeAfterButtonRoute = capture.cancel(resumePlayback = false) || resumeAfterButtonRoute
-                        TripTestState.status = "No se confirmó la llamada; no se marcó."
-                        startDetector(provider)
-                    }
-                }
-                capture.listenOnce(onState = { state ->
+                capture.listenOnce(mode = SpeechCaptureMode.CONFIRMATION, onState = { state ->
                     if (active && generation == cycle && state == SpeechCaptureState.READY) {
                         TripTestState.interactionPhase = TripInteractionPhase.CONFIRMING
                         TripTestState.status = "Confirmación lista: decí ‘confirmar llamada’ o ‘cancelar’."

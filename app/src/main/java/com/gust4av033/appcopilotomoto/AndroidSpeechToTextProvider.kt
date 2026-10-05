@@ -16,7 +16,7 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import java.util.Locale
 
-enum class SpeechCaptureState { READY, SPEECH_ONSET }
+enum class SpeechCaptureState { READY, SPEECH_ONSET, RESTARTING }
 
 /** Reconoce una sola orden, en el dispositivo, tras pulsar el botón de prueba. */
 class AndroidSpeechToTextProvider(private val context: Context) {
@@ -38,6 +38,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
     fun listenOnce(
         mode: SpeechCaptureMode = SpeechCaptureMode.COMMAND,
         onState: (SpeechCaptureState) -> Unit = {},
+        readySignal: () -> Result<Unit> = { Result.success(Unit) },
         playbackResumePolicy: (String?) -> PlaybackResumePolicy = { PlaybackResumePolicy.NOW },
         onResult: (Result<String>) -> Unit
     ) {
@@ -54,79 +55,117 @@ class AndroidSpeechToTextProvider(private val context: Context) {
             var ready = false
             var speechOnset = false
             var activeInputs = "no informadas"
+            var attempt = 0
+            val recovery = ConfirmationSilenceRecovery()
             val pauseRequestedForSession = runCatching { media.pauseIfPlaying() }.getOrDefault(false)
             playbackState.rememberPause(pauseRequestedForSession)
             audioFocusGranted = runCatching {
                 audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
             }.getOrDefault(false)
             val focusGrantedForSession = audioFocusGranted
-            val current = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-            recognizer = current
-            current.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) {
-                    if (session == generation && deadline.ready(SystemClock.elapsedRealtime())) {
-                        ready = true
-                        activeInputs = activeInputDevices()
-                        armRecognitionTimeout(session, (deadline.expiresAtMs - SystemClock.elapsedRealtime()).coerceAtLeast(1L),
-                            "La escucha terminó sin respuesta.", playbackResumePolicy, onResult)
-                        onState(SpeechCaptureState.READY)
-                    }
-                }
-                override fun onBeginningOfSpeech() {
-                    if (session == generation) {
-                        speechOnset = true
-                        activeInputs = activeInputDevices().takeUnless { it == "no informadas" } ?: activeInputs
-                        onState(SpeechCaptureState.SPEECH_ONSET)
-                    }
-                }
-                override fun onRmsChanged(rmsdB: Float) = Unit
-                override fun onBufferReceived(buffer: ByteArray?) = Unit
-                override fun onEndOfSpeech() = Unit
-                override fun onPartialResults(partialResults: Bundle?) = Unit
-                override fun onEvent(eventType: Int, params: Bundle?) = Unit
-                override fun onError(error: Int) {
-                    val detail = when (error) {
-                        SpeechRecognizer.ERROR_NO_MATCH -> "No se entendieron palabras reconocibles"
-                        SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No se detectó voz durante la escucha"
-                        SpeechRecognizer.ERROR_AUDIO -> "Falló la captura de audio"
-                        else -> "Error de reconocimiento local"
-                    }
-                    val diagnostic = "$detail (código $error). STT listo: ${if (ready) "sí" else "no"}; inicio de voz marcado: ${if (speechOnset) "sí" else "no"}; entradas activas: $activeInputs; pausa multimedia: ${if (pauseRequestedForSession) "solicitada" else "no solicitada"}; foco: ${if (focusGrantedForSession) "concedido" else "no concedido"}."
-                    finish(Result.failure(IllegalStateException(diagnostic)), session, playbackResumePolicy, onResult)
-                }
-                override fun onResults(results: Bundle?) {
-                    val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        ?.firstOrNull()?.trim().orEmpty()
-                    val value = if (heard.isBlank()) {
-                        Result.failure(IllegalStateException("No se entendió la orden."))
-                    } else Result.success(heard)
-                    finish(value, session, playbackResumePolicy, onResult)
-                }
-            })
             val locale = Locale.getDefault().takeIf { it.language == "es" } ?: Locale.forLanguageTag("es-ES")
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale.toLanguageTag())
                 putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
                 putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
                 if (mode == SpeechCaptureMode.DICTATION) {
-                    // Son sugerencias: cada motor puede aplicar su propia detección de silencio.
+                    // Sugerencias: el motor puede aplicar su propia detección de silencio.
                     putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 2_000L)
                     putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 2_000L)
                 }
             }
+            fun startAttempt() {
+                if (session != generation) return
+                val attemptId = ++attempt // Invalida callbacks del motor anterior antes de destruirlo.
+                runCatching { recognizer?.cancel() }
+                runCatching { recognizer?.destroy() }
+                val current = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+                recognizer = current
+                var attemptReady = false
+                fun valid() = session == generation && attemptId == attempt
+                current.setRecognitionListener(object : RecognitionListener {
+                    override fun onReadyForSpeech(params: Bundle?) {
+                        val now = SystemClock.elapsedRealtime()
+                        if (valid() && !attemptReady && (deadline.ready(now) || deadline.listeningAt(now))) {
+                            attemptReady = true
+                            ready = true
+                            activeInputs = activeInputDevices()
+                            armRecognitionTimeout(session, (deadline.expiresAtMs - SystemClock.elapsedRealtime()).coerceAtLeast(1L),
+                                "La escucha terminó sin respuesta.", playbackResumePolicy, onResult)
+                            onState(SpeechCaptureState.READY)
+                            if (valid()) {
+                                val signal = runCatching { readySignal() }.getOrElse { Result.failure(it) }
+                                signal.exceptionOrNull()?.let {
+                                    finish(Result.failure(IllegalStateException("No se pudo emitir la señal para hablar: ${it.message}")),
+                                        session, playbackResumePolicy, onResult)
+                                }
+                            }
+                        }
+                    }
+                    override fun onBeginningOfSpeech() {
+                        if (valid()) {
+                            speechOnset = true
+                            activeInputs = activeInputDevices().takeUnless { it == "no informadas" } ?: activeInputs
+                            onState(SpeechCaptureState.SPEECH_ONSET)
+                        }
+                    }
+                    override fun onRmsChanged(rmsdB: Float) = Unit
+                    override fun onBufferReceived(buffer: ByteArray?) = Unit
+                    override fun onEndOfSpeech() = Unit
+                    override fun onPartialResults(partialResults: Bundle?) {
+                        if (valid() && partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                                ?.any { it.isNotBlank() } == true) speechOnset = true
+                    }
+                    override fun onEvent(eventType: Int, params: Bundle?) = Unit
+                    override fun onError(error: Int) {
+                        if (!valid()) return
+                        if (recovery.shouldRestart(mode, ready, speechOnset,
+                                error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT,
+                                deadline.expiresAtMs - SystemClock.elapsedRealtime())) {
+                            // Mantiene pausa/foco y el mismo plazo. Nunca reenvía una acción externa.
+                            onState(SpeechCaptureState.RESTARTING)
+                            if (valid()) {
+                                try { startAttempt() } catch (failure: Exception) {
+                                    finish(Result.failure(failure), session, playbackResumePolicy, onResult)
+                                }
+                            }
+                            return
+                        }
+                        val detail = when (error) {
+                            SpeechRecognizer.ERROR_NO_MATCH -> "No se entendieron palabras reconocibles"
+                            SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No se detectó voz durante la escucha"
+                            SpeechRecognizer.ERROR_AUDIO -> "Falló la captura de audio"
+                            else -> "Error de reconocimiento local"
+                        }
+                        val diagnostic = "$detail (código $error). STT listo: ${if (ready) "sí" else "no"}; inicio de voz marcado: ${if (speechOnset) "sí" else "no"}; entradas activas: $activeInputs; pausa multimedia: ${if (pauseRequestedForSession) "solicitada" else "no solicitada"}; foco: ${if (focusGrantedForSession) "concedido" else "no concedido"}."
+                        finish(Result.failure(IllegalStateException(diagnostic)), session, playbackResumePolicy, onResult)
+                    }
+                    override fun onResults(results: Bundle?) {
+                        if (!valid()) return
+                        val heard = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
+                            ?.firstOrNull()?.trim().orEmpty()
+                        val value = if (heard.isBlank()) {
+                            Result.failure(IllegalStateException("No se entendió la orden."))
+                        } else Result.success(heard)
+                        finish(value, session, playbackResumePolicy, onResult)
+                    }
+                })
+                // Da margen a la pérdida de foco y, en reintentos, al cierre del motor anterior.
+                mainHandler.postDelayed({
+                    if (valid()) {
+                        try {
+                            current.startListening(intent)
+                        } catch (failure: Exception) {
+                            finish(Result.failure(failure), session, playbackResumePolicy, onResult)
+                        }
+                    }
+                }, 250L)
+            }
             armRecognitionTimeout(session, (deadline.expiresAtMs - SystemClock.elapsedRealtime()).coerceAtLeast(1L),
                 "El reconocedor no llegó a estar listo; captura cancelada.", playbackResumePolicy, onResult)
-            // Da un momento al reproductor para responder a la pérdida temporal de foco.
-            mainHandler.postDelayed({
-                if (session == generation) {
-                    try {
-                        current.startListening(intent)
-                    } catch (failure: Exception) {
-                        finish(Result.failure(failure), session, playbackResumePolicy, onResult)
-                    }
-                }
-            }, 250L)
+            startAttempt()
         } catch (failure: Exception) {
             finish(Result.failure(failure), session, playbackResumePolicy, onResult)
         }

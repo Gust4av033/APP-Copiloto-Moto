@@ -22,10 +22,10 @@ android {
         create("fieldTest") {
             initWith(getByName("debug"))
             applicationIdSuffix = ".pruebas"
-            versionNameSuffix = "-boton05"
+            versionNameSuffix = "-boton06"
             matchingFallbacks += listOf("debug")
-            resValue("string", "app_name", "APP · Prueba botón 05")
-            resValue("string", "media_access_service_label", "APP · Prueba botón 05 · controles del reproductor")
+            resValue("string", "app_name", "APP · Prueba botón 06")
+            resValue("string", "media_access_service_label", "APP · Prueba botón 06 · controles del reproductor")
         }
     }
 

@@ -7,9 +7,9 @@ class VoiceInteractionTimingTest {
     @Test fun slowPreparationStillLeavesAFullConfirmationOrDictationWindow() {
         val confirmation = SpeechCaptureDeadline(SpeechCaptureMode.CONFIRMATION, 100L)
         assertTrue(confirmation.ready(9_100L))
-        assertEquals(21_100L, confirmation.expiresAtMs)
+        assertEquals(27_100L, confirmation.expiresAtMs)
         assertFalse(confirmation.ready(10_100L))
-        assertEquals(21_100L, confirmation.expiresAtMs)
+        assertEquals(27_100L, confirmation.expiresAtMs)
 
         val dictation = SpeechCaptureDeadline(SpeechCaptureMode.DICTATION, 100L)
         assertTrue(dictation.ready(9_100L))
@@ -20,6 +20,31 @@ class VoiceInteractionTimingTest {
         val deadline = SpeechCaptureDeadline(SpeechCaptureMode.DICTATION, 100L)
         assertFalse(deadline.ready(10_100L))
         assertEquals(10_100L, deadline.expiresAtMs)
+    }
+
+    @Test fun confirmationRestartsUseTheOriginalDeadlineAndStopBeforeItExpires() {
+        val deadline = SpeechCaptureDeadline(SpeechCaptureMode.CONFIRMATION, 0)
+        assertFalse(deadline.listeningAt(100))
+        assertTrue(deadline.ready(500))
+        val end = deadline.expiresAtMs
+        assertTrue(deadline.listeningAt(8_000))
+        assertFalse(deadline.ready(8_000))
+        assertEquals(end, deadline.expiresAtMs)
+        assertFalse(deadline.listeningAt(end))
+        assertFalse(deadline.ready(end + 500))
+    }
+
+    @Test fun earlySilenceHasAtMostTwoRestartsWithoutRestartingRecognizedSpeech() {
+        val recovery = ConfirmationSilenceRecovery()
+        assertFalse(recovery.shouldRestart(SpeechCaptureMode.COMMAND, true, false, true, 10_000))
+        assertFalse(recovery.shouldRestart(SpeechCaptureMode.DICTATION, true, false, true, 10_000))
+        assertFalse(recovery.shouldRestart(SpeechCaptureMode.CONFIRMATION, false, false, true, 10_000))
+        assertFalse(recovery.shouldRestart(SpeechCaptureMode.CONFIRMATION, true, true, true, 10_000))
+        assertFalse(recovery.shouldRestart(SpeechCaptureMode.CONFIRMATION, true, false, false, 10_000))
+        assertFalse(recovery.shouldRestart(SpeechCaptureMode.CONFIRMATION, true, false, true, 1_999))
+        assertTrue(recovery.shouldRestart(SpeechCaptureMode.CONFIRMATION, true, false, true, 10_000))
+        assertTrue(recovery.shouldRestart(SpeechCaptureMode.CONFIRMATION, true, false, true, 5_000))
+        assertFalse(recovery.shouldRestart(SpeechCaptureMode.CONFIRMATION, true, false, true, 3_000))
     }
 
     @Test fun fullDraftHasEnoughBudgetForSlowReadbackAndResponse() {

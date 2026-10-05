@@ -171,7 +171,7 @@
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps. También podés usar estos botones o el aviso; el aviso vence 30 segundos después del anuncio (60 para borradores).</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">Estabilización 05 · pulsaciones consecutivas del botón</string>
+    <string name="ui_revision">Estabilización 06 · señal para hablar y controles del casco</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>
@@ -319,5 +319,23 @@
     <string name="trip_button_access_missing">Falta habilitar acceso multimedia para %1$s. Si hay otra copia de APP, su permiso no habilita esta. Después, detené e iniciá el viaje.</string>
     <string name="trip_button_access_review">Revisar permiso de esta instalación</string>
     <string name="trip_button_configured_before_trip">Botón configurado. Iniciá el viaje y esperá a que APP esté lista para comprobar que recibe las pulsaciones.</string>
+    <string name="headset_controls_name">Controles observados con %1$s</string>
+    <string name="headset_controls_choose">Conectá y elegí un casco para comprobar sus controles.</string>
+    <string name="headset_controls_unknown">Botones aún sin comprobar. El nombre del modelo no confirma qué señales envía a Android.</string>
+    <string name="headset_controls_observed">Señales recibidas: %1$s.</string>
+    <string name="headset_controls_temporary">Android no informa una identidad estable: este registro se conserva solo en la sesión actual.</string>
+    <string name="headset_controls_selected_observed">La señal elegida para pedir una orden ya se observó con este casco.</string>
+    <string name="headset_controls_selected_unknown">La señal elegida todavía no se observó con este casco. Comprobala antes de usarla en viaje.</string>
+    <string name="headset_controls_scope">La lista registra señales recibidas; no es un inventario de todos los botones físicos. Un control sin señal queda sin comprobar.</string>
+    <string name="headset_controls_check">Comprobar controles del casco</string>
+    <string name="headset_control_hook">control de auricular</string>
+    <string name="headset_control_toggle">reproducir/pausa</string>
+    <string name="headset_control_stop">detener</string>
+    <string name="headset_control_next">siguiente</string>
+    <string name="headset_control_previous">anterior</string>
+    <string name="headset_control_rewind">retroceder</string>
+    <string name="headset_control_forward">avanzar</string>
+    <string name="headset_control_play">reproducir</string>
+    <string name="headset_control_pause">pausa</string>
+    <string name="headset_control_assistant">invocación de asistente</string>
 </resources>
-

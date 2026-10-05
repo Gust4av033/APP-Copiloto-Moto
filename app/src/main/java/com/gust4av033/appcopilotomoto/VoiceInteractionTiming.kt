@@ -16,7 +16,7 @@ internal object VoiceInteractionTiming {
 }
 
 enum class SpeechCaptureMode(val listeningMs: Long) {
-    COMMAND(15_000L), CONFIRMATION(12_000L), DICTATION(40_000L)
+    COMMAND(15_000L), CONFIRMATION(18_000L), DICTATION(40_000L)
 }
 
 /** READY abre una sola ventana nueva; la preparación no resta tiempo al dictado. */
@@ -29,6 +29,21 @@ internal class SpeechCaptureDeadline(private val mode: SpeechCaptureMode, starte
         if (listening || nowMs >= expiresAtMs) return false
         listening = true
         expiresAtMs = nowMs + mode.listeningMs
+        return true
+    }
+
+    fun listeningAt(nowMs: Long): Boolean = listening && nowMs < expiresAtMs
+}
+
+/** Un motor puede cerrar por silencio antes del plazo de APP. No alarga el plazo global. */
+internal class ConfirmationSilenceRecovery {
+    private var restarts = 0
+
+    fun shouldRestart(mode: SpeechCaptureMode, ready: Boolean, voiceStarted: Boolean,
+                      silenceError: Boolean, remainingMs: Long): Boolean {
+        if (mode != SpeechCaptureMode.CONFIRMATION || !ready || voiceStarted || !silenceError ||
+            restarts >= 2 || remainingMs < 2_000L) return false
+        restarts++
         return true
     }
 }

@@ -39,6 +39,10 @@ data class AudioDevicesUi(
     val musicOutput: String = "",
     val musicVolume: String = "",
     val communicationVolume: String = "",
+    val controlHeadsetName: String = "",
+    val observedControlKeys: Set<Int> = emptySet(),
+    val assistantInvocationObserved: Boolean = false,
+    val controlProfilePersistent: Boolean = false,
     val message: String = ""
 )
 
@@ -170,6 +174,7 @@ data class CopilotActions(
     val onMediaAccessSettings: () -> Unit = {},
     val onTestObservation: (com.gust4av033.appcopilotomoto.PipelineEvent) -> Unit = {},
     val onToggleButtonProbe: () -> Unit = {},
+    val onOpenButtonProbe: () -> Unit = {},
     val onOverlayEnabledChange: (Boolean) -> Unit = {},
     val onOverlayPermission: () -> Unit = {},
     val onShowOverlay: () -> Unit = {},
@@ -177,5 +182,4 @@ data class CopilotActions(
     val onChooseContact: () -> Unit = {},
     val onClearContact: () -> Unit = {}
 )
-
 

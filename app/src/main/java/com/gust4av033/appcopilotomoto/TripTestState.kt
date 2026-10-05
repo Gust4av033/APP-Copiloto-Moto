@@ -55,7 +55,8 @@ object TripTestState {
             lastButtonStatus = prefs.getString("pipeline_button", TripPipelineMetrics.DEFAULT_BUTTON_STATUS).orEmpty().let {
                 if (it == "Sin botón dedicado." || it.isBlank()) TripPipelineMetrics.DEFAULT_BUTTON_STATUS else it
             },
-            lastButtonEvent = prefs.getString("pipeline_button_event", "Sin pulsación recibida.").orEmpty())
+            lastButtonEvent = prefs.getString("pipeline_button_event", "Sin pulsación recibida.").orEmpty(),
+            lastReadyCue = prefs.getString("pipeline_ready_cue", "Sin señal para hablar.").orEmpty())
         if (prefs.getBoolean("session_active", false) && !running) {
             pipeline = pipeline.record(PipelineEvent.SESSION_UNEXPECTED_END).copy(lastEndReason = "Proceso interrumpido con viaje activo")
             status = "La sesión anterior se interrumpió; iniciá una nueva prueba."
@@ -93,6 +94,7 @@ object TripTestState {
             putString("pipeline_end", pipeline.lastEndReason)
             putString("pipeline_button", pipeline.lastButtonStatus)
             putString("pipeline_button_event", pipeline.lastButtonEvent)
+            putString("pipeline_ready_cue", pipeline.lastReadyCue)
         }.apply()
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putInt("detections", detections)
@@ -110,4 +112,3 @@ object TripTestState {
             .putBoolean("session_active", active).apply()
     }
 }
-
