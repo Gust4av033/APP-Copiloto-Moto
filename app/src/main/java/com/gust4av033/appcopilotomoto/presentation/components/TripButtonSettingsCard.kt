@@ -22,7 +22,8 @@ fun TripButtonSettingsCard(state: CopilotUiState, actions: CopilotActions) {
                 else R.string.trip_button_access_missing, stringResource(R.string.app_name)))
             ActionButton(stringResource(if (state.mediaAccessGranted) R.string.trip_button_access_review
                 else R.string.trip_button_access), onClick = actions.onMediaAccessSettings)
-            SupportingText(state.pipelineMetrics.lastButtonStatus)
+            SupportingText(if (state.tripActive) state.pipelineMetrics.lastButtonStatus
+                else stringResource(R.string.trip_button_configured_before_trip))
         }
     }
 }

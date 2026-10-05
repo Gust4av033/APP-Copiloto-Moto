@@ -14,9 +14,13 @@ data class TripPipelineMetrics(
     val lastSttMs: Long = 0L,
     val lastCaptureContext: String = "Sin captura.",
     val lastEndReason: String = "Sin cierre inesperado.",
-    val lastButtonStatus: String = "Sin botón dedicado.",
+    val lastButtonStatus: String = DEFAULT_BUTTON_STATUS,
     val lastButtonEvent: String = "Sin pulsación recibida."
 ) {
+    companion object {
+        const val DEFAULT_BUTTON_STATUS = "Recepción del botón aún sin verificar."
+    }
+
     fun count(event: PipelineEvent) = counts[event] ?: 0
     fun record(event: PipelineEvent) = copy(counts = counts + (event to count(event) + 1))
     fun report(): String = buildString {

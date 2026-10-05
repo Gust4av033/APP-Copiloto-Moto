@@ -318,5 +318,6 @@
     <string name="trip_button_access_ready">Acceso multimedia habilitado para %1$s.</string>
     <string name="trip_button_access_missing">Falta habilitar acceso multimedia para %1$s. Si hay otra copia de APP, su permiso no habilita esta. Después, detené e iniciá el viaje.</string>
     <string name="trip_button_access_review">Revisar permiso de esta instalación</string>
+    <string name="trip_button_configured_before_trip">Botón configurado. Iniciá el viaje y esperá a que APP esté lista para comprobar que recibe las pulsaciones.</string>
 </resources>
 

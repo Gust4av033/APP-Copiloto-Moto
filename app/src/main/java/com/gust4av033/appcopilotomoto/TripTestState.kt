@@ -52,7 +52,9 @@ object TripTestState {
             lastSttMs = prefs.getLong("pipeline_stt_ms", 0L),
             lastCaptureContext = prefs.getString("pipeline_context", "Sin captura.").orEmpty(),
             lastEndReason = prefs.getString("pipeline_end", "Sin cierre inesperado.").orEmpty(),
-            lastButtonStatus = prefs.getString("pipeline_button", "Sin botón dedicado.").orEmpty(),
+            lastButtonStatus = prefs.getString("pipeline_button", TripPipelineMetrics.DEFAULT_BUTTON_STATUS).orEmpty().let {
+                if (it == "Sin botón dedicado." || it.isBlank()) TripPipelineMetrics.DEFAULT_BUTTON_STATUS else it
+            },
             lastButtonEvent = prefs.getString("pipeline_button_event", "Sin pulsación recibida.").orEmpty())
         if (prefs.getBoolean("session_active", false) && !running) {
             pipeline = pipeline.record(PipelineEvent.SESSION_UNEXPECTED_END).copy(lastEndReason = "Proceso interrumpido con viaje activo")

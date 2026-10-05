@@ -31,3 +31,9 @@ La recepción y el comportamiento con el casco real siguen pendientes de esta pr
 ## Validación local
 
 `testDebugUnitTest assembleDebug lintDebug`: 87 pruebas correctas, ninguna omitida, compilación debug correcta y lint sin errores (55 advertencias y 9 sugerencias). La compilación de las clases modificadas se hizo desde limpio. Las dos regresiones de timestamps repetidos fallan contra la política anterior; las 11 pruebas de política pasan con la nueva. Se cubren además UP perdido, repetición mientras la tecla sigue presionada, UP atrasado y pulsación recibida mientras APP está ocupada. La prueba de propiedad del botón ahora recorre diez órdenes con timestamps Bluetooth en cero.
+
+## Aclaración del estado en Ajustes
+
+La captura del usuario muestra Anterior seleccionado y acceso multimedia habilitado, junto al texto inicial **Sin botón dedicado**. La tarjeta mostraba incondicionalmente el último diagnóstico persistente del viaje, sin distinguirlo de la configuración actual. Antes de iniciar viaje ahora indica **Botón configurado**, con la instrucción de iniciar y esperar para comprobar la recepción. Durante el viaje conserva el diagnóstico real del coordinador. El estado inicial de diagnóstico pasa a **Recepción del botón aún sin verificar**; se actualiza también el valor antiguo guardado, conservando los mensajes de observaciones reales. Este cambio no activa una sesión ni confirma entrega física por el hecho de conectar el Y12 o seleccionar la tecla.
+
+Para este ajuste de presentación se revisaron las referencias de recursos, el XML y el diff. No se recompiló Android en esta revisión; los resultados de 87 pruebas anteriores corresponden a la corrección del filtro descrita arriba.
