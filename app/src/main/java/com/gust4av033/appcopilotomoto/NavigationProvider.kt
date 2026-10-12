@@ -6,6 +6,7 @@ import android.net.Uri
 
 data class NavigationCapabilities(
     val opensSavedDestinations: Boolean,
+    val searchesPlaces: Boolean = false,
     val readsRecentDestinations: Boolean = false,
     val readsRouteContext: Boolean = false,
     val stopsNavigation: Boolean = false
@@ -18,12 +19,13 @@ interface NavigationProvider {
     val capabilities: NavigationCapabilities
     fun available(): Boolean
     fun prepare(destination: NavigationDestination): Result<AppTarget>
+    fun search(query: String): Result<AppTarget> = Result.failure(UnsupportedOperationException("Este navegador no ofrece búsqueda de lugares."))
 }
 
 class WazeNavigationProvider(private val context: Context) : NavigationProvider {
     override val id = "waze"
     override val label = "Waze"
-    override val capabilities = NavigationCapabilities(opensSavedDestinations = true)
+    override val capabilities = NavigationCapabilities(opensSavedDestinations = true, searchesPlaces = true)
 
     override fun available(): Boolean = runCatching {
         intent(NavigationDestination.HOME).resolveActivity(context.packageManager) != null
@@ -36,6 +38,12 @@ class WazeNavigationProvider(private val context: Context) : NavigationProvider 
         }
         AppTarget("Ruta a ${destination.label} en $label", launch,
             navigationDestination = destination)
+    }
+
+    override fun search(query: String): Result<AppTarget> = runCatching {
+        val launch = Intent(Intent.ACTION_VIEW, Uri.parse(wazePlaceSearchLink(query))).setPackage("com.waze")
+        check(launch.resolveActivity(context.packageManager) != null) { "Waze no está disponible para buscar lugares." }
+        AppTarget("Búsqueda de $query en Waze", launch, navigationSearchQuery = query)
     }
 
     private fun intent(destination: NavigationDestination) =
@@ -65,5 +73,6 @@ object NavigationRequestStore {
 }
 
 internal fun navigationDispatchMessage(target: AppTarget): String =
-    "Solicitud de ruta a ${target.navigationDestination?.label} enviada a Waze; viaje activo. " +
+    if (target.navigationSearchQuery != null) "Búsqueda de ${target.navigationSearchQuery} enviada a Waze; viaje activo. Elegí el resultado en Waze con la moto detenida."
+    else "Solicitud de ruta a ${target.navigationDestination?.label} enviada a Waze; viaje activo. " +
         "El destino y el inicio de navegación los resuelve Waze."

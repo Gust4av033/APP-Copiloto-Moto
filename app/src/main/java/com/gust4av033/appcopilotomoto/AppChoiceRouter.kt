@@ -1,6 +1,6 @@
 package com.gust4av033.appcopilotomoto
 
-internal enum class AppChoice { OPEN, CANCEL, UNKNOWN }
+internal enum class AppChoice { OPEN, CANCEL, REDICTATE, REPEAT, UNKNOWN }
 
 /** Used only for the follow-up to a live app request, never for general commands. */
 internal object AppChoiceRouter {

@@ -52,6 +52,11 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
 
     fun navigationAvailable(): Boolean = navigation.available()
 
+    fun preparePlaceSearch(command: RoutedCommand): Result<AppTarget> = runCatching {
+        check(command.intent == TestIntent.SEARCH_PLACE) { "La orden no pide buscar un lugar." }
+        navigation.search(checkNotNull(command.placeQuery)).getOrThrow()
+    }
+
     fun prepareNavigation(command: RoutedCommand): Result<AppTarget> = runCatching {
         check(command.intent == TestIntent.NAVIGATE) { "La orden no pide navegación." }
         val request = checkNotNull(command.navigationRequest)

@@ -17,7 +17,7 @@ Se aceptan variantes breves y «en Waze» al final. «Abre Waze» conserva su ac
 ## Preparación y uso
 
 1. Guardar Casa y Trabajo en Waze. APP no lee sus direcciones ni necesita GPS/accesibilidad para este avance.
-2. Actualizar integraciones en Ajustes y comprobar Waze disponible. La revisión visible es **Navegación 01**, con tarjeta en Ajustes y Comandos.
+2. Actualizar integraciones en Ajustes y comprobar Waze disponible. La primera entrega mostraba **Navegación 01**; su ampliación muestra **Prueba de salida 02**, con tarjeta en Ajustes y Comandos.
 3. Iniciar el viaje, activar APP como siempre y pedir un destino después de la señal.
 4. Escuchar el destino y esperar la nueva señal. **Uno** solicita la ruta; **dos** cancela. Se reutilizan la confirmación de 18 segundos de la revisión 06, tokens y expiración.
 5. Con Waze al frente, la apertura desde el servicio requiere teléfono desbloqueado y Mostrar sobre otras apps. Con APP visible se usa su Activity. Si no se permite abrir, se conserva el aviso y se explica el requisito; no se desbloquea Android.
@@ -59,3 +59,7 @@ Dictado de WhatsApp queda en el backlog inmediato: medir pérdidas de inicio, pa
 Reglas y compilación no sustituyen el ensayo de Waze/Bluetooth en S22+. No se ha verificado en un teléfono el destino resultante, el inicio de navegación, los tonos ni la recuperación musical de esta entrega.
 
 Referencia: [Waze Deep Links oficial](https://developers.google.com/waze/deeplinks), Navigate to favorite. No se usa AccessibilityService ni lectura de pantalla.
+
+## Ampliación para la salida del 12 de octubre
+
+Se agrega búsqueda explícita de texto con «Busca en Waze [lugar]». Waze muestra sus resultados y el usuario elige con la moto detenida; APP no los lee, no selecciona uno automáticamente y no reemplaza por una búsqueda la última solicitud de Casa/Trabajo. [Comandos y prueba de salida 02](PRUEBA_SALIDA_02_2026-10-12.md).

@@ -961,6 +961,7 @@ class MainActivity : ComponentActivity() {
                                 ) },
                                 onFailure = { it.message ?: "No se encontró la aplicación." }
                             )
+                            TestIntent.SEARCH_PLACE -> "Búsqueda interpretada; se confirma en el viaje. No se abrió Waze."
                             TestIntent.NAVIGATE -> "Destino interpretado; la ruta y su confirmación se prueban durante el viaje. No se abrió Waze."
                             TestIntent.OPEN_CONTACT_CHAT -> "Escuché: ‘$heard’. Los chats con confirmación por voz se prueban en la sesión de viaje."
                             TestIntent.DRAFT_CONTACT_MESSAGE -> "Borrador interpretado; dictado y confirmación se prueban en el viaje. No se abrió ni envió un mensaje."

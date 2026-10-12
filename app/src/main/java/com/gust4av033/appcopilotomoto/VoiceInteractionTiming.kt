@@ -8,7 +8,7 @@ internal object VoiceInteractionTiming {
 
     fun appAnnouncement(name: String, draft: String?): String =
         if (draft == null) "Abrir $name. Después del tono, di uno para abrir o dos para cancelar."
-        else "Preparar un borrador para $name. El mensaje dice: $draft. No se enviará. Después del tono, di uno para abrir el borrador o dos para descartarlo."
+        else "Preparar un borrador para $name. El mensaje dice: $draft. No se enviará. Después del tono, di uno para abrir el borrador, dos para descartarlo, tres para dictar de nuevo o cuatro para repetir la lectura."
 
     fun pendingAppMs(name: String, draft: String?): Long = PREPARATION_MS +
         playbackMs(appAnnouncement(name, draft)) + PREPARATION_MS + 1_000L +

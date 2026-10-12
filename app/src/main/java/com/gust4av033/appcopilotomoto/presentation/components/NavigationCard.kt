@@ -12,6 +12,7 @@ fun NavigationCard(state: CopilotUiState, actions: CopilotActions) {
         SupportingText(stringResource(if (state.navigationAvailable) R.string.navigation_ready else R.string.navigation_missing))
         SupportingText(stringResource(R.string.navigation_setup))
         SupportingText(stringResource(R.string.navigation_commands))
+        SupportingText(stringResource(R.string.navigation_search_hint))
         SupportingText(stringResource(R.string.navigation_confirmation))
         SupportingText(if (state.lastNavigationRequest.isBlank()) stringResource(R.string.navigation_last_empty)
             else stringResource(R.string.navigation_last, state.lastNavigationRequest))

@@ -169,7 +169,7 @@ class TripVoiceService : Service() {
                 TripTestState.record(this, PipelineEvent.ACTION_DISPATCHED)
                 TripTestState.actions++
                 TripTestState.save(this)
-                TripTestState.lastCommandResult = if (openedTarget?.navigationDestination != null) navigationDispatchMessage(openedTarget)
+                TripTestState.lastCommandResult = if (openedTarget != null && (openedTarget.navigationDestination != null || openedTarget.navigationSearchQuery != null)) navigationDispatchMessage(openedTarget)
                     else if (hadDraft) "Borrador de $label abierto; mensaje sin enviar. El viaje sigue activo."
                     else "Solicitud de apertura de $label enviada; el viaje sigue activo."
                 updateNotification("Aplicación abierta · viaje activo")
@@ -664,7 +664,7 @@ class TripVoiceService : Service() {
         }, playbackResumePolicy = { heard ->
             when (heard?.let(MinimalIntentRouter::resolve)) {
                 TestIntent.MEDIA_PAUSE -> PlaybackResumePolicy.KEEP_PAUSED
-                TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.OPEN_APP, TestIntent.NAVIGATE, TestIntent.OPEN_CONTACT_CHAT,
+                TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.OPEN_APP, TestIntent.NAVIGATE, TestIntent.SEARCH_PLACE, TestIntent.OPEN_CONTACT_CHAT,
                 TestIntent.DRAFT_CONTACT_MESSAGE, TestIntent.MEDIA_SEARCH -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 TestIntent.STOP_SESSION, TestIntent.SWITCH_MODE -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 else -> if (effectiveAudioMode == WakeAudioMode.BUTTON) {
@@ -682,7 +682,7 @@ class TripVoiceService : Service() {
                 if (intent == TestIntent.UNKNOWN) PipelineEvent.INTENT_UNKNOWN else PipelineEvent.INTENT_RESOLVED)
             val cancelledApp = intent == TestIntent.CANCEL && pendingApp != null
             // Una orden nueva reemplaza cualquier apertura que aún estaba pendiente.
-            if (intent != TestIntent.OPEN_APP && intent != TestIntent.NAVIGATE && intent != TestIntent.OPEN_CONTACT_CHAT && intent != TestIntent.DRAFT_CONTACT_MESSAGE) {
+            if (intent != TestIntent.OPEN_APP && intent != TestIntent.NAVIGATE && intent != TestIntent.SEARCH_PLACE && intent != TestIntent.OPEN_CONTACT_CHAT && intent != TestIntent.DRAFT_CONTACT_MESSAGE) {
                 clearPendingApp()
             }
             if (intent == TestIntent.SWITCH_MODE && command.audioMode != null) {
@@ -745,10 +745,11 @@ class TripVoiceService : Service() {
                 stopSession("Sesión detenida por voz: ‘$heard’ en $elapsed ms.", expected = true)
                 return@listenOnce
             }
-            if (intent == TestIntent.OPEN_APP || intent == TestIntent.NAVIGATE || intent == TestIntent.OPEN_CONTACT_CHAT || intent == TestIntent.DRAFT_CONTACT_MESSAGE) {
+            if (intent == TestIntent.OPEN_APP || intent == TestIntent.NAVIGATE || intent == TestIntent.SEARCH_PLACE || intent == TestIntent.OPEN_CONTACT_CHAT || intent == TestIntent.DRAFT_CONTACT_MESSAGE) {
                 clearPendingApp()
                 TripTestState.status = when (intent) {
                     TestIntent.NAVIGATE -> "Preparando destino en Waze…"
+                    TestIntent.SEARCH_PLACE -> "Preparando búsqueda en Waze…"
                     TestIntent.OPEN_APP -> "Buscando aplicación…"
                     else -> "Buscando contacto para el chat…"
                 }
@@ -756,6 +757,7 @@ class TripVoiceService : Service() {
                 worker.execute {
                     val found = when (intent) {
                         TestIntent.NAVIGATE -> actions.prepareNavigation(command)
+                        TestIntent.SEARCH_PLACE -> actions.preparePlaceSearch(command)
                         TestIntent.OPEN_APP -> actions.prepareApp(command)
                         else -> actions.prepareContactChat(command)
                     }
@@ -929,7 +931,7 @@ class TripVoiceService : Service() {
         val draft = runCatching { WhatsAppChatAdapter.withDraft(target, text) }
         draft.fold(onSuccess = {
             preparePendingApp(it)
-            TripTestState.lastCommandResult = "Borrador preparado; revisá la lectura. Uno abre, dos descarta. No se envió."
+            TripTestState.lastCommandResult = "Borrador preparado. Uno abre, dos descarta, tres vuelve a dictar, cuatro repite la lectura. No se envió."
             requestAppChoice(provider, cycle, checkNotNull(appRequests.current))
         }, onFailure = {
             TripTestState.failures++
@@ -955,8 +957,9 @@ class TripVoiceService : Service() {
                 renewAppChoiceWindow(token)
                 schedule(300L) {
                     if (!isCurrentAppChoice(provider, cycle, token)) return@schedule
-                    TripTestState.status = "Abriendo confirmación: esperá el tono y decí uno o dos."
-                    updateNotification("Confirmación: 1 abrir · 2 cancelar")
+                    TripTestState.status = if (request.target.draftText != null) "Esperá el tono: uno abre, dos descarta, tres vuelve a dictar, cuatro repite la lectura."
+                        else "Abriendo confirmación: esperá el tono y decí uno o dos."
+                    updateNotification(if (request.target.draftText != null) "Borrador: 1 abrir · 2 descartar · 3 dictar · 4 repetir" else "Confirmación: 1 abrir · 2 cancelar")
                     capture.listenOnce(mode = SpeechCaptureMode.CONFIRMATION, onState = { state ->
                         if (isCurrentAppChoice(provider, cycle, token) && state == SpeechCaptureState.READY) {
                             val input = speech.activeInputDescription()
@@ -966,7 +969,8 @@ class TripVoiceService : Service() {
                             } else {
                                 renewAppChoiceWindow(token)
                                 TripTestState.interactionPhase = TripInteractionPhase.CONFIRMING
-                                TripTestState.status = "Confirmación lista: uno para abrir ${request.target.label}; dos para cancelar."
+                                TripTestState.status = if (request.target.draftText != null) "Borrador listo: uno abre, dos descarta, tres vuelve a dictar, cuatro repite la lectura."
+                                    else "Confirmación lista: uno para abrir ${request.target.label}; dos para cancelar."
                             }
                         }
                     }, playbackResumePolicy = { PlaybackResumePolicy.AFTER_ROUTE_RESTORED }) { answer ->
@@ -977,10 +981,10 @@ class TripVoiceService : Service() {
                             stopSession("Sesión detenida durante la confirmación de aplicación.", expected = true)
                             return@listenOnce
                         }
-                        when (AppChoiceRouter.resolve(heard)) {
+                        when (if (request.target.draftText != null) DraftChoiceRouter.resolve(heard) else AppChoiceRouter.resolve(heard)) {
                             AppChoice.OPEN -> {
                                 val opened = openConfirmedApp(token, request.target)
-                                val result = if (opened && request.target.navigationDestination != null) navigationDispatchMessage(request.target)
+                                val result = if (opened && (request.target.navigationDestination != null || request.target.navigationSearchQuery != null)) navigationDispatchMessage(request.target)
                                     else if (opened && request.target.draftText != null) "Borrador abierto en WhatsApp; mensaje sin enviar. Viaje activo."
                                     else if (opened) "Solicitud de apertura de ${request.target.label} enviada por voz; viaje activo."
                                     else "No se pudo abrir ${request.target.label}. Desbloqueá el teléfono y habilitá Mostrar sobre otras apps, o usá el aviso de apertura."
@@ -993,8 +997,11 @@ class TripVoiceService : Service() {
                             }
                             AppChoice.CANCEL -> finishAppChoice(provider, cycle, token,
                                 "Apertura de ${request.target.label} cancelada por voz; viaje activo.", cancelRequest = true)
+                            AppChoice.REDICTATE -> redictateDraft(provider, cycle, request)
+                            AppChoice.REPEAT -> repeatDraftReadback(provider, cycle, request)
                             AppChoice.UNKNOWN -> finishAppChoice(provider, cycle, token,
-                                "No se reconoció uno o dos; la app no se abrió. La solicitud sigue en el aviso.")
+                                if (request.target.draftText != null) "No se reconoció uno, dos, tres o cuatro; el borrador sigue en el aviso, sin enviar."
+                                else "No se reconoció uno o dos; la app no se abrió. La solicitud sigue en el aviso.")
                         }
                         TripTestState.save(this)
                     }
@@ -1006,6 +1013,32 @@ class TripVoiceService : Service() {
                 finishAppChoice(provider, cycle, token, "No se pudo iniciar la confirmación; la apertura sigue en el aviso.")
             }
         }
+    }
+
+    private fun redictateDraft(provider: WakeWordProvider, cycle: Int, request: PendingAppLaunch.Request<AppTarget>) {
+        if (!isCurrentAppChoice(provider, cycle, request.token) || request.target.draftText == null) return
+        val base = runCatching { WhatsAppChatAdapter.withoutDraft(request.target) }
+        if (base.isFailure) {
+            finishAppChoice(provider, cycle, request.token, "No se pudo volver a dictar; borrador descartado.", cancelRequest = true)
+            return
+        }
+        // Cierra la confirmación antes de invalidar el aviso; conserva contacto y edición, sin texto viejo.
+        finishAppChoice(provider, cycle, request.token, "Borrador anterior descartado; preparando nuevo dictado.")
+        clearPendingApp(request.token)
+        pendingTask?.let(mainHandler::removeCallbacks)
+        pendingTask = null
+        requestDraftCapture(provider, cycle, base.getOrThrow())
+    }
+
+    private fun repeatDraftReadback(provider: WakeWordProvider, cycle: Int, request: PendingAppLaunch.Request<AppTarget>) {
+        if (!isCurrentAppChoice(provider, cycle, request.token) || request.target.draftText == null) return
+        // Reserva también la locución completa: no dejar vencer un mensaje largo mientras se relee.
+        val renewed = appRequests.renew(request.token, SystemClock.elapsedRealtime(),
+            VoiceInteractionTiming.pendingAppMs(request.target.spokenLabel, request.target.draftText)) ?: return
+        TripTestState.pendingAppExpiresAtMs = renewed.expiresAtMs
+        scheduleAppExpiration(renewed)
+        showAppPrompt(renewed)
+        requestAppChoice(provider, cycle, renewed)
     }
 
     /** Solo después de recibir UNO para la solicitud actual. Nunca desbloquea el teléfono. */
@@ -1436,7 +1469,7 @@ class TripVoiceService : Service() {
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setContentTitle("Abrir ${target.label}")
             .setContentText(if (target.draftText == null) "Tras el anuncio y el tono: 1 abrir · 2 cancelar."
-                else "Tras la lectura y el tono: 1 abrir · 2 descartar. Borrador sin enviar.")
+                else "Tras la lectura y el tono: 1 abrir · 2 descartar · 3 dictar de nuevo · 4 repetir. Sin enviar.")
             .setContentIntent(launch)
             .setDeleteIntent(cancel)
             .setAutoCancel(true)

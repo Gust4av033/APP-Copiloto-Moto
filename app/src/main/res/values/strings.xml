@@ -16,7 +16,7 @@
     <string name="integrations_chat_hint">Configurá contactos antes del viaje. Usá un nombre único y un solo número, preferentemente con + y código de país. La apertura por voz requiere APP visible y pantalla desbloqueada. Podés dictar un borrador; el envío se confirma tocando Enviar en WhatsApp.</string>
     <string name="command_chat_draft">Preparar borrador de WhatsApp</string>
     <string name="commands_chat_draft">“Escribe a [nombre] en WhatsApp”. Después del tono, dictá el mensaje. APP lo lee: uno abre el borrador, dos lo descarta.</string>
-    <string name="chat_draft_pending_hint">Mensaje sin enviar. Abrir coloca este texto en WhatsApp; revisalo y tocá Enviar desde allí. Si está incorrecto, cancelá y dictalo de nuevo.</string>
+    <string name="chat_draft_pending_hint">Después de la lectura y el tono: uno abre el borrador; dos descarta; tres o «dictar de nuevo» reemplaza el mensaje; cuatro o «repetir mensaje» vuelve a leerlo. APP no envía el mensaje: Enviar se pulsa en WhatsApp.</string>
     <string name="commands_incoming_calls">Contestar, rechazar y colgar llamadas entrantes por voz todavía no están disponibles.</string>
     <string name="manual_activation_title">Solo escuchar al pedir una orden</string>
     <string name="manual_activation_hint">Conserva el modo elegido y cierra el micrófono entre órdenes. Alexa queda inactiva; usá el botón de asistente del casco, la app o la burbuja. El toque corto requiere la prueba del Y12.</string>
