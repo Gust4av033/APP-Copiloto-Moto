@@ -9,7 +9,8 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 @Composable
 fun NavigationCard(state: CopilotUiState, actions: CopilotActions) {
     SectionCard(stringResource(R.string.navigation_title)) {
-        SupportingText(stringResource(if (state.navigationAvailable) R.string.navigation_ready else R.string.navigation_missing))
+        SupportingText(if (state.appCatalogLoading) stringResource(R.string.catalog_loading)
+            else stringResource(if (state.navigationAvailable) R.string.navigation_ready else R.string.navigation_missing))
         SupportingText(stringResource(R.string.navigation_setup))
         SupportingText(stringResource(R.string.navigation_commands))
         SupportingText(stringResource(R.string.navigation_search_hint))

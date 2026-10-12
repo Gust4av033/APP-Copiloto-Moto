@@ -1,5 +1,6 @@
 package com.gust4av033.appcopilotomoto.presentation.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -17,6 +18,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.rotate
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,7 +50,7 @@ fun SessionStatus(active: Boolean, restoring: Boolean = false, callPhase: TripCa
                 else -> R.string.trip_stopped
             }),
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp).semantics { liveRegion = LiveRegionMode.Polite },
-            style = MaterialTheme.typography.titleLarge
+            style = MaterialTheme.typography.labelLarge
         )
     }
 }
@@ -55,7 +59,8 @@ fun SessionStatus(active: Boolean, restoring: Boolean = false, callPhase: TripCa
 fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
@@ -99,5 +104,26 @@ fun ChoiceGroup(options: List<ChoiceUi>, selectedId: String, enabled: Boolean, o
                 }
             }
         }
+    }
+}
+
+@Composable
+fun ExpandableSectionCard(title: String, initiallyExpanded: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
+    var expanded by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(initiallyExpanded) }
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        Surface(onClick = { expanded = !expanded }, color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.fillMaxWidth()) {
+            Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(title, Modifier.weight(1f).semantics { heading() }, style = MaterialTheme.typography.titleMedium)
+                androidx.compose.material3.Icon(
+                    androidx.compose.ui.res.painterResource(R.drawable.ic_expand),
+                    stringResource(if (expanded) R.string.details_hide else R.string.details_show),
+                    Modifier.rotate(if (expanded) 180f else 0f), tint = MaterialTheme.colorScheme.primary)
+            }
+        }
+        if (expanded) Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
     }
 }

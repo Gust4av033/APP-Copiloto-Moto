@@ -8,6 +8,8 @@ La burbuja del copiloto es opcional y se habilita en Ajustes para el viaje sobre
 
 El panel se minimiza con × o tocando fuera; Ocultar burbuja la retira durante el viaje. «Escribe a [nombre] en WhatsApp» permite dictar y revisar un borrador antes de abrirlo con uno/dos. El envío se realiza en WhatsApp; contestar/rechazar llamadas entrantes por voz todavía no está disponible. Lista de pruebas: `docs/PRUEBA_VIAJE_BORRADORES.md`.
 
+La revisión **UI ruta 01 · Fase 1** consolida el diseño diurno/nocturno, agrupa los comandos de WhatsApp/Waze y mueve la preparación de audio/catálogos fuera del hilo de interfaz. Alcance y comprobación de apertura: [docs/UI_RUTA_01.md](docs/UI_RUTA_01.md).
+
 ## Abrir en Android Studio
 
 1. Clonar el repositorio con **File > New > Project from Version Control** e introducir su URL HTTPS de GitHub. También se puede usar `git clone <URL>`.

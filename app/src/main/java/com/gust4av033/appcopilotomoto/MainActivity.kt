@@ -23,6 +23,7 @@ import android.view.KeyEvent
 import android.view.WindowManager
 import androidx.lifecycle.Lifecycle
 import androidx.activity.ComponentActivity
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
@@ -52,6 +53,14 @@ class MainActivity : ComponentActivity() {
     }
     private val mainHandler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
+    // Las lecturas de presentación no esperan detrás de una medición de cinco segundos.
+    private val presentationWorker = Executors.newSingleThreadExecutor()
+    private var presentationGeneration = 0
+    private var deviceRefreshInFlight = false
+    private var catalogRefreshInFlight = false
+    private var catalogLoadedAt = 0L
+    private var assistantSelected by mutableStateOf(false)
+    private var appCatalogLoading by mutableStateOf(false)
     private val speech by lazy { AndroidSpeechToTextProvider(applicationContext) }
     private val media by lazy { MediaActionAdapter(applicationContext) }
     private val actions by lazy { ActionExecutor(this, media) }
@@ -61,9 +70,8 @@ class MainActivity : ComponentActivity() {
     private val refreshDevicesTask = object : Runnable {
         override fun run() {
             refreshAudioDevices()
-            lastNavigationRequest = NavigationRequestStore.last(this@MainActivity)
-            syncTripPresentation()
-            mainHandler.postDelayed(this, 1_000L)
+            // Los índices de volumen aún necesitan refresco; las consultas ocurren fuera de UI.
+            mainHandler.postDelayed(this, 2_000L)
         }
     }
     private var wakeProvider: WakeWordProvider? = null
@@ -139,7 +147,8 @@ class MainActivity : ComponentActivity() {
     private val assistantRoleRequest = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        assistantMessage = if (isSelectedAssistant()) {
+        assistantSelected = isSelectedAssistant()
+        assistantMessage = if (assistantSelected) {
             "APP es el asistente elegido. Pulsá el Y12 durante la sesión o probá una orden corta sin sesión."
         } else "APP no quedó como asistente. Gemini sigue disponible; podés volver a probar cuando quieras."
     }
@@ -217,6 +226,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge()
         TripTestState.restore(this)
         manualActivationOnly = getSharedPreferences("ui_settings", MODE_PRIVATE)
             .getBoolean(TripActivationPolicy.PREFERENCE, false)
@@ -288,10 +298,11 @@ class MainActivity : ComponentActivity() {
             overlayMessage = overlayMessage.ifBlank { TripTestState.overlayMessage },
             audioCaptureGeneration = TripTestState.audioCaptureGeneration,
             audioDevices = audioDevices,
-            assistantSelected = isSelectedAssistant(),
+            assistantSelected = assistantSelected,
             assistantMessage = assistantMessage,
             voiceMessage = voiceMessage,
             appCatalogMessage = appCatalogMessage,
+            appCatalogLoading = appCatalogLoading,
             appCommands = appCommands,
             musicPlayers = musicPlayers,
             selectedMusicPlayer = selectedMusicPlayer,
@@ -361,7 +372,7 @@ class MainActivity : ComponentActivity() {
                 onOpenAudioControls = ::openAudioControls,
                 onSelectAssistant = ::requestAssistantRole,
                 onToggleListening = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) },
-                onRefreshApps = ::refreshAppCatalog,
+                onRefreshApps = { refreshAppCatalog(force = true) },
                 onEnableChatContacts = {
                     if (!TripTestState.running && !TripTestState.restoringAudio && !listening && !running && !wakeEnabled && !wakeTransition) {
                         chatContactsPermission.launch(Manifest.permission.READ_CONTACTS)
@@ -472,6 +483,8 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun refreshAudioDevices() {
+        if (isDestroyed || presentationWorker.isShutdown || deviceRefreshInFlight) return
+        val generation = presentationGeneration
         val preferred = HeadsetSelection.preferred
         val supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
         val granted = !supported ||
@@ -485,54 +498,66 @@ class MainActivity : ComponentActivity() {
             audioDevices = initial
             return
         }
-        audioDevices = runCatching {
-            val headsets = BluetoothAudioRouteSelector.availableHeadsets(audioManager)
-            HeadsetControlStore.forgetDisconnected(headsets.map(BluetoothAudioRouteSelector::identity).toSet())
-            val bluetoothOutputs = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
-                .filter { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
-                    it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
-                    it.type == AudioDeviceInfo.TYPE_BLE_HEADSET }
-                .map(::audioDeviceLabel).distinct()
-            val bluetoothInputs = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
-                .filter { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
-                    it.type == AudioDeviceInfo.TYPE_BLE_HEADSET }
-                .map(::audioDeviceLabel).distinct()
-            val resolved = BluetoothAudioRouteSelector.communicationHeadset(audioManager)
-            val controlHeadset = resolved?.let(BluetoothAudioRouteSelector::identity)
-            val controls = HeadsetControlStore.read(this, controlHeadset)
-            val outputs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                runCatching {
-                    audioManager.getAudioDevicesForAttributes(
-                        AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build()
-                    ).map(::audioDeviceLabel).distinct().joinToString("\n")
-                }.getOrDefault("")
-            } else ""
-            initial.copy(
-                headsets = headsets.map { AudioDeviceUi(it.id, audioDeviceLabel(it)) },
-                bluetoothOutputs = bluetoothOutputs,
-                bluetoothInputs = bluetoothInputs,
-                selectedLabel = preferred?.let { chosen ->
-                    headsets.singleOrNull { BluetoothAudioRouteSelector.identity(it) == chosen }
-                        ?.let(::audioDeviceLabel) ?: chosen.name
-                }.orEmpty(),
-                selectionMissing = preferred != null && resolved == null,
-                automaticHeadset = if (preferred == null) resolved?.let(::audioDeviceLabel).orEmpty() else "",
-                controlHeadsetName = controlHeadset?.name?.ifBlank { "Casco Bluetooth" }.orEmpty(),
-                observedControlKeys = controls.mediaKeys,
-                assistantInvocationObserved = controls.assistantInvocation,
-                controlProfilePersistent = controlHeadset?.let { HeadsetControlEvidence.persistentId(it) } != null,
-                communicationRoute = audioManager.communicationDevice?.let(::audioDeviceLabel).orEmpty(),
-                voiceRoute = when (audioManager.communicationDevice?.type) {
-                    null -> VoiceRouteUi.NONE
-                    AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> VoiceRouteUi.SCO
-                    AudioDeviceInfo.TYPE_BLE_HEADSET -> VoiceRouteUi.LE
-                    else -> VoiceRouteUi.OTHER
-                },
-                musicOutput = outputs,
-                musicVolume = media.musicVolume(),
-                communicationVolume = "${audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)}"
-            )
-        }.getOrElse { initial.copy(message = getString(R.string.devices_read_error)) }
+        deviceRefreshInFlight = true
+        presentationWorker.execute {
+            val snapshot = runCatching {
+                val headsets = BluetoothAudioRouteSelector.availableHeadsets(audioManager)
+                HeadsetControlStore.forgetDisconnected(headsets.map(BluetoothAudioRouteSelector::identity).toSet())
+                val bluetoothOutputs = audioManager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+                    .filter { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_A2DP ||
+                        it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                        it.type == AudioDeviceInfo.TYPE_BLE_HEADSET }
+                    .map(::audioDeviceLabel).distinct()
+                val bluetoothInputs = audioManager.getDevices(AudioManager.GET_DEVICES_INPUTS)
+                    .filter { it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO ||
+                        it.type == AudioDeviceInfo.TYPE_BLE_HEADSET }
+                    .map(::audioDeviceLabel).distinct()
+                val resolved = BluetoothAudioRouteSelector.communicationHeadset(audioManager)
+                val controlHeadset = resolved?.let(BluetoothAudioRouteSelector::identity)
+                val controls = HeadsetControlStore.read(this, controlHeadset)
+                val outputs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    runCatching {
+                        audioManager.getAudioDevicesForAttributes(
+                            AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_MEDIA).build()
+                        ).map(::audioDeviceLabel).distinct().joinToString("\n")
+                    }.getOrDefault("")
+                } else ""
+                val communicationDevice = audioManager.communicationDevice
+                initial.copy(
+                    headsets = headsets.map { AudioDeviceUi(it.id, audioDeviceLabel(it)) },
+                    bluetoothOutputs = bluetoothOutputs,
+                    bluetoothInputs = bluetoothInputs,
+                    selectedLabel = preferred?.let { chosen ->
+                        headsets.singleOrNull { BluetoothAudioRouteSelector.identity(it) == chosen }
+                            ?.let(::audioDeviceLabel) ?: chosen.name
+                    }.orEmpty(),
+                    selectionMissing = preferred != null && resolved == null,
+                    automaticHeadset = if (preferred == null) resolved?.let(::audioDeviceLabel).orEmpty() else "",
+                    controlHeadsetName = controlHeadset?.name?.ifBlank { "Casco Bluetooth" }.orEmpty(),
+                    observedControlKeys = controls.mediaKeys,
+                    assistantInvocationObserved = controls.assistantInvocation,
+                    controlProfilePersistent = controlHeadset?.let { HeadsetControlEvidence.persistentId(it) } != null,
+                    communicationRoute = communicationDevice?.let(::audioDeviceLabel).orEmpty(),
+                    voiceRoute = when (communicationDevice?.type) {
+                        null -> VoiceRouteUi.NONE
+                        AudioDeviceInfo.TYPE_BLUETOOTH_SCO -> VoiceRouteUi.SCO
+                        AudioDeviceInfo.TYPE_BLE_HEADSET -> VoiceRouteUi.LE
+                        else -> VoiceRouteUi.OTHER
+                    },
+                    musicOutput = outputs,
+                    musicVolume = media.musicVolume(),
+                    communicationVolume = "${audioManager.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/${audioManager.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)}"
+                )
+            }.getOrElse { initial.copy(message = getString(R.string.devices_read_error)) }
+            mainHandler.post {
+                deviceRefreshInFlight = false
+                if (!isDestroyed && generation == presentationGeneration) {
+                    // Una selección cambiada mientras se leía el sistema exige otra lectura.
+                    if (preferred == HeadsetSelection.preferred) audioDevices = snapshot
+                    else refreshAudioDevices()
+                }
+            }
+        }
     }
 
     private fun audioDeviceLabel(device: AudioDeviceInfo): String {
@@ -557,10 +582,12 @@ class MainActivity : ComponentActivity() {
         if (chatContactsGranted) chatIntegrationMessage = ""
         refreshAppCatalog()
         mainHandler.removeCallbacks(refreshDevicesTask)
-        mainHandler.post(refreshDevicesTask)
+        mainHandler.postDelayed(refreshDevicesTask, 250L)
     }
 
     private fun syncTripPresentation() {
+        assistantSelected = isSelectedAssistant()
+        lastNavigationRequest = NavigationRequestStore.last(this)
         tripButtonBinding = TripButtonBinding.parse(getSharedPreferences("ui_settings", MODE_PRIVATE)
             .getString(TripButtonBinding.PREFERENCE, null))
         mediaAccessGranted = TripMediaAccess.granted(this)
@@ -630,32 +657,33 @@ class MainActivity : ComponentActivity() {
         super.onStop()
     }
 
-    private fun refreshAppCatalog() {
-        worker.execute {
+    private fun refreshAppCatalog(force: Boolean = false) {
+        if (isDestroyed || presentationWorker.isShutdown || catalogRefreshInFlight) return
+        // Reanudar tras una orden no debe volver a enumerar todas las aplicaciones.
+        if (!force && catalogLoadedAt != 0L && SystemClock.elapsedRealtime() - catalogLoadedAt < 30_000L) return
+        catalogRefreshInFlight = true
+        appCatalogLoading = true
+        val generation = presentationGeneration
+        presentationWorker.execute {
             val available = actions.availableApps()
+            val commands = available.mapCatching(AppNameMatcher::catalogCommands)
             val players = actions.availableMusicPlayers()
-            val navigation = actions.navigationAvailable()
+            val navigation = runCatching { actions.navigationAvailable() }.getOrDefault(false)
             val chats = runCatching { actions.contactChatCapabilities() }
             mainHandler.post {
+                catalogRefreshInFlight = false
+                if (isDestroyed || generation != presentationGeneration) return@post
+                appCatalogLoading = false
+                catalogLoadedAt = SystemClock.elapsedRealtime()
                 navigationAvailable = navigation
                 chatCapabilities = chats.getOrDefault(emptyList())
                 chats.exceptionOrNull()?.let { chatIntegrationMessage = "No se pudieron consultar integraciones: ${it.message}." }
                 musicPlayers = players.getOrDefault(emptyList())
                 musicPlayersMessage = players.exceptionOrNull()?.let { "No se pudieron consultar reproductores: ${it.message}." }.orEmpty()
-                if (available.isSuccess) {
-                    val catalog = available.getOrThrow()
-                    appCommands = catalog.map { app ->
-                        val command = AppNameMatcher.commandFor(app, catalog)
-                        val repeated = catalog.count {
-                            MinimalIntentRouter.normalize(it.label) == MinimalIntentRouter.normalize(app.label)
-                        } > 1
-                        if (repeated) "$command · ${app.packageName}" else command
-                    }
-                    appCatalogMessage = "${appCommands.size} accesos disponibles. Decí el comando como aparece aquí."
-                } else {
-                    appCommands = emptyList()
-                    appCatalogMessage = "No se pudo leer la lista de aplicaciones: ${available.exceptionOrNull()?.message}."
-                }
+                appCommands = commands.getOrDefault(emptyList())
+                appCatalogMessage = if (commands.isSuccess)
+                    "${appCommands.size} accesos disponibles. Decí el comando como aparece aquí."
+                else "No se pudo leer la lista de aplicaciones: ${commands.exceptionOrNull()?.message}."
             }
         }
     }
@@ -1131,6 +1159,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        presentationGeneration++
+        presentationWorker.shutdown()
         if (buttonProbeActive) buttonProbe.stop()
         releaseVoiceAppOpener()
         window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)

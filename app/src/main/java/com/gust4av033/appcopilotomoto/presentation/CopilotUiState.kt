@@ -10,7 +10,7 @@ enum class CopilotScreen(val titleRes: Int, val iconRes: Int, val inMainNavigati
     HOME(R.string.nav_home, R.drawable.ic_home),
     TRIP(R.string.nav_trip, R.drawable.ic_trip),
     SETTINGS(R.string.nav_settings, R.drawable.ic_settings),
-    COMMANDS(R.string.nav_commands, R.drawable.ic_tests, inMainNavigation = false),
+    COMMANDS(R.string.nav_commands, R.drawable.ic_commands, inMainNavigation = false),
     TESTS(R.string.nav_tests, R.drawable.ic_tests, inMainNavigation = false)
 }
 
@@ -120,6 +120,7 @@ data class CopilotUiState(
     val assistantMessage: String = "",
     val voiceMessage: String = "",
     val appCatalogMessage: String = "",
+    val appCatalogLoading: Boolean = false,
     val appCommands: List<String> = emptyList(),
     val musicPlayers: List<MusicPlayer> = emptyList(),
     val selectedMusicPlayer: String? = null,

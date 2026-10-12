@@ -109,8 +109,8 @@ class TripOverlay(
 
     private fun colors(): Pair<Int, Int> {
         val night = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        return if (night) Color.rgb(27, 36, 43) to Color.rgb(231, 242, 247)
-            else Color.rgb(242, 249, 252) to Color.rgb(22, 40, 49)
+        return if (night) Color.rgb(20, 36, 50) to Color.rgb(224, 236, 244)
+            else Color.rgb(255, 255, 255) to Color.rgb(23, 43, 58)
     }
 
     private fun buildContent() {
@@ -120,7 +120,7 @@ class TripOverlay(
         root.background = GradientDrawable().apply {
             setColor(background)
             cornerRadius = dp(if (expanded) 20 else 28).toFloat()
-            setStroke(dp(1).coerceAtLeast(1), Color.rgb(45, 131, 151))
+            setStroke(dp(1).coerceAtLeast(1), Color.rgb(0, 107, 105))
         }
         root.setPadding(if (expanded) dp(12) else 0, 0, if (expanded) dp(12) else 0, if (expanded) dp(8) else 0)
         val header = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }

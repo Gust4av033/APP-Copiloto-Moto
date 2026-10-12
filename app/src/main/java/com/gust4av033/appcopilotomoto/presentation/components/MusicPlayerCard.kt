@@ -34,12 +34,13 @@ fun MusicPlayerCard(state: CopilotUiState, actions: CopilotActions) {
                 SupportingText(stringResource(if (player.backgroundSearch) R.string.music_search_background else R.string.music_search_visible))
             }
         }
-        if (state.musicPlayers.isEmpty()) SupportingText(stringResource(R.string.music_no_players))
-        if (state.selectedMusicPlayer != null && state.musicPlayers.none { it.packageName == state.selectedMusicPlayer }) {
+        if (state.appCatalogLoading) SupportingText(stringResource(R.string.catalog_loading))
+        else if (state.musicPlayers.isEmpty()) SupportingText(stringResource(R.string.music_no_players))
+        if (!state.appCatalogLoading && state.selectedMusicPlayer != null && state.musicPlayers.none { it.packageName == state.selectedMusicPlayer }) {
             SupportingText(stringResource(R.string.music_player_missing))
         }
         SupportingText(state.musicPlayersMessage)
-        ActionButton(stringResource(R.string.music_refresh_players), onClick = actions.onRefreshApps)
+        ActionButton(stringResource(R.string.music_refresh_players), enabled = !state.appCatalogLoading, onClick = actions.onRefreshApps)
         SupportingText(stringResource(R.string.music_search_scope))
     }
 }

@@ -2,6 +2,8 @@ package com.gust4av033.appcopilotomoto.presentation
 
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -107,24 +109,36 @@ fun CopilotApp(
         ) { padding ->
             val screenState = rememberSaveableStateHolder()
             screenState.SaveableStateProvider(selectedScreen.name) {
-                Column(
-                    modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()),
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(padding).widthIn(max = 680.dp),
+                    contentPadding = PaddingValues(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Column(
-                        Modifier.widthIn(max = 680.dp).fillMaxWidth().padding(20.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        if (!selectedScreen.inMainNavigation) {
-                            TextButton(onClick = navigateBack) {
-                                Text(stringResource(R.string.back_to_screen, stringResource(secondaryParent.titleRes)))
+                    item(key = "header") {
+                        Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (!selectedScreen.inMainNavigation) {
+                                TextButton(onClick = navigateBack) {
+                                    Text(stringResource(R.string.back_to_screen, stringResource(secondaryParent.titleRes)))
+                                }
                             }
+                            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Icon(painterResource(R.drawable.ic_motorcycle), null, Modifier.size(24.dp),
+                                    tint = MaterialTheme.colorScheme.primary)
+                                Text(stringResource(R.string.ui_brand), Modifier.padding(start = 8.dp),
+                                    style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                            }
+                            Text(stringResource(selectedScreen.titleRes), style = MaterialTheme.typography.headlineLarge,
+                                modifier = Modifier.semantics { heading() })
+                            Text(stringResource(when (selectedScreen) {
+                                CopilotScreen.HOME -> R.string.home_subtitle
+                                CopilotScreen.TRIP -> R.string.trip_subtitle
+                                CopilotScreen.SETTINGS -> R.string.settings_subtitle
+                                CopilotScreen.COMMANDS -> R.string.commands_subtitle
+                                CopilotScreen.TESTS -> R.string.tests_subtitle
+                            }), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Text(stringResource(R.string.ui_brand), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-                        Text(stringResource(selectedScreen.titleRes), style = MaterialTheme.typography.headlineLarge, modifier = Modifier.semantics { heading() })
-                        Text(stringResource(R.string.ui_phase) + " · " + stringResource(R.string.ui_revision),
-                            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.size(4.dp))
+                    }
                         when (selectedScreen) {
                             CopilotScreen.HOME -> HomeScreen(state, actions, navigate)
                             CopilotScreen.TRIP -> TripScreen(state, actions,
@@ -136,6 +150,9 @@ fun CopilotApp(
                                 onOpenCommands = { navigate(CopilotScreen.COMMANDS) },
                                 onOpenTests = { navigate(CopilotScreen.TESTS) })
                         }
+                    item(key = "version") {
+                        Text(stringResource(R.string.ui_revision), style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

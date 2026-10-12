@@ -32,7 +32,7 @@
     <string name="settings_test_tools">Pruebas y diagnóstico</string>
     <string name="settings_test_tools_hint">Comprobá el micrófono, el volumen, la activación y el botón del Y12.</string>
     <string name="back_to_screen">Volver a %1$s</string>
-    <string name="ui_brand">APP · COPILOTO MOTO</string>
+    <string name="ui_brand">APP / COPILOTO MOTO</string>
     <string name="ui_phase">Fase 1 · Núcleo de comandos</string>
     <string name="nav_trip">Viaje</string>
     <string name="nav_tests">Pruebas</string>
@@ -171,7 +171,7 @@
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps. También podés usar estos botones o el aviso; el aviso vence 30 segundos después del anuncio (60 para borradores).</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">Prueba de salida 02 · búsquedas y revisión de mensajes</string>
+    <string name="ui_revision">UI ruta 01 · Fase 1</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>
@@ -353,4 +353,22 @@
     <string name="navigation_search_hint">«Busca en Waze [lugar]» muestra resultados. Elegí el lugar en Waze con la moto detenida. La búsqueda no cambia la última solicitud de Casa/Trabajo guardada por APP.</string>
     <string name="command_search_place">Buscar lugar en Waze</string>
     <string name="command_place_query">Lugar: %1$s</string>
+    <string name="journey_ready_title">Tu próxima salida empieza aquí</string>
+    <string name="journey_ready_hint">Conectá el casco e iniciá tu copiloto.</string>
+    <string name="journey_active_hint">Tu copiloto está en marcha.</string>
+    <string name="home_subtitle">Tu voz, tu música y tu camino.</string>
+    <string name="trip_subtitle">Los controles que necesitás durante la sesión.</string>
+    <string name="settings_subtitle">Adaptá el copiloto a tu casco y a tu forma de viajar.</string>
+    <string name="commands_subtitle">Descubrí qué podés pedirle a APP.</string>
+    <string name="tests_subtitle">Comprobá el audio y guardá tus resultados.</string>
+    <string name="home_commands_short">Música, llamadas, WhatsApp y destinos en Waze.</string>
+    <string name="home_tests_short">Micrófono, botones del casco y diagnóstico.</string>
+    <string name="command_group_music">Música y volumen</string>
+    <string name="command_group_trip">Activación y sesión</string>
+    <string name="command_group_chat">WhatsApp y llamadas</string>
+    <string name="command_group_navigation">Destinos en Waze</string>
+    <string name="command_group_apps">Abrir aplicaciones</string>
+    <string name="catalog_loading">Actualizando aplicaciones…</string>
+    <string name="draft_open">Abrir borrador en WhatsApp</string>
+    <string name="draft_discard">Descartar borrador</string>
 </resources>

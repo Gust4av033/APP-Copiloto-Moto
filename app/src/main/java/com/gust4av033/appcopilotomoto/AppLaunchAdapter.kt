@@ -31,6 +31,19 @@ object AppNameMatcher {
         return "abre ${app.label}$suffix"
     }
 
+    /** Un solo agrupamiento para la UI; no normalizar/ordenar todo N veces. */
+    fun catalogCommands(catalog: List<LaunchableApp>): List<String> {
+        val commands = catalog.groupBy { normalized(it.label) }.values.flatMap { group ->
+            val sorted = group.sortedWith(compareBy(LaunchableApp::packageName, LaunchableApp::activityName))
+            sorted.mapIndexed { index, app ->
+                val suffix = if (sorted.size > 1) " número ${numbers.getOrNull(index) ?: (index + 1).toString()}" else ""
+                val packageHint = if (sorted.size > 1) " · ${app.packageName}" else ""
+                app to "abre ${app.label}$suffix$packageHint"
+            }
+        }.toMap()
+        return catalog.map { commands.getValue(it) }
+    }
+
     fun find(spokenName: String, catalog: List<LaunchableApp>): AppMatch {
         val spoken = normalized(spokenName)
         val exact = catalog.filter { normalized(it.label) == spoken }

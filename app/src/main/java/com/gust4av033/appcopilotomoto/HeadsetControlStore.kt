@@ -16,6 +16,7 @@ internal object HeadsetControlStore {
         }.getOrNull()
     } else null
 
+    @Synchronized
     fun read(context: Context, headset: HeadsetIdentity?): HeadsetControlEvidence {
         if (headset == null) return HeadsetControlEvidence()
         val id = HeadsetControlEvidence.persistentId(headset) ?: return temporary[headset] ?: HeadsetControlEvidence()
@@ -25,18 +26,21 @@ internal object HeadsetControlStore {
         return HeadsetControlEvidence(keys, prefs.getBoolean("assistant_$id", false))
     }
 
+    @Synchronized
     fun observeKey(context: Context, headset: HeadsetIdentity?, keyCode: Int) {
         if (headset == null) return
         val old = read(context, headset)
         save(context, headset, old, old.observeKey(keyCode))
     }
 
+    @Synchronized
     fun observeAssistant(context: Context, headset: HeadsetIdentity?) {
         if (headset == null) return
         val old = read(context, headset)
         save(context, headset, old, old.copy(assistantInvocation = true))
     }
 
+    @Synchronized
     fun forgetDisconnected(connected: Set<HeadsetIdentity>) {
         temporary.keys.retainAll(connected)
     }

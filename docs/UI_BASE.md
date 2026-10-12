@@ -61,3 +61,7 @@ La revisión **UI burbuja 02 · borradores** agrega minimizar con ×/toque fuera
 `clean`, `assembleDebug`, `testDebugUnitTest` y `lintDebug` completaron correctamente con la versión actual: 52 pruebas, cero fallos y cero errores. Lint terminó sin errores, con advertencias; su bloqueo anterior quedó resuelto. El APK regenerado es un archivo ZIP válido. También se comprobó la limpieza del diff. Quedan pendientes revisión visual de la ventana y pruebas reales de superposición, cambios de modo, micrófono y audio en el S22+ con el casco.
 
 La revisión de cierre/dictado completó nuevamente esos cuatro comandos: 59 pruebas correctas, APK generado y lint sin errores (53 advertencias, 9 sugerencias). Las comprobaciones de presentación y funcionamiento real permanecen pendientes en el teléfono.
+
+## UI ruta 01 · 12 de octubre de 2026
+
+El diseño y la carga de presentación se revisaron sobre `722ba103`. Inicio y Viaje tienen una tarjeta principal, los comandos se agrupan por capacidad y las pantallas componen secciones mediante LazyColumn. Las consultas pasivas de audio y el catálogo se preparan fuera de UI; la lectura del asistente se conserva como estado. Ver [UI_RUTA_01.md](UI_RUTA_01.md) para alcance, limitaciones y comprobación en el S22+.

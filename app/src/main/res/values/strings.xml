@@ -15,7 +15,7 @@
     <string name="commands_chat">Chats: «abre el chat de Ana en WhatsApp», «abre WhatsApp con Ana» o «abre el chat de Ana en WhatsApp Business». Después: «uno» para abrir o «dos» para cancelar.</string>
     <string name="integrations_chat_hint">Configurá contactos antes del viaje. Usá un nombre único y un solo número, preferentemente con + y código de país. La apertura por voz requiere APP visible y pantalla desbloqueada. Podés dictar un borrador; el envío se confirma tocando Enviar en WhatsApp.</string>
     <string name="command_chat_draft">Preparar borrador de WhatsApp</string>
-    <string name="commands_chat_draft">“Escribe a [nombre] en WhatsApp”. Después del tono, dictá el mensaje. APP lo lee: uno abre el borrador, dos lo descarta.</string>
+    <string name="commands_chat_draft">“Escribe a [nombre] en WhatsApp”. Después del tono, dictá el mensaje. APP lo lee: uno abre el borrador, dos lo descarta, tres permite dictar de nuevo y cuatro repite la lectura.</string>
     <string name="chat_draft_pending_hint">Después de la lectura y el tono: uno abre el borrador; dos descarta; tres o «dictar de nuevo» reemplaza el mensaje; cuatro o «repetir mensaje» vuelve a leerlo. APP no envía el mensaje: Enviar se pulsa en WhatsApp.</string>
     <string name="commands_incoming_calls">Contestar, rechazar y colgar llamadas entrantes por voz todavía no están disponibles.</string>
     <string name="manual_activation_title">Solo escuchar al pedir una orden</string>
