@@ -150,3 +150,11 @@ Validación local: clean, assembleDebug, testDebugUnitTest y lintDebug completos
 Documento 04 aplicado: captura opcional de un control multimedia durante el viaje, métricas por etapa y extracción gradual del servicio. La recepción del botón con Poweramp/Waze/pantalla bloqueada requiere regresión física.
 
 [Diseño y alcance](ESTABILIZACION_1_0.md) · [Pruebas S22+/Y12](PRUEBA_ESTABILIZACION_1_0.md)
+
+## Corte del 12 de octubre de 2026 y transición a navegación
+
+El usuario confirma que las funciones actuales responden bien; el dictado de mensajes de WhatsApp queda poco calibrado. El núcleo de comandos de Fase 1 se considera candidato a cierre funcional, con una regresión final documentada y la consolidación Git de una versión estable aún pendientes. Esta confirmación es cualitativa, no una nueva medición de tasa de aciertos.
+
+La revisión 06 conserva la recepción de pulsaciones consecutivas, centraliza la señal después de READY y da 18 segundos a confirmaciones desde la disponibilidad del reconocedor. [Detalle y pruebas](TONOS_Y_CONTROLES_CASCO_2026-10-04.md). Las referencias anteriores a dos tonos o doce segundos corresponden a revisiones previas.
+
+Las órdenes de Casa, Trabajo y repetición de la última solicitud se incorporan como inicio de **Fase 2**, mediante NavigationProvider y la integración oficial de Waze. [Alcance y pruebas de Navegación 01](FASE_2_NAVEGACION_01.md). No implican lectura de ETA, giros o historial externo. El dictado/borrador es un adelanto de mensajería de Fase 5 y su ajuste pendiente queda separado del cierre del núcleo; envío automático y llamadas entrantes mantienen su estado no implementado.

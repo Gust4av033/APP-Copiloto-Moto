@@ -3,7 +3,7 @@ package com.gust4av033.appcopilotomoto
 import java.text.Normalizer
 import java.util.Locale
 
-enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, MEDIA_SEARCH, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, OPEN_APP, OPEN_CONTACT_CHAT, DRAFT_CONTACT_MESSAGE, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, SWITCH_MODE, OPEN_ASSISTANT, UNKNOWN }
+enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, MEDIA_SEARCH, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, OPEN_APP, OPEN_CONTACT_CHAT, DRAFT_CONTACT_MESSAGE, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, SWITCH_MODE, OPEN_ASSISTANT, NAVIGATE, UNKNOWN }
 
 data class VolumeRequest(val amount: Int, val percent: Boolean)
 data class RoutedCommand(
@@ -14,7 +14,8 @@ data class RoutedCommand(
     val musicQuery: String? = null,
     val chatApp: ChatApp? = null,
     val audioMode: WakeAudioMode? = null,
-    val messageText: String? = null
+    val messageText: String? = null,
+    val navigationRequest: NavigationRequest? = null
 )
 
 /** Las órdenes claras pasan por reglas locales; una frase desconocida no ejecuta nada. */
@@ -100,6 +101,7 @@ object MinimalIntentRouter {
 
     fun route(transcript: String): RoutedCommand {
         val normalized = commandText(transcript)
+        val navigation = NavigationCommandParser.parse(normalized)
         val mode = TripModeCommands.parse(normalized)
         val volume = requestedVolume(transcript)
         val contact = requestedContact(transcript)
@@ -109,6 +111,7 @@ object MinimalIntentRouter {
         val draft = ChatDraftParser.parse(transcript)
         val intent = when {
             mode != null -> TestIntent.SWITCH_MODE
+            navigation != null -> TestIntent.NAVIGATE
             normalized in setOf("abre asistente", "abrir asistente", "abre el asistente", "abrir el asistente",
                 "abre copiloto", "abrir copiloto", "abre app copiloto") -> TestIntent.OPEN_ASSISTANT
             normalized in setOf("detener sesion", "terminar sesion", "finalizar sesion") -> TestIntent.STOP_SESSION
@@ -138,7 +141,8 @@ object MinimalIntentRouter {
             if (intent == TestIntent.MEDIA_SEARCH) song else null,
             if (intent == TestIntent.OPEN_CONTACT_CHAT) chat?.app else if (intent == TestIntent.DRAFT_CONTACT_MESSAGE) draft?.recipient?.app else null,
             if (intent == TestIntent.SWITCH_MODE) mode else null,
-            if (intent == TestIntent.DRAFT_CONTACT_MESSAGE) draft?.text else null)
+            if (intent == TestIntent.DRAFT_CONTACT_MESSAGE) draft?.text else null,
+            if (intent == TestIntent.NAVIGATE) navigation else null)
     }
 
     fun resolve(transcript: String): TestIntent = route(transcript).intent

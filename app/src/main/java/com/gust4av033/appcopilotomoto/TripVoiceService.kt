@@ -162,13 +162,15 @@ class TripVoiceService : Service() {
         }
         if (intent?.action == ACTION_APP_OPENED) {
             val token = intent.getStringExtra(EXTRA_APP_TOKEN)
-            val label = pendingApp?.label
+            val openedTarget = pendingApp
+            val label = openedTarget?.label
             val hadDraft = pendingApp?.draftText != null
             if (active && token != null && clearPendingApp(token)) {
                 TripTestState.record(this, PipelineEvent.ACTION_DISPATCHED)
                 TripTestState.actions++
                 TripTestState.save(this)
-                TripTestState.lastCommandResult = if (hadDraft) "Borrador de $label abierto; mensaje sin enviar. El viaje sigue activo."
+                TripTestState.lastCommandResult = if (openedTarget?.navigationDestination != null) navigationDispatchMessage(openedTarget)
+                    else if (hadDraft) "Borrador de $label abierto; mensaje sin enviar. El viaje sigue activo."
                     else "Solicitud de apertura de $label enviada; el viaje sigue activo."
                 updateNotification("Aplicación abierta · viaje activo")
             } else if (!active) stopSelf(startId)
@@ -662,7 +664,7 @@ class TripVoiceService : Service() {
         }, playbackResumePolicy = { heard ->
             when (heard?.let(MinimalIntentRouter::resolve)) {
                 TestIntent.MEDIA_PAUSE -> PlaybackResumePolicy.KEEP_PAUSED
-                TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.OPEN_APP, TestIntent.OPEN_CONTACT_CHAT,
+                TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.OPEN_APP, TestIntent.NAVIGATE, TestIntent.OPEN_CONTACT_CHAT,
                 TestIntent.DRAFT_CONTACT_MESSAGE, TestIntent.MEDIA_SEARCH -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 TestIntent.STOP_SESSION, TestIntent.SWITCH_MODE -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 else -> if (effectiveAudioMode == WakeAudioMode.BUTTON) {
@@ -680,7 +682,7 @@ class TripVoiceService : Service() {
                 if (intent == TestIntent.UNKNOWN) PipelineEvent.INTENT_UNKNOWN else PipelineEvent.INTENT_RESOLVED)
             val cancelledApp = intent == TestIntent.CANCEL && pendingApp != null
             // Una orden nueva reemplaza cualquier apertura que aún estaba pendiente.
-            if (intent != TestIntent.OPEN_APP && intent != TestIntent.OPEN_CONTACT_CHAT && intent != TestIntent.DRAFT_CONTACT_MESSAGE) {
+            if (intent != TestIntent.OPEN_APP && intent != TestIntent.NAVIGATE && intent != TestIntent.OPEN_CONTACT_CHAT && intent != TestIntent.DRAFT_CONTACT_MESSAGE) {
                 clearPendingApp()
             }
             if (intent == TestIntent.SWITCH_MODE && command.audioMode != null) {
@@ -743,13 +745,20 @@ class TripVoiceService : Service() {
                 stopSession("Sesión detenida por voz: ‘$heard’ en $elapsed ms.", expected = true)
                 return@listenOnce
             }
-            if (intent == TestIntent.OPEN_APP || intent == TestIntent.OPEN_CONTACT_CHAT || intent == TestIntent.DRAFT_CONTACT_MESSAGE) {
+            if (intent == TestIntent.OPEN_APP || intent == TestIntent.NAVIGATE || intent == TestIntent.OPEN_CONTACT_CHAT || intent == TestIntent.DRAFT_CONTACT_MESSAGE) {
                 clearPendingApp()
-                TripTestState.status = if (intent != TestIntent.OPEN_APP) "Buscando contacto para el chat…" else "Buscando aplicación…"
+                TripTestState.status = when (intent) {
+                    TestIntent.NAVIGATE -> "Preparando destino en Waze…"
+                    TestIntent.OPEN_APP -> "Buscando aplicación…"
+                    else -> "Buscando contacto para el chat…"
+                }
                 updateNotification(TripTestState.status)
                 worker.execute {
-                    val found = if (intent != TestIntent.OPEN_APP) actions.prepareContactChat(command)
-                        else actions.prepareApp(command)
+                    val found = when (intent) {
+                        TestIntent.NAVIGATE -> actions.prepareNavigation(command)
+                        TestIntent.OPEN_APP -> actions.prepareApp(command)
+                        else -> actions.prepareContactChat(command)
+                    }
                     mainHandler.post {
                         if (!active || detector !== provider || cycle != generation) return@post
                         if (intent == TestIntent.DRAFT_CONTACT_MESSAGE && found.isSuccess) {
@@ -971,7 +980,8 @@ class TripVoiceService : Service() {
                         when (AppChoiceRouter.resolve(heard)) {
                             AppChoice.OPEN -> {
                                 val opened = openConfirmedApp(token, request.target)
-                                val result = if (opened && request.target.draftText != null) "Borrador abierto en WhatsApp; mensaje sin enviar. Viaje activo."
+                                val result = if (opened && request.target.navigationDestination != null) navigationDispatchMessage(request.target)
+                                    else if (opened && request.target.draftText != null) "Borrador abierto en WhatsApp; mensaje sin enviar. Viaje activo."
                                     else if (opened) "Solicitud de apertura de ${request.target.label} enviada por voz; viaje activo."
                                     else "No se pudo abrir ${request.target.label}. Desbloqueá el teléfono y habilitá Mostrar sobre otras apps, o usá el aviso de apertura."
                                 // Terminar primero: limpiar la solicitud no debe cancelar este mismo resultado.
@@ -1012,7 +1022,9 @@ class TripVoiceService : Service() {
                 startActivity(Intent(target.launchIntent).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 true
             }
-        }.getOrDefault(false)
+        }.getOrDefault(false).also { opened ->
+            if (opened) NavigationRequestStore.recordDispatched(this, target)
+        }
     }
 
     private fun renewAppChoiceWindow(token: String) {

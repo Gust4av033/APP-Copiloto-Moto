@@ -124,6 +124,8 @@ data class CopilotUiState(
     val musicPlayers: List<MusicPlayer> = emptyList(),
     val selectedMusicPlayer: String? = null,
     val musicPlayersMessage: String = "",
+    val navigationAvailable: Boolean = false,
+    val lastNavigationRequest: String = "",
     val chatCapabilities: List<ContactChatCapability> = emptyList(),
     val chatContactsGranted: Boolean = false,
     val chatIntegrationMessage: String = "",
@@ -150,6 +152,7 @@ data class CopilotUiState(
 /** La Activity adapta estas acciones al runtime existente. Los previews usan callbacks vacíos. */
 data class CopilotActions(
     val onToggleTrip: () -> Unit = {},
+    val onForgetNavigationRequest: () -> Unit = {},
     val onKeepScreenOnChange: (Boolean) -> Unit = {},
     val onManualTripCommand: () -> Unit = {},
     val onCancelPendingApp: (String) -> Unit = {},

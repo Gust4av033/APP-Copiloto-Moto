@@ -29,4 +29,5 @@ fun IntegrationsCard(state: CopilotUiState, actions: CopilotActions) {
         SupportingText(stringResource(R.string.commands_chat_draft))
         SupportingText(stringResource(R.string.integrations_chat_hint))
     }
+    NavigationCard(state, actions)
 }

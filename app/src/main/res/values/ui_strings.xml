@@ -171,7 +171,7 @@
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps. También podés usar estos botones o el aviso; el aviso vence 30 segundos después del anuncio (60 para borradores).</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">Estabilización 06 · señal para hablar y controles del casco</string>
+    <string name="ui_revision">Navegación 01 · Casa y Trabajo en Waze</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>
@@ -338,4 +338,16 @@
     <string name="headset_control_play">reproducir</string>
     <string name="headset_control_pause">pausa</string>
     <string name="headset_control_assistant">invocación de asistente</string>
+    <string name="navigation_title">Navegación · Waze</string>
+    <string name="navigation_ready">Waze disponible para recibir destinos.</string>
+    <string name="navigation_missing">Waze no está disponible. Instalalo y actualizá las integraciones.</string>
+    <string name="navigation_setup">Guardá Casa y Trabajo en Waze antes del viaje. APP usa esos favoritos; no necesita conocer tu dirección.</string>
+    <string name="navigation_commands">«Vamos a casa» · «Vamos al trabajo» · «Vamos al último destino»</string>
+    <string name="navigation_confirmation">Activá APP como siempre. Después del anuncio y la señal: uno solicita la ruta; dos cancela. Si Waze está al frente, habilitá Mostrar sobre otras apps y mantené el teléfono desbloqueado.</string>
+    <string name="navigation_last">Última solicitud enviada a Waze desde APP: %1$s.</string>
+    <string name="navigation_last_empty">Todavía no hay una solicitud de ruta enviada desde APP.</string>
+    <string name="navigation_scope">Último destino repite el favorito solicitado desde APP, incluso después de reiniciarla. No lee el historial de Waze ni confirma que la ruta haya comenzado. Waze resuelve el favorito guardado y su navegación.</string>
+    <string name="navigation_forget">Olvidar última solicitud de ruta</string>
+    <string name="command_navigate">Solicitar ruta</string>
+    <string name="command_navigation_parameter">Destino: %1$s</string>
 </resources>

@@ -61,6 +61,7 @@ class MainActivity : ComponentActivity() {
     private val refreshDevicesTask = object : Runnable {
         override fun run() {
             refreshAudioDevices()
+            lastNavigationRequest = NavigationRequestStore.last(this@MainActivity)
             syncTripPresentation()
             mainHandler.postDelayed(this, 1_000L)
         }
@@ -89,6 +90,8 @@ class MainActivity : ComponentActivity() {
     private var musicPlayers by mutableStateOf<List<MusicPlayer>>(emptyList())
     private var selectedMusicPlayer by mutableStateOf<String?>(null)
     private var musicPlayersMessage by mutableStateOf("")
+    private var navigationAvailable by mutableStateOf(false)
+    private var lastNavigationRequest by mutableStateOf<NavigationDestination?>(null)
     private var chatCapabilities by mutableStateOf<List<ContactChatCapability>>(emptyList())
     private var chatContactsGranted by mutableStateOf(false)
     private var chatIntegrationMessage by mutableStateOf("")
@@ -293,6 +296,8 @@ class MainActivity : ComponentActivity() {
             musicPlayers = musicPlayers,
             selectedMusicPlayer = selectedMusicPlayer,
             musicPlayersMessage = musicPlayersMessage,
+            navigationAvailable = navigationAvailable,
+            lastNavigationRequest = lastNavigationRequest?.label.orEmpty(),
             chatCapabilities = chatCapabilities,
             chatContactsGranted = chatContactsGranted,
             chatIntegrationMessage = chatIntegrationMessage,
@@ -396,6 +401,12 @@ class MainActivity : ComponentActivity() {
                     else if (!audioBusy()) buttonProbe.start()
                 },
                 onOpenButtonProbe = { selectedScreen = CopilotScreen.TESTS },
+                onForgetNavigationRequest = {
+                    if (!audioBusy()) {
+                        NavigationRequestStore.forget(this@MainActivity)
+                        lastNavigationRequest = null
+                    }
+                },
                 onOverlayEnabledChange = { enabled ->
                     TripOverlayPreferences.setEnabled(this@MainActivity, enabled)
                     overlayEnabled = enabled
@@ -623,8 +634,10 @@ class MainActivity : ComponentActivity() {
         worker.execute {
             val available = actions.availableApps()
             val players = actions.availableMusicPlayers()
+            val navigation = actions.navigationAvailable()
             val chats = runCatching { actions.contactChatCapabilities() }
             mainHandler.post {
+                navigationAvailable = navigation
                 chatCapabilities = chats.getOrDefault(emptyList())
                 chats.exceptionOrNull()?.let { chatIntegrationMessage = "No se pudieron consultar integraciones: ${it.message}." }
                 musicPlayers = players.getOrDefault(emptyList())
@@ -948,6 +961,7 @@ class MainActivity : ComponentActivity() {
                                 ) },
                                 onFailure = { it.message ?: "No se encontró la aplicación." }
                             )
+                            TestIntent.NAVIGATE -> "Destino interpretado; la ruta y su confirmación se prueban durante el viaje. No se abrió Waze."
                             TestIntent.OPEN_CONTACT_CHAT -> "Escuché: ‘$heard’. Los chats con confirmación por voz se prueban en la sesión de viaje."
                             TestIntent.DRAFT_CONTACT_MESSAGE -> "Borrador interpretado; dictado y confirmación se prueban en el viaje. No se abrió ni envió un mensaje."
                             TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.CONFIRM_CALL -> "Escuché: ‘$heard’. Las llamadas por nombre se prueban en la sesión de viaje."

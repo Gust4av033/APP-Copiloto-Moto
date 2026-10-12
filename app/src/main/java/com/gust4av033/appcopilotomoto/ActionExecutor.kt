@@ -7,6 +7,7 @@ import android.media.AudioManager
 /** Ejecuta las acciones deterministas; la sesión decide cuándo restaurar audio o pedir confirmación. */
 class ActionExecutor(private val context: Context, private val media: MediaActionAdapter) {
     private val apps = AppLaunchAdapter(context)
+    private val navigation: NavigationProvider = WazeNavigationProvider(context)
     private val music = MusicSearchAdapter(context)
     private val chats: List<ContactChatAdapter> = ChatApp.entries.map { WhatsAppChatAdapter(context, it) }
 
@@ -49,6 +50,16 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
         adapter.prepare(contact).getOrThrow()
     }
 
+    fun navigationAvailable(): Boolean = navigation.available()
+
+    fun prepareNavigation(command: RoutedCommand): Result<AppTarget> = runCatching {
+        check(command.intent == TestIntent.NAVIGATE) { "La orden no pide navegación." }
+        val request = checkNotNull(command.navigationRequest)
+        val destination = request.resolve(NavigationRequestStore.last(context))
+            ?: error("Todavía no hay un destino solicitado desde APP. Pedí ir a Casa o Trabajo primero. El historial de Waze no se lee.")
+        navigation.prepare(destination).getOrThrow()
+    }
+
     fun availableApps(): Result<List<LaunchableApp>> = apps.installedApps()
 
     fun prepareApp(command: RoutedCommand): Result<AppTarget> = runCatching {
@@ -60,6 +71,7 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
     fun openAppFromActivity(target: AppTarget): Result<Unit> = runCatching {
         check(context is Activity && !context.isFinishing) { "APP debe estar visible para abrir otra aplicación." }
         context.startActivity(target.launchIntent)
+        NavigationRequestStore.recordDispatched(context, target)
     }
 
     fun description(intent: TestIntent, change: VolumeAdjustment? = null): String = when (intent) {
