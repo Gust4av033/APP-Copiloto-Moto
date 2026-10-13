@@ -5,8 +5,8 @@
   la misma entrega; si no tiene efecto visible, explica brevemente por qué.
 - Consulta la documentación de UI vigente. Conserva el sistema de diseño y
   reutiliza componentes y recursos. No cambies dependencias por decoración.
-- La dirección visual es vidrio esmerilado sobre un fondo propio morado,
-  celeste y azul. Mantén texto nítido, iconos vectoriales coherentes y contraste.
+- La dirección visual actual es vidrio azul tormenta con reflejos celestes
+  sobre un fondo azul profundo, siguiendo docs/UI_AZUL_TORMENTA.md. Mantén texto nítido, iconos vectoriales coherentes y contraste.
   Representa la profundidad sin efectos que degraden la fluidez o el audio.
 - Revisa colores semánticos de contenido, inputs y botones. Los controles
   principales necesitan identificación clara y selección/estado visible.

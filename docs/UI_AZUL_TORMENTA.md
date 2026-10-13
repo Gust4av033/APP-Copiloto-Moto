@@ -99,6 +99,7 @@ El clima, el historial y el perfil de moto no se implementan en esta entrega vis
 
 ## Archivos de la entrega
 
+- `AGENTS.md`
 - `app/src/main/java/com/gust4av033/appcopilotomoto/OverlayGlassStyle.kt`
 - `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/components/CopilotComponents.kt`
 - `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/components/HomeDashboardPager.kt`
