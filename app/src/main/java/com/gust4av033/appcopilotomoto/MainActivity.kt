@@ -400,6 +400,13 @@ class MainActivity : ComponentActivity() {
                     if (!audioBusy()) {
                         developerEnabled = false
                         settingsStore.setDeveloperEnabled(BuildConfig.DEBUG, false)
+                        if (tripAudioMode == WakeAudioMode.PHONE_WAKE || manualActivationOnly) {
+                            tripAudioMode = if (manualActivationOnly) WakeAudioMode.BUTTON else WakeAudioMode.BLUETOOTH
+                            manualActivationOnly = false
+                            getSharedPreferences("ui_settings", MODE_PRIVATE).edit().putString("trip_audio_mode", tripAudioMode.name)
+                                .putBoolean(TripActivationPolicy.PREFERENCE, false).apply()
+                            configurationNotice = getString(R.string.settings_experimental_reset)
+                        }
                         developerChallenge.reset()
                         developerConfirmationRequested = false
                         selectedScreen = CopilotScreen.SETTINGS
@@ -1076,6 +1083,7 @@ class MainActivity : ComponentActivity() {
                 if (!listening) return@listenOnce
                 testReadyCue.cancel()
                 listening = false
+                standaloneCommand = false
                 val elapsed = SystemClock.elapsedRealtime() - start
                 val routed = outcome.getOrNull()?.let(MinimalIntentRouter::route)
                 lastTestCommand = routed?.toCommandUi()

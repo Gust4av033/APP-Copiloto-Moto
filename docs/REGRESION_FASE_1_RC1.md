@@ -53,3 +53,17 @@ R06–R19 deben pasar sin acción equivocada, despacho después de cancelar, cap
 
 Completar las dos sesiones en ambos modos, documentar las limitaciones encontradas y repetir los casos fallidos después de corregirlos. Hasta entonces mantener RC1 como candidata. El envío automático de WhatsApp, audio por voz y silencio pronunciado durante TTS no forman parte del alcance implementado de esta baseline y permanecen visibles en el backlog de [FASE_1_RC1.md](FASE_1_RC1.md).
 
+
+
+## Regresión de Ajustes y separación de desarrollo
+
+Ejecutar estacionado, con la variante instalada identificada. Los resultados siguen pendientes de validación física.
+
+| Caso | Comprobación | Resultado esperado |
+| --- | --- | --- |
+| R23 | Revisar categorías, submenús, atrás, permisos y fuente grande | Siete categorías de usuario; sin métricas, rutas ni pruebas internas |
+| R24 | Probar seis/siete taps, cancelar, confirmar y ocultar; repetir en debug/release | Sin activación accidental; release de consulta; capturas solo en debug con acceso activo |
+| R25 | Dime Evo/Y12, Anterior, permiso de esta instalación, nuevo viaje, pantalla bloqueada y música | Activación y recuperación de música verificadas físicamente; permiso revocado produce ayuda comprensible |
+| R26 | Cambiar frase/sensibilidad/casco/reproductor/botón/burbuja/pantalla; forzar cierre, desconectar casco, abrir de nuevo | Persistencia real; un casco faltante no sustituye al elegido; configuraciones de audio bloqueadas durante viaje |
+
+Protocolo detallado y distinción entre Android JVM y teléfono: [Ajustes](AJUSTES_USUARIO_DESARROLLO.md).

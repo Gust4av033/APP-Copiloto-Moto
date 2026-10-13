@@ -404,7 +404,7 @@
     <string name="settings_category_audio_hint">Casco, reproductor y conexión</string>
     <string name="settings_category_appearance">Apariencia</string>
     <string name="settings_category_appearance_hint">Burbuja y pantalla durante el viaje</string>
-    <string name="settings_category_integrations">WhatsApp y aplicaciones</string>
+    <string name="settings_category_integrations">Integraciones</string>
     <string name="settings_category_integrations_hint">Mensajería, llamadas y aplicaciones</string>
     <string name="settings_category_navigation">Navegación</string>
     <string name="settings_category_navigation_hint">Casa, trabajo, búsquedas y última solicitud.</string>

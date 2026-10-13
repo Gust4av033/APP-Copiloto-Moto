@@ -71,6 +71,18 @@ fun CopilotApp(
     var settingsSectionName by rememberSaveable { mutableStateOf(initialSettingsSection.name) }
     val settingsSection = runCatching { SettingsSection.valueOf(settingsSectionName) }.getOrDefault(SettingsSection.OVERVIEW).visibleFor(state)
     val settingsDetail = visibleScreen == CopilotScreen.SETTINGS && settingsSection != SettingsSection.OVERVIEW
+    var settingsParentName by rememberSaveable { mutableStateOf(SettingsSection.OVERVIEW.name) }
+    val settingsParent = runCatching { SettingsSection.valueOf(settingsParentName) }.getOrDefault(SettingsSection.OVERVIEW).visibleFor(state)
+    val settingsBack: () -> Unit = {
+        settingsSectionName = settingsParent.name
+        settingsParentName = SettingsSection.OVERVIEW.name
+    }
+    val openSettingsSection: (SettingsSection) -> Unit = { next ->
+        settingsParentName = if (settingsSection == SettingsSection.INTEGRATIONS && (next == SettingsSection.CALLS || next == SettingsSection.AUDIO))
+            settingsSection.name else if (settingsSection == SettingsSection.ABOUT && next == SettingsSection.DEVELOPER)
+            SettingsSection.ABOUT.name else SettingsSection.OVERVIEW.name
+        settingsSectionName = next.visibleFor(state).name
+    }
     var secondaryParentName by rememberSaveable { mutableStateOf(CopilotScreen.SETTINGS.name) }
     val secondaryParent = runCatching { CopilotScreen.valueOf(secondaryParentName) }.getOrDefault(CopilotScreen.SETTINGS)
     val navigate: (CopilotScreen) -> Unit = { screen ->
@@ -84,7 +96,7 @@ fun CopilotApp(
         onScreenChange(screen.visibleFor(state))
     }
     val navigateBack: () -> Unit = {
-        if (settingsDetail) settingsSectionName = SettingsSection.OVERVIEW.name
+        if (settingsDetail) settingsBack()
         else navigate(if (!visibleScreen.inMainNavigation) secondaryParent else CopilotScreen.HOME)
     }
     val mainSelection = if (!visibleScreen.inMainNavigation) secondaryParent else visibleScreen
@@ -109,8 +121,8 @@ fun CopilotApp(
                     contentColor = MaterialTheme.colorScheme.onSurface) {
                     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = { settingsSectionName = SettingsSection.OVERVIEW.name }) {
-                            Text(stringResource(R.string.settings_back_to_list))
+                        TextButton(onClick = settingsBack) {
+                            Text(stringResource(R.string.back_to_screen, stringResource(settingsParent.titleRes)))
                         }
                     }
                 }
@@ -202,7 +214,7 @@ fun CopilotApp(
                             CopilotScreen.TESTS -> TestsScreen(state, actions)
                             CopilotScreen.SETTINGS -> SettingsScreen(state, actions,
                                 section = settingsSection,
-                                onOpenSection = { settingsSectionName = it.name },
+                                onOpenSection = openSettingsSection,
                                 onOpenCommands = { navigate(CopilotScreen.COMMANDS) },
                                 onOpenTests = { navigate(CopilotScreen.TESTS) })
                         }

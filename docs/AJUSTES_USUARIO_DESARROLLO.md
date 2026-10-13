@@ -92,9 +92,30 @@ iniciar un viaje nuevo para volver a registrar el botón.
 
 ## Validación de esta reconstrucción
 
-Estado del primer checkpoint: implementación integrada; compilación, tests y lint en curso.
-No corresponde atribuir resultados del intento anterior a esta reconstrucción.
-El resultado final se registra al terminar las comprobaciones.
+Compilación comprobada de debug, release y fieldTest; los tres APK se verificaron como ZIP válidos.
+Pruebas de esta reconstrucción: debug 199 casos (198 aprobados, 1 omitido), release 199 casos
+(191 aprobados, 8 omitidos), sin errores ni fallos. Debug omite el caso exclusivo de release;
+release omite las ocho pruebas Compose porque su host solo se incorpora a debug. La UI de
+consulta de release se comprueba también en las pruebas Compose de debug, y las restricciones
+de captura se comprueban ejecutando la Activity compilada de release.
+Lint debug: 0 errores, 102 advertencias y 9 recomendaciones. Lint release: 0 errores,
+101 advertencias y 9 recomendaciones. La última tarea de lint release terminó correctamente
+sin red, utilizando las dependencias ya descargadas. Persisten avisos de lint, principalmente
+sobre APIs obsoletas y tareas de mantenimiento; esta entrega no intenta corregirlos fuera
+del alcance de Ajustes.
+No se atribuyen resultados del intento anterior a esta reconstrucción.
+
+Se verificó `BuildConfig.DEBUG=false` en la clase compilada de release y la ausencia del host
+Compose de pruebas en los APK release/fieldTest. Los renders revisados provienen del View
+Android de la UI Compose real en Robolectric, con temas claro/oscuro y fuente ampliada:
+no son mockups, pero tampoco capturas de un teléfono. Las pruebas incluyen 320/360/800 dp,
+fuente de hasta 200 %, objetivos táctiles de al menos 48 dp y contraste representativo de texto
+sobre vidrio/botones de al menos 4.5:1. TalkBack, orientación y contraste sobre apps externas
+requieren la revisión física indicada abajo.
+
+Entorno de validación: JDK 17, Gradle 8.13, SDK 36, Build Tools 35 y la dependencia real
+openwakeword-android 0.1.2; no se sustituyó por stubs. Los ajustes de proxy, certificados y
+repositorios usados para este entorno son locales y no se incorporan al proyecto.
 
 Las pruebas nuevas incluyen restricciones de acceso, navegación restaurada, SharedPreferences
 con lectura real del archivo tras invalidar la caché, identidad del casco después de reinicio,
@@ -137,3 +158,47 @@ En el teléfono, con la moto detenida:
 Todo el punto anterior requiere Samsung S22+, Y12 Pro/Dime Evo y aplicaciones reales.
 No hay evidencia de validación física de esta entrega; la recuperación SCO/A2DP,
 recepción de botones en bloqueo y comportamiento del firmware quedan pendientes.
+
+## Archivos de la entrega
+
+- `.gitignore`
+- `README.md`
+- `app/build.gradle.kts`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/DeveloperAccess.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/HeadsetSelection.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/MainActivity.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/TripTestState.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/TripVoiceService.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/UserSettingsStore.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/CopilotApp.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/CopilotUiState.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/SettingsSection.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/components/AudioDevicesCard.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/components/CopilotComponents.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/components/DiagnosticsReportCard.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/components/HeadsetButtonProbeCard.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/components/JourneyHero.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/components/MusicPlayerCard.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/components/SettingsMenuRow.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/components/TripButtonSettingsCard.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/screens/CommandsScreen.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/screens/CopilotScreens.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/screens/HomeScreen.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/screens/UserSettingsScreens.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/theme/CopilotTheme.kt`
+- `app/src/main/res/drawable/ic_help.xml`
+- `app/src/main/res/drawable/ic_info.xml`
+- `app/src/main/res/drawable/ic_shield.xml`
+- `app/src/main/res/values/ui_strings.xml`
+- `app/src/test/java/com/gust4av033/appcopilotomoto/DeveloperAccessTest.kt`
+- `app/src/test/java/com/gust4av033/appcopilotomoto/DeveloperRuntimeGateTest.kt`
+- `app/src/test/java/com/gust4av033/appcopilotomoto/HeadsetSelectionStoreTest.kt`
+- `app/src/test/java/com/gust4av033/appcopilotomoto/SettingsAccessTest.kt`
+- `app/src/test/java/com/gust4av033/appcopilotomoto/SettingsContrastTest.kt`
+- `app/src/test/java/com/gust4av033/appcopilotomoto/SettingsNavigationUiTest.kt`
+- `app/src/test/java/com/gust4av033/appcopilotomoto/TripMediaAccessCompatibilityTest.kt`
+- `app/src/test/java/com/gust4av033/appcopilotomoto/UserSettingsStoreTest.kt`
+- `docs/AJUSTES_USUARIO_DESARROLLO.md`
+- `docs/REGRESION_FASE_1_RC1.md`
+- `docs/UI_BASE.md`
+- `docs/regresion/F1_RC1_RESULTADOS.csv`

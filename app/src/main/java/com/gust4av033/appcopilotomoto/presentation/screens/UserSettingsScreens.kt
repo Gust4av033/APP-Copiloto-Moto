@@ -33,7 +33,7 @@ fun LazyListScope.SettingsScreen(
         SettingsSection.OVERVIEW -> {
             SettingsSection.userSections.forEach { category -> item(category.name) {
                 val summary = when (category) {
-                    SettingsSection.ACTIVATION -> stringResource(if (state.buttonMode) R.string.mode_button_title else R.string.mode_voice_title)
+                    SettingsSection.ACTIVATION -> stringResource(if (state.inputId == "PHONE_WAKE") R.string.mode_phone_title else if (state.buttonMode) R.string.mode_button_title else R.string.mode_voice_title)
                     SettingsSection.AUDIO -> state.audioDevices.selectedLabel.ifBlank { state.audioDevices.automaticHeadset }
                     SettingsSection.APPEARANCE -> stringResource(if (state.overlayEnabled) R.string.settings_overlay_on else R.string.settings_overlay_off)
                     SettingsSection.NAVIGATION -> stringResource(if (state.navigationAvailable) R.string.settings_waze_available else R.string.settings_waze_unavailable)
@@ -49,7 +49,7 @@ fun LazyListScope.SettingsScreen(
         SettingsSection.ACTIVATION -> {
             item("activation_mode") { SectionCard(stringResource(R.string.settings_input)) {
                 ChoiceGroup(state.inputs.filter { it.id != "PHONE_WAKE" },
-                    if (state.buttonMode) "BUTTON" else "BLUETOOTH", !state.busy, actions.onInputChange)
+                    if (state.manualActivationOnly) "BUTTON" else state.inputId, !state.busy, actions.onInputChange)
                 SupportingText(stringResource(R.string.settings_voice_audio_hint))
             } }
             item("headset_button") { TripButtonSettingsCard(state, actions) }
