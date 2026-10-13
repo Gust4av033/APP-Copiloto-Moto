@@ -24,7 +24,7 @@ import com.gust4av033.appcopilotomoto.presentation.theme.GlassPanel
 
 @Composable
 fun SettingsMenuRow(section: SettingsSection, value: String?, onClick: () -> Unit) {
-    GlassPanel(onClick = onClick, modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 88.dp)) {
+    GlassPanel(onClick = onClick, modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 76.dp)) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .74f),
@@ -34,12 +34,13 @@ fun SettingsMenuRow(section: SettingsSection, value: String?, onClick: () -> Uni
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(section.titleRes), style = MaterialTheme.typography.titleMedium)
-                SupportingText(stringResource(section.hintRes))
+                if (value == null) SupportingText(stringResource(section.hintRes))
                 if (value != null) Text(value, style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.primary)
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Icon(painterResource(R.drawable.ic_expand), null, Modifier.size(20.dp).rotate(-90f),
                 tint = MaterialTheme.colorScheme.primary)
         }
     }
 }
+

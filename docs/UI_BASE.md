@@ -1,5 +1,9 @@
 # UI de APP Copiloto Moto · Fase 1
 
+## Ajustes de usuario y desarrollo · 13 de octubre de 2026
+
+La entrega activa de Ajustes está en `feature/settings-user-developer`, derivada de `release/fase-1-rc1` (`c2415f3`), que ya contiene la UI glass y la burbuja compacta. Consulta [estructura, límites y protocolo de prueba](AJUSTES_USUARIO_DESARROLLO.md). Los diagnósticos técnicos dejan de estar en el recorrido normal; se conserva el runtime de voz, música, navegación, llamadas y mensajería.
+
 ## RC1 · Burbuja compacta 02 · 13 de octubre de 2026
 
 Por indicación del usuario, `release/fase-1-rc1` es ahora la rama de trabajo de esta entrega. Se integra toda la UI vigente de `feature/ui-glass-redesign` en `1d58c29` sobre RC1 `88d4ed1`. Ambas parten de `4e99900`: se conserva el reconocimiento bilingüe, los ajustes de idiomas, tonos, cancelaciones, pruebas y versión de RC1; se incorpora la esfera de agua y sus recursos. Las dos modificaciones comunes de `ui_strings.xml` y `UI_BASE.md` se combinaron conservando los textos funcionales y documentación de ambas. Identificador visible: **Fase 1 · RC1 · Burbuja compacta 02**.
@@ -171,5 +175,6 @@ El diseño y la carga de presentación se revisaron sobre `722ba103`. Inicio y V
 ## UI ruta 02 · Ajustes y paleta
 
 Ajustes pasa a una lista de siete categorías con submenús, retorno fijo y conservación de desplazamiento. La paleta combina morado, celeste y azul intenso en ambos temas, icono y burbuja. Ver [UI_RUTA_02.md](UI_RUTA_02.md).
+
 
 

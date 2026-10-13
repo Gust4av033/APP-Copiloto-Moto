@@ -11,6 +11,7 @@ enum class TripCallPhase { NONE, CALL, RECOVERING }
 object TripTestState {
     var pipeline by mutableStateOf(TripPipelineMetrics())
     fun record(context: Context, event: PipelineEvent) { pipeline = pipeline.record(event); save(context) }
+    var sessionProblem by mutableStateOf(false)
     var running by mutableStateOf(false)
     var restoringAudio by mutableStateOf(false)
     var pendingAppName by mutableStateOf<String?>(null)
@@ -59,6 +60,7 @@ object TripTestState {
             lastReadyCue = prefs.getString("pipeline_ready_cue", "Sin señal para hablar.").orEmpty())
         if (prefs.getBoolean("session_active", false) && !running) {
             pipeline = pipeline.record(PipelineEvent.SESSION_UNEXPECTED_END).copy(lastEndReason = "Proceso interrumpido con viaje activo")
+            sessionProblem = true
             status = "La sesión anterior se interrumpió; iniciá una nueva prueba."
             prefs.edit().putBoolean("session_active", false).apply()
         }

@@ -51,6 +51,18 @@ class MainActivity : ComponentActivity() {
         const val ACTION_OPEN_PENDING_APP = "com.gust4av033.appcopilotomoto.OPEN_PENDING_APP"
         const val ACTION_OPEN_ASSISTANT = "com.gust4av033.appcopilotomoto.OPEN_ASSISTANT"
     }
+    private val settingsStore by lazy { UserSettingsStore(this) }
+    private val developerChallenge = DeveloperAccessChallenge()
+    private var developerEnabled by mutableStateOf(false)
+    private var developerConfirmationRequested by mutableStateOf(false)
+    private var standaloneCommand by mutableStateOf(false)
+    private var configurationNotice by mutableStateOf("")
+    private var microphoneGranted by mutableStateOf(false)
+    private var bluetoothGranted by mutableStateOf(false)
+    private var notificationsGranted by mutableStateOf(false)
+    private var callsGranted by mutableStateOf(false)
+    private var installedVersion = ""
+    private fun canRunDeveloperTools() = developerEnabled && BuildConfig.DEBUG
     private val mainHandler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
     // Las lecturas de presentación no esperan detrás de una medición de cinco segundos.
@@ -231,6 +243,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         TripTestState.restore(this)
+        HeadsetSelection.restore(this)
+        developerEnabled = settingsStore.developerEnabled(BuildConfig.DEBUG)
+        installedVersion = runCatching { packageManager.getPackageInfo(packageName, 0).versionName.orEmpty() }.getOrDefault("")
         manualActivationOnly = getSharedPreferences("ui_settings", MODE_PRIVATE)
             .getBoolean(TripActivationPolicy.PREFERENCE, false)
         selectedMusicPlayer = actions.preferredMusicPlayer()
@@ -250,6 +265,17 @@ class MainActivity : ComponentActivity() {
                 .getOrDefault(WakeAudioMode.BLUETOOTH)
             wakeSensitivity = saved.getFloat("ui_sensitivity", 80f).coerceIn(40f, 85f)
         }
+        val voiceSettings = settingsStore.loadVoice(savedInstanceState?.getString("ui_phrase"),
+            savedInstanceState?.takeIf { it.containsKey("ui_sensitivity") }?.getFloat("ui_sensitivity"))
+        wakePhrase = WakePhrase.valueOf(voiceSettings.first)
+        wakeSensitivity = voiceSettings.second
+        if (!canRunDeveloperTools() && (tripAudioMode == WakeAudioMode.PHONE_WAKE || manualActivationOnly)) {
+            tripAudioMode = if (manualActivationOnly) WakeAudioMode.BUTTON else WakeAudioMode.BLUETOOTH
+            manualActivationOnly = false
+            getSharedPreferences("ui_settings", MODE_PRIVATE).edit().putString("trip_audio_mode", tripAudioMode.name)
+                .putBoolean(TripActivationPolicy.PREFERENCE, false).apply()
+            configurationNotice = getString(R.string.settings_experimental_reset)
+        }
         setContent { AppUi() }
         handleAssistantInvocation(intent)
     }
@@ -258,6 +284,17 @@ class MainActivity : ComponentActivity() {
     @Composable
     private fun AppUi() {
         val state = CopilotUiState(
+            developerAccess = DeveloperAccess(developerEnabled, BuildConfig.DEBUG),
+            developerConfirmationRequested = developerConfirmationRequested,
+            installedVersion = installedVersion,
+            configurationNotice = configurationNotice,
+            microphoneGranted = microphoneGranted,
+            bluetoothGranted = bluetoothGranted,
+            notificationsGranted = notificationsGranted,
+            callsGranted = callsGranted,
+            standaloneListening = standaloneCommand && listening,
+            interactionPhase = TripTestState.interactionPhase,
+            sessionProblem = TripTestState.sessionProblem,
             tripActive = TripTestState.running,
             keepScreenOnDuringTrip = keepScreenOnDuringTrip,
             restoringAudio = TripTestState.restoringAudio,
@@ -344,9 +381,48 @@ class MainActivity : ComponentActivity() {
             selectedScreen = selectedScreen,
             onScreenChange = {
                 if (it != CopilotScreen.TESTS && buttonProbeActive) buttonProbe.stop()
-                selectedScreen = it
+                selectedScreen = if (it == CopilotScreen.TESTS && !developerEnabled) CopilotScreen.DIAGNOSTICS else it
             },
             actions = CopilotActions(
+                onVersionTap = {
+                    if (!developerEnabled && !audioBusy() && developerChallenge.tap(SystemClock.elapsedRealtime()))
+                        developerConfirmationRequested = true
+                },
+                onConfirmDeveloper = {
+                    if (!audioBusy() && developerChallenge.confirm()) {
+                        settingsStore.setDeveloperEnabled(BuildConfig.DEBUG, true)
+                        developerEnabled = true
+                    }
+                    developerConfirmationRequested = false
+                },
+                onCancelDeveloper = { developerChallenge.reset(); developerConfirmationRequested = false },
+                onDisableDeveloper = {
+                    if (!audioBusy()) {
+                        developerEnabled = false
+                        settingsStore.setDeveloperEnabled(BuildConfig.DEBUG, false)
+                        if (tripAudioMode == WakeAudioMode.PHONE_WAKE || manualActivationOnly) {
+                            tripAudioMode = if (manualActivationOnly) WakeAudioMode.BUTTON else WakeAudioMode.BLUETOOTH
+                            manualActivationOnly = false
+                            getSharedPreferences("ui_settings", MODE_PRIVATE).edit().putString("trip_audio_mode", tripAudioMode.name)
+                                .putBoolean(TripActivationPolicy.PREFERENCE, false).apply()
+                            configurationNotice = getString(R.string.settings_experimental_reset)
+                        }
+                        developerChallenge.reset()
+                        developerConfirmationRequested = false
+                        selectedScreen = CopilotScreen.SETTINGS
+                    }
+                },
+                onOpenBasicDiagnostics = { selectedScreen = CopilotScreen.DIAGNOSTICS },
+                onOpenAppPermissions = {
+                    if (!audioBusy()) runCatching {
+                        startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+                    }.onFailure { configurationNotice = getString(R.string.settings_android_unavailable) }
+                },
+                onCopyBasicDiagnostics = { report ->
+                    getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(
+                        getString(R.string.settings_basic_help), report))
+                },
+                onCancelStandaloneCommand = ::cancelVoiceTest,
                 onToggleTrip = { if (TripTestState.running) stopTripTest() else requestTripPermissions() },
                 onManualTripCommand = ::requestManualTripCommand,
                 onCancelPendingApp = ::cancelPendingApp,
@@ -357,6 +433,7 @@ class MainActivity : ComponentActivity() {
                         .putBoolean("keep_screen_on_during_trip", enabled).apply()
                 },
                 onCopyDiagnostics = { report ->
+                    if (developerEnabled) {
                     getSystemService(ClipboardManager::class.java).setPrimaryClip(
                         ClipData.newPlainText(getString(R.string.report_title),
                             "${Build.MANUFACTURER} ${Build.MODEL} · Android ${Build.VERSION.RELEASE}\n" +
@@ -365,11 +442,14 @@ class MainActivity : ComponentActivity() {
                     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
                         Toast.makeText(this@MainActivity, R.string.report_copied, Toast.LENGTH_SHORT).show()
                     }
+                    }
                 },
                 onRefreshAudio = {
+                    if (developerEnabled) {
                     audioDiagnostic = runCatching { media.audioRouteDiagnostic() }
                         .getOrDefault(getString(R.string.devices_read_error))
                     refreshAudioDevices()
+                    }
                 },
                 onRefreshDevices = ::requestDeviceRefresh,
                 onSelectHeadset = ::selectHeadset,
@@ -377,7 +457,7 @@ class MainActivity : ComponentActivity() {
                 onSelectAssistant = ::requestAssistantRole,
                 onRefreshSpeechLanguages = { if (!audioBusy()) SpeechLanguageSupport.refresh(applicationContext, force = true) },
                 onPrepareEnglish = { if (!audioBusy()) SpeechLanguageSupport.prepareEnglish(applicationContext) },
-                onToggleListening = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) },
+                onToggleListening = { if (canRunDeveloperTools()) { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) } },
                 onRefreshApps = { refreshAppCatalog(force = true) },
                 onEnableChatContacts = {
                     if (!TripTestState.running && !TripTestState.restoringAudio && !listening && !running && !wakeEnabled && !wakeTransition) {
@@ -391,9 +471,18 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 onMeasure = ::requestProbe,
-                onToggleWake = { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) },
-                onPhraseChange = { wakePhrase = WakePhrase.valueOf(it) },
-                onSensitivityChange = { wakeSensitivity = it },
+                onToggleWake = { if (canRunDeveloperTools()) { if (wakeEnabled) endWakeTest() else requestAudioPermissions(::startWakeTest) } },
+                onPhraseChange = { id ->
+                    if (!audioBusy()) runCatching { WakePhrase.valueOf(id) }.getOrNull()?.let {
+                        wakePhrase = it; settingsStore.saveVoice(it.name, wakeSensitivity)
+                    }
+                },
+                onSensitivityChange = { value ->
+                    if (!audioBusy() && value.isFinite()) {
+                        wakeSensitivity = value.coerceIn(40f, 85f)
+                        settingsStore.saveVoice(wakePhrase.name, wakeSensitivity)
+                    }
+                },
                 onInputChange = ::selectTripMode,
                 onManualActivationOnlyChange = ::selectManualActivationOnly,
                 onTripButtonBindingChange = { id ->
@@ -404,20 +493,22 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 onMediaAccessSettings = {
+                    if (!audioBusy()) {
                     runCatching { startActivity(TripMediaAccess.settingsIntent(this)) }
                         .recoverCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
                         .onFailure { assistantMessage = "No se pudieron abrir los ajustes de acceso multimedia." }
+                    }
                 },
                 onTestObservation = { event ->
-                    if (event in listOf(PipelineEvent.ACTIVATION_ATTEMPT_ANNOTATED, PipelineEvent.FALSE_POSITIVE_ANNOTATED,
+                    if (canRunDeveloperTools() && event in listOf(PipelineEvent.ACTIVATION_ATTEMPT_ANNOTATED, PipelineEvent.FALSE_POSITIVE_ANNOTATED,
                             PipelineEvent.EXTERNAL_EFFECT_ANNOTATED, PipelineEvent.AUDIO_RESTORED_AUDIBLE_ANNOTATED))
                         TripTestState.record(this, event)
                 },
                 onToggleButtonProbe = {
                     if (buttonProbeActive) buttonProbe.stop()
-                    else if (!audioBusy()) buttonProbe.start()
+                    else if (canRunDeveloperTools() && !audioBusy()) buttonProbe.start()
                 },
-                onOpenButtonProbe = { selectedScreen = CopilotScreen.TESTS },
+                onOpenButtonProbe = { selectedScreen = if (developerEnabled) CopilotScreen.TESTS else CopilotScreen.DIAGNOSTICS },
                 onForgetNavigationRequest = {
                     if (!audioBusy()) {
                         NavigationRequestStore.forget(this@MainActivity)
@@ -439,9 +530,11 @@ class MainActivity : ComponentActivity() {
                 onEnableNamedCalls = ::requestNamedCallPermissions,
                 onChooseContact = ::chooseTripCallContact,
                 onClearContact = {
+                    if (!audioBusy()) {
                     TripCallContactStore.clear(this@MainActivity)
                     tripCallContact = null
                     tripCallMessage = getString(R.string.contact_removed)
+                    }
                 }
             )
         )
@@ -451,6 +544,7 @@ class MainActivity : ComponentActivity() {
         running || listening || wakeEnabled || wakeTransition || buttonProbeActive
 
     private fun requestDeviceRefresh() {
+        if (audioBusy()) return
         audioDeviceMessage = ""
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
@@ -467,7 +561,7 @@ class MainActivity : ComponentActivity() {
                     ?: error(getString(R.string.devices_selection_lost))
             }
             // Solo configura la próxima captura; no abre micrófonos ni cambia música.
-            HeadsetSelection.select(device?.let(BluetoothAudioRouteSelector::identity))
+            HeadsetSelection.saveChoice(this, device?.let(BluetoothAudioRouteSelector::identity))
             result = null
             message = getString(R.string.devices_probe_again)
         }
@@ -530,15 +624,15 @@ class MainActivity : ComponentActivity() {
                 } else ""
                 val communicationDevice = audioManager.communicationDevice
                 initial.copy(
-                    headsets = headsets.map { AudioDeviceUi(it.id, audioDeviceLabel(it)) },
+                    headsets = headsets.map { AudioDeviceUi(it.id, it.productName.toString(), audioDeviceLabel(it)) },
+                    selectedId = if (preferred == null) null else resolved?.id ?: preferred.id,
                     bluetoothOutputs = bluetoothOutputs,
                     bluetoothInputs = bluetoothInputs,
                     selectedLabel = preferred?.let { chosen ->
-                        headsets.singleOrNull { BluetoothAudioRouteSelector.identity(it) == chosen }
-                            ?.let(::audioDeviceLabel) ?: chosen.name
+                        resolved?.productName?.toString() ?: chosen.name
                     }.orEmpty(),
                     selectionMissing = preferred != null && resolved == null,
-                    automaticHeadset = if (preferred == null) resolved?.let(::audioDeviceLabel).orEmpty() else "",
+                    automaticHeadset = if (preferred == null) resolved?.productName?.toString().orEmpty() else "",
                     controlHeadsetName = controlHeadset?.name?.ifBlank { "Casco Bluetooth" }.orEmpty(),
                     observedControlKeys = controls.mediaKeys,
                     assistantInvocationObserved = controls.assistantInvocation,
@@ -580,6 +674,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        microphoneGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+        bluetoothGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        notificationsGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+        callsGranted = listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE).all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
         TripTestState.appVisible = true
         syncTripPresentation()
         TripTestState.openPendingAppFromVoice = voiceAppOpener
@@ -635,6 +733,11 @@ class MainActivity : ComponentActivity() {
 
     private fun selectTripMode(id: String) {
         val mode = runCatching { WakeAudioMode.valueOf(id) }.getOrNull() ?: return
+        if (audioBusy() || (mode == WakeAudioMode.PHONE_WAKE && !canRunDeveloperTools())) return
+        if (mode != WakeAudioMode.PHONE_WAKE) {
+            manualActivationOnly = false
+            getSharedPreferences("ui_settings", MODE_PRIVATE).edit().putBoolean(TripActivationPolicy.PREFERENCE, false).apply()
+        }
         if (TripTestState.running) {
             if (!TripTestState.commandReady || TripTestState.switchingMode || TripTestState.restoringAudio) return
             runCatching {
@@ -648,6 +751,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun selectManualActivationOnly(enabled: Boolean) {
+        if (!canRunDeveloperTools() || audioBusy()) return
         if (TripTestState.running) {
             if (!TripTestState.commandReady || TripTestState.switchingMode || TripTestState.restoringAudio ||
                 TripTestState.callPhase != TripCallPhase.NONE) return
@@ -719,6 +823,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        developerChallenge.reset()
+        developerConfirmationRequested = false
         TripTestState.appVisible = false
         releaseVoiceAppOpener()
         mainHandler.removeCallbacks(refreshDevicesTask)
@@ -747,6 +853,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestAssistantRole() {
+        if (audioBusy()) return
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
             assistantMessage = "Esta prueba necesita Android 10 o posterior."
             return
@@ -800,22 +907,23 @@ class MainActivity : ComponentActivity() {
                 TripTestState.status = "No se pudo abrir la orden del botón: ${it.message ?: "error de Android"}."
             }
         } else {
-            selectedScreen = CopilotScreen.TESTS
+            selectedScreen = CopilotScreen.TRIP
             if (wakeEnabled || wakeTransition || running || listening) {
                 assistantMessage = "Botón recibido ($source), pero ya hay una escucha activa. Detenela antes de repetir."
             } else {
                 assistantMessage = "Botón recibido ($source). Preparando una orden corta por Bluetooth…"
-                requestAudioPermissions(::startVoiceTest)
+                requestAudioPermissions(::startAssistantCommand)
             }
         }
     }
 
     private fun requestProbe() {
-        if (audioBusy()) return
+        if (!canRunDeveloperTools() || audioBusy()) return
         requestAudioPermissions(::startProbe)
     }
 
     private fun chooseTripCallContact() {
+        if (audioBusy()) return
         runCatching {
             contactPicker.launch(Intent(Intent.ACTION_PICK).apply {
                 type = ContactsContract.CommonDataKinds.Phone.CONTENT_TYPE
@@ -826,6 +934,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun requestNamedCallPermissions() {
+        if (audioBusy()) return
         val needed = listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
             .filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (needed.isEmpty()) tripCallMessage = "Los permisos ya están concedidos: decí ‘llama a [nombre]’."
@@ -918,7 +1027,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startProbe() {
-        if (audioBusy()) return
+        if (!canRunDeveloperTools() || audioBusy()) return
         result = null
         running = true
         message = "Escuchando cinco segundos…"
@@ -932,13 +1041,19 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun startVoiceTest() {
+    private fun startAssistantCommand() {
         if (audioBusy()) return
+        standaloneCommand = true
+        startVoiceCommand(fromWake = false)
+    }
+
+    private fun startVoiceTest() {
+        if (!canRunDeveloperTools() || audioBusy()) return
         startVoiceCommand(fromWake = false)
     }
 
     private fun startVoiceCommand(fromWake: Boolean) {
-        if (listening || running) return
+        if ((!canRunDeveloperTools() && !standaloneCommand) || listening || running) return
         lastTestCommand = null
         listening = true
         voiceMessage = "Esperando un momento antes de abrir el micrófono…"
@@ -968,6 +1083,7 @@ class MainActivity : ComponentActivity() {
                 if (!listening) return@listenOnce
                 testReadyCue.cancel()
                 listening = false
+                standaloneCommand = false
                 val elapsed = SystemClock.elapsedRealtime() - start
                 val routed = outcome.getOrNull()?.let(MinimalIntentRouter::route)
                 lastTestCommand = routed?.toCommandUi()
@@ -1052,11 +1168,13 @@ class MainActivity : ComponentActivity() {
         pendingSpeechStart = null
         speech.cancel()
         listening = false
+        standaloneCommand = false
         voiceMessage = "Escucha cancelada; no se ejecutó ninguna acción."
         if (wakeEnabled) scheduleWakeResume(2_000L)
     }
 
     private fun startWakeTest() {
+        if (!canRunDeveloperTools() || audioBusy()) return
         if (audioBusy()) return
         wakeEnabled = true
         wakeTransition = true
@@ -1209,5 +1327,6 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 }
+
 
 

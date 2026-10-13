@@ -39,7 +39,7 @@ fun MusicPlayerCard(state: CopilotUiState, actions: CopilotActions) {
         if (!state.appCatalogLoading && state.selectedMusicPlayer != null && state.musicPlayers.none { it.packageName == state.selectedMusicPlayer }) {
             SupportingText(stringResource(R.string.music_player_missing))
         }
-        SupportingText(state.musicPlayersMessage)
+        if (state.developerEnabled) SupportingText(state.musicPlayersMessage)
         ActionButton(stringResource(R.string.music_refresh_players), enabled = !state.appCatalogLoading, onClick = actions.onRefreshApps)
         SupportingText(stringResource(R.string.music_search_scope))
     }
@@ -54,3 +54,4 @@ private fun MusicChoice(label: String, selected: Boolean, enabled: Boolean, onSe
         Text(label, Modifier.weight(1f).padding(start = 12.dp))
     }
 }
+

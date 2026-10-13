@@ -10,6 +10,7 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 
 @Composable
 fun HeadsetButtonProbeCard(state: CopilotUiState, actions: CopilotActions) {
+    if (!state.developerToolsAvailable) return
     SectionCard(stringResource(R.string.button_probe_title)) {
         SupportingText(stringResource(R.string.button_probe_hint))
         SupportingText(stringResource(R.string.button_probe_controls))

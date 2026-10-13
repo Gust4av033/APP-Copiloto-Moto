@@ -22,3 +22,6 @@ secrets.properties
 Thumbs.db
 .vscode/
 
+
+# Kotlin compiler sessions
+.kotlin/

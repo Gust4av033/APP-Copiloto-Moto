@@ -27,7 +27,19 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 
 @Composable
 fun AudioDevicesCard(state: CopilotUiState, actions: CopilotActions) {
+    if (!state.developerEnabled) return
     val devices = state.audioDevices
+    if (!state.developerToolsAvailable) {
+        SectionCard(stringResource(R.string.devices_title)) {
+            SupportingText(devices.headsets.joinToString("\n") { it.technicalLabel })
+            SupportingText(devices.communicationRoute)
+            AudioLevels(state)
+            SupportingText(devices.bluetoothInputs.joinToString("\n"))
+            SupportingText(devices.bluetoothOutputs.joinToString("\n"))
+            HeadsetControlsSummary(state)
+        }
+        return
+    }
     SectionCard(stringResource(R.string.devices_title)) {
         SupportingText(stringResource(R.string.devices_intro))
         if (state.restoringAudio) SupportingText(stringResource(R.string.devices_restoring))
@@ -57,7 +69,7 @@ fun AudioDevicesCard(state: CopilotUiState, actions: CopilotActions) {
                     DeviceChoice(stringResource(R.string.devices_automatic), devices.selectedId == null,
                         !state.busy) { actions.onSelectHeadset(null) }
                     devices.headsets.forEach { device ->
-                        DeviceChoice(device.label, devices.selectedId == device.id && !devices.selectionMissing,
+                        DeviceChoice(device.technicalLabel, devices.selectedId == device.id && !devices.selectionMissing,
                             !state.busy) { actions.onSelectHeadset(device.id) }
                     }
                 }

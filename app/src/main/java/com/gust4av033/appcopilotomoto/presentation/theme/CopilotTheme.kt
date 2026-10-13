@@ -14,7 +14,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val DayColors = lightColorScheme(
+internal val DayColors = lightColorScheme(
     primary = Color(0xFF7136B8), onPrimary = Color.White,
     primaryContainer = Color(0xFFEBDDFD), onPrimaryContainer = Color(0xFF32144F),
     secondary = Color(0xFF145BB7), secondaryContainer = Color(0xFFD9E9FF), onSecondaryContainer = Color(0xFF102C55),
@@ -24,7 +24,7 @@ private val DayColors = lightColorScheme(
     surfaceVariant = Color(0xFFEAE4F4), onSurfaceVariant = Color(0xFF5D526F),
     outline = Color(0xFF7D7192), outlineVariant = Color(0xFFDFD7EF)
 )
-private val NightColors = darkColorScheme(
+internal val NightColors = darkColorScheme(
     primary = Color(0xFFB69CFF), onPrimary = Color(0xFF251442),
     primaryContainer = Color(0xFF4B286D), onPrimaryContainer = Color(0xFFEBDDFD),
     secondary = Color(0xFF82AFFF), secondaryContainer = Color(0xFF183864), onSecondaryContainer = Color(0xFFD9E9FF),
@@ -53,3 +53,4 @@ fun CopilotTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composabl
     MaterialTheme(colorScheme = if (darkTheme) NightColors else DayColors,
         typography = CopilotType, shapes = CopilotShapes, content = content)
 }
+

@@ -27,10 +27,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.rotate
 import androidx.compose.runtime.Composable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
@@ -81,12 +82,13 @@ fun SupportingText(text: String) {
 @Composable
 fun ToggleSettingRow(label: String, checked: Boolean, enabled: Boolean = true,
                      onCheckedChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().sizeIn(minHeight = 56.dp),
+    Row(Modifier.fillMaxWidth().sizeIn(minHeight = 56.dp)
+        .toggleable(value = checked, enabled = enabled, role = Role.Switch, onValueChange = onCheckedChange),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurface)
-        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
     }
 }
 
@@ -173,3 +175,4 @@ fun ExpandableSectionCard(title: String, initiallyExpanded: Boolean = false, con
         }
     }
 }
+
