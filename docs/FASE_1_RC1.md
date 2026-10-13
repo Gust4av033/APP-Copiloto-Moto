@@ -1,6 +1,6 @@
 # Fase 1 · RC1: reconocimiento y UI glass
 
-Rama integrada: `release/fase-1-rc1`. Versión Android: `1.0.0-rc1`, código 3. Base: `feature/ui-glass-redesign` en `4e99900f55fff8936e7f96fc43f9243bff115734`, que incluye Escucha 03 (`1c826ff7`). Esta candidata reúne diseño y lógica sin cambiar las ramas de trabajo de UI ni `main`.
+Rama integrada: `release/fase-1-rc1`. Versión Android: `1.0.0-rc1`, código 3. Base: `feature/ui-glass-redesign` en `4e99900f55fff8936e7f96fc43f9243bff115734`, que incluye Escucha 03 (`1c826ff7`). Esta candidata reúne diseño y lógica. La UI vigente de `1d58c29` se integra por indicación del usuario y el trabajo continúa en `release/fase-1-rc1`; `main` conserva su estado.
 
 ## Estado de la evidencia
 
@@ -44,6 +44,10 @@ El endpointer del motor puede cerrar por silencio antes de la ventana. Se permit
 
 Silencio durante la confirmación de llamada invalida anuncio, preparación y respuesta pendiente; una respuesta antigua no puede marcar. Las cancelaciones conservan la intención de música pausada/reproduciéndose y el regreso depende de restaurar la ruta, no solamente de esperar un tiempo fijo. En modo voz continua la calidad puede permanecer limitada por SCO; restauración al modo elegido no equivale a calidad A2DP.
 
+## Burbuja compacta 02
+
+La esfera de agua de la UI actual se conserva. El panel abierto ocupa un ancho habitual de 244 dp, mide su altura según contenido y reúne modo/estado, Pedir una orden, Abrir APP y Ocultar. Fuente grande y ventanas estrechas reordenan los accesos en vertical; Ocultar permanece accesible fuera del scroll. Borde doble, reflejos y relieve de botones comparten la paleta glass. La lógica de captura y recuperación de RC1 no cambia. [Diseño, evidencia y limitaciones](UI_BASE.md) · [regresión R19–R22](REGRESION_FASE_1_RC1.md). El clima y módulos del overlay completo quedan como dirección futura.
+
 ## Correspondencia con UI
 
 | Capacidad | Superficie | Prueba |
@@ -64,8 +68,9 @@ Promover esta baseline después de dos sesiones independientes completas en voz 
 
 ## Validación automatizada
 
-Validación final del código: `testDebugUnitTest`, `assembleDebug`, `assembleFieldTest` y `lintDebug` completaron **BUILD SUCCESSFUL**. **138 pruebas JVM**, cero fallos y errores; lint sin errores. Recursos XML, `git diff --check` e integridad ZIP de ambos APK correctos. Se conservan advertencias del prototipo.
+Validación final del código: `testDebugUnitTest`, `assembleDebug`, `assembleFieldTest` y `lintDebug` completaron **BUILD SUCCESSFUL**. **143 pruebas JVM**, cero fallos y errores; lint sin errores (74 advertencias y 9 sugerencias), con la dependencia de voz real. Recursos XML, `git diff --check` e integridad ZIP de ambos APK correctos. Se conservan advertencias del prototipo.
 
-Las pruebas cubren selección de idiomas según modelos, degradación conservadora, reglas de frases, protección de confirmaciones sensibles y cancelación de respuestas tardías. No sustituyen audibilidad, enrutamiento físico, precisión STT ni efecto final en apps externas. La tarjeta nueva requiere revisión visual en el teléfono; no se dispone de una pantalla Android conectada en este entorno.
+Las cinco comprobaciones nuevas cubren los límites de pantalla, densidad y texto de la burbuja. Las pruebas de RC1 cubren selección de idiomas según modelos, degradación conservadora, reglas de frases, protección de confirmaciones sensibles y cancelación de respuestas tardías. No sustituyen audibilidad, enrutamiento físico, precisión STT ni efecto final en apps externas. La tarjeta nueva requiere revisión visual en el teléfono; no se dispone de una pantalla Android conectada en este entorno.
 
 Fuentes técnicas: [RecognizerIntent](https://developer.android.com/reference/android/speech/RecognizerIntent), [SpeechRecognizer](https://developer.android.com/reference/android/speech/SpeechRecognizer). La Especificación V4, Documento 02 y Documento 04 conservan el roadmap y sus límites.
+

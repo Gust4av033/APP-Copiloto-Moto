@@ -179,7 +179,7 @@
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps. También podés usar estos botones o el aviso; el aviso vence 30 segundos después del anuncio (60 para borradores).</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">Fase 1 · RC1 · reconocimiento y glass UI</string>
+    <string name="ui_revision">Fase 1 · RC1 · Burbuja compacta 02</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>
@@ -301,6 +301,11 @@
     <string name="overlay_error">No se pudo mostrar la burbuja. Revisá su permiso; el viaje sigue activo.</string>
     <string name="overlay_hidden_hint">La burbuja quedó oculta hasta el próximo viaje. Podés mostrarla otra vez y volver a Waze.</string>
     <string name="overlay_show">Volver a mostrar la burbuja</string>
+    <string name="overlay_command">Pedir una orden</string>
+    <string name="overlay_hide_short">Ocultar</string>
+    <string name="overlay_panel_mode">Modo %1$d</string>
+    <string name="overlay_wait_button_compact">En espera · botón</string>
+    <string name="overlay_wait_voice_compact">En espera · voz</string>
     <string name="overlay_open_app">Abrir APP</string>
     <string name="overlay_hide">Ocultar burbuja</string>
     <string name="overlay_minimize">Minimizar panel</string>
@@ -410,5 +415,6 @@
     <string name="settings_back_to_list">Volver a Ajustes</string>
     <string name="settings_phrase_manual_inactive">En activación manual no se usa la frase de voz. Para ajustar la frase y sensibilidad, elegí un modo de voz y dejá desactivado “Solo activación manual”.</string>
 </resources>
+
 
 

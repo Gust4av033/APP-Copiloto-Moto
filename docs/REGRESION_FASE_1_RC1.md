@@ -36,6 +36,8 @@ Completar una fila por ejecución en [F1_RC1_RESULTADOS.csv](regresion/F1_RC1_RE
 | R18 | Detener viaje con confirmación pendiente; iniciar otro. | Cero capturas/aperturas/llamadas tardías de la sesión anterior. |
 | R19 | Ocultar/mostrar/mover burbuja y volver a Ajustes. | Conserva viaje; ningún cambio visual abre un micrófono. |
 | R20 | UI día/noche, texto grande y estado de idiomas. | Tarjeta glass legible, controles identificados y descarga/comprobación sin captura de voz. |
+| R21 | Abrir panel sobre Waze en espera, escuchando, hablando, confirmación, llamada y recuperación; minimizar con ×/fuera y ocultar. | Panel breve con estado real; apertura/arrastre no capturan audio, solo Pedir una orden; Ocultar conserva el viaje; controles fuera del panel siguen accesibles. |
+| R22 | Con panel abierto, cambiar día/noche, orientar el teléfono y usar fuente 150–200 %; arrastrar cerca de cada borde. | Tarjeta dentro del espacio útil, acciones verticales cuando corresponde, texto legible, scroll accesible y Ocultar visible. Registrar captura nativa y dimensiones observadas. |
 
 ## Cómo leer fallos
 
@@ -50,3 +52,4 @@ Completar una fila por ejecución en [F1_RC1_RESULTADOS.csv](regresion/F1_RC1_RE
 R06–R19 deben pasar sin acción equivocada, despacho después de cancelar, captura tardía ni cierre inesperado. Un resultado bloqueado por falta de permiso/modelo se registra y se repite después de configurarlo; no cuenta como aprobado. Medir aciertos/total en R01/R04 y registrar fallos recuperables sin inventar una tasa general de precisión.
 
 Completar las dos sesiones en ambos modos, documentar las limitaciones encontradas y repetir los casos fallidos después de corregirlos. Hasta entonces mantener RC1 como candidata. El envío automático de WhatsApp, audio por voz y silencio pronunciado durante TTS no forman parte del alcance implementado de esta baseline y permanecen visibles en el backlog de [FASE_1_RC1.md](FASE_1_RC1.md).
+

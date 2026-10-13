@@ -1,5 +1,9 @@
 # Burbuja opcional y cambio de modos · Fase 1
 
+## Actualización vigente · RC1 / Burbuja compacta 02
+
+El trabajo continúa en `release/fase-1-rc1`, incorporando la esfera de agua y la UI glass vigente. El panel abierto mide su contenido en vez de reservar 344 dp de altura, usa 244 dp de ancho habitual y adapta los accesos con letra grande o una ventana estrecha. Ocultar sigue fuera del scroll; abrir/mover/minimizar no piden una orden. Los estados y bloqueos vienen del mismo servicio de RC1. Ver [UI_BASE.md](UI_BASE.md) para el acabado, la maqueta y las limitaciones, y [R19–R22](REGRESION_FASE_1_RC1.md) para la revisión real en S22+.
+
 Implementación en `feature/fase-1-intent-router`, junto con la UI y el núcleo de fase 1. Corresponde al overlay opcional de V4 §6.2 y RF-137, adelantado por decisión del usuario. Conserva voz o botón como forma de activación.
 
 ## Comportamiento
@@ -47,3 +51,4 @@ Compilación limpia y APK debug completados. Pasaron 52 pruebas unitarias, inclu
 12. Quitar el permiso de superposición durante una sesión: retirar la ventana y conservar audio. Revisar claro/oscuro, orientación y texto grande en hardware real.
 
 Referencias Android: [WindowManager.LayoutParams](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#TYPE_APPLICATION_OVERLAY), [permiso de superposición](https://developer.android.com/reference/android/provider/Settings#canDrawOverlays(android.content.Context)) y [apertura de actividades](https://developer.android.com/guide/components/activities/secure-bal).
+

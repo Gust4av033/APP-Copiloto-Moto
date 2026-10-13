@@ -1,5 +1,52 @@
 # UI de APP Copiloto Moto · Fase 1
 
+## RC1 · Burbuja compacta 02 · 13 de octubre de 2026
+
+Por indicación del usuario, `release/fase-1-rc1` es ahora la rama de trabajo de esta entrega. Se integra toda la UI vigente de `feature/ui-glass-redesign` en `1d58c29` sobre RC1 `88d4ed1`. Ambas parten de `4e99900`: se conserva el reconocimiento bilingüe, los ajustes de idiomas, tonos, cancelaciones, pruebas y versión de RC1; se incorpora la esfera de agua y sus recursos. Las dos modificaciones comunes de `ui_strings.xml` y `UI_BASE.md` se combinaron conservando los textos funcionales y documentación de ambas. Identificador visible: **Fase 1 · RC1 · Burbuja compacta 02**.
+
+### Panel abierto
+
+- El ancho habitual baja de 280 a 244 dp. La altura fija de 344 dp se sustituye por la medición natural del contenido: encabezado, acción principal y accesos. No hay espacio vacío reservado ni expansión a pantalla completa.
+- El encabezado reúne esfera con icono de estado, modo y estado real breve. El lector de pantalla conserva el estado completo, incluida la espera con micrófono cerrado. La acción principal es «Pedir una orden»; Abrir APP y Ocultar comparten una fila con objetivos táctiles de 48 dp o más.
+- El material tiene borde exterior luminoso, un segundo borde interior, reflejo superior y botones con relieve suave. Los textos mantienen color opaco y los fondos tienen tinte suficiente para reducir el ruido visual de la app de atrás. No se captura ni se desenfoca la pantalla de otras apps.
+- Con fuente al 130 % o más, o menos de 224 dp útiles para la tarjeta, los accesos pasan a vertical. La altura se limita al espacio útil; Pedir una orden y Abrir APP se pueden desplazar y Ocultar permanece fuera del scroll. Se reconstruye la presentación cuando cambia la configuración, sin cambiar la sesión.
+- Se conservan arrastre/anclaje, ×, toque fuera, ocultar durante el viaje y permiso opcional. Solo Pedir una orden solicita la captura existente; disponibilidad, llamada y recuperación siguen observándose desde RC1.
+
+![Maqueta del panel compacto](images/panel_compacto_02.png)
+
+La imagen es una **maqueta de diseño**, generada por `tools/render_compact_overlay_preview.py`; reutiliza los vectores de producción y los textos de recursos. No es una captura nativa ni prueba el tamaño medido, tipografía, contraste sobre Waze, ripple, acceso táctil o scroll de Android. El recurso de la esfera también conserva su [previsualización](images/burbuja_agua_vector.png).
+
+### Dirección futura del overlay
+
+La preferencia solicitada para el modo completo queda registrada: clima en la esquina superior derecha y módulos transparentes sobre navegación, WhatsApp y otras apps de conducción, adaptados a tamaño, orientación y áreas seguras. Es una dirección futura, vinculada a RF-137 y al contexto de viaje; requiere datos reales del clima, disponibilidad de cada módulo y elección de qué mostrar sin tapar controles externos. Esta entrega implementa únicamente el panel compacto; no presenta clima ni módulos ficticios como activos.
+
+### Validación de esta integración
+
+`assembleDebug`, `assembleFieldTest`, `testDebugUnitTest` y `lintDebug` completaron correctamente con la dependencia real `openwakeword-android:0.1.2`: 143 pruebas JVM, cero fallos/errores/saltadas, y lint con cero errores, 74 advertencias y 9 sugerencias. Los cinco casos nuevos cubren ancho, densidad, límite de altura en paisaje, ventana estrecha y fuente grande. Los recursos XML, la integridad ZIP de ambos APK y `git diff --check` también pasaron. La medición de vistas, superposición, gestos y audio deben comprobarse en S22+ / Y12 Pro mediante R19–R22 de [la regresión RC1](REGRESION_FASE_1_RC1.md). Registrar capturas nativas con la misma fuente, tema, modo y estado; los casos físicos permanecen sin resultado en el CSV hasta ejecutarlos.
+
+## Burbuja de agua 01 · 13 de octubre de 2026
+
+Sobre `feature/ui-glass-redesign` en `4e99900`, el acceso flotante pasa de una cápsula plana con texto a una esfera vectorial de agua de 64 dp, con sombra de contacto, reflejo superior, borde celeste/morado y pictograma de estado. `overlay_water_orb.xml` contiene el material estático; `OverlayGlassStyle` comparte el acabado del panel y los botones nativos. No se agregan dependencias de Android, capturas de pantalla, blur del mapa ni animación decorativa continua. Los iconos y el indicador solo cambian cuando cambia el estado observado.
+
+El panel tiene tinte de vidrio, soporte contrastado para el estado, botones de 52 dp con iconos y feedback de toque. × minimiza; tocar fuera también minimiza; Ocultar burbuja permanece fuera del scroll y conserva su significado. Mostrar, tocar para desplegar, arrastrar, minimizar y ocultar no piden una orden. Solo el botón Pedir una orden llama al callback existente y conserva su bloqueo por disponibilidad y llamada. El anclaje lateral y la preferencia opcional se conservan.
+
+### Evidencia visual
+
+![Previsualización del vector sobre fondo claro y oscuro](images/burbuja_agua_vector.png)
+
+La imagen se generó desde el VectorDrawable XML de producción mediante `tools/render_overlay_vector_preview.py` (CairoSVG). Es una previsualización del recurso y sus pictogramas, no una captura de Android ni de Waze; permite evaluar sombras, gradientes y reflejos en dos fondos. No demuestra todavía el layout del panel, ripple nativo, arrastre, texto ampliado ni superposición en un teléfono. El acabado es vidrio pintado sin desenfoque de las apps externas.
+
+### Comprobación en S22+ / Y12 Pro
+
+- Con viaje activo, mostrarla sobre Waze en claro y oscuro. Revisar tamaño, contraste, posición de reflejos y que no tape indicaciones.
+- Tocar la esfera: abre el panel y no abre micrófono. Arrastrar y soltar en cada borde, minimizar con × y tocando fuera, reabrir y ocultar. El audio y el viaje deben continuar.
+- En modo botón, comparar espera (botón, micrófono cerrado), escucha (micrófono), procesamiento (reloj), respuesta (altavoz), confirmación (?) y llamada (teléfono) con el estado anunciado por APP.
+- Pedir una orden: verificar señal, respuesta y recuperación de música. Durante preparación, llamada o falta de disponibilidad, el botón conserva su bloqueo.
+- Con texto al 150–200 % y en paisaje, comprobar que Ocultar sigue visible y que el resto de acciones se pueden desplazar.
+
+La validación final completó `:app:assembleDebug`, `:app:assembleFieldTest`, `:app:testDebugUnitTest` (124 pruebas, cero fallos, errores o saltadas) y `:app:lintDebug` (cero errores, 76 advertencias y 9 sugerencias). Se compiló con `com.github.msnilsen:openwakeword-android:0.1.2` real, sin sustituirla por una interfaz temporal. Los XML y `git diff --check` también pasaron. Esto verifica recursos, compilación y regresiones JVM; la comprobación física del audio, tacto, legibilidad y las capturas reales del panel sobre Waze siguen pendientes.
+
+
 ## Refinamiento de vidrio · versión 1.2 · 13 de octubre de 2026
 
 La rama `feature/ui-glass-redesign` continúa la entrega vigente sin tocar los flujos de voz, llamadas, música, navegación ni borradores. El material visual se centraliza en `presentation/theme/Glass.kt`: `GlassPanel` aplica tinte, borde con reflejo y elevación a Inicio, Viaje y Ajustes. Los paneles normales usan blanco al 64 % en claro y azul noche al 39 % en oscuro; el principal usa 76 % y 51 %. El fondo estático morado, celeste y azul se distingue a través del material. El reflejo del borde y la sombra dan profundidad sin reducir la opacidad de textos e iconos.
@@ -84,8 +131,8 @@ La candidata integrada [Fase 1 RC1](FASE_1_RC1.md), en `release/fase-1-rc1`, con
 
 ```bash
 git fetch origin
-git switch feature/ui-glass-redesign
-git pull --ff-only origin feature/ui-glass-redesign
+git switch release/fase-1-rc1
+git pull --ff-only origin release/fase-1-rc1
 ./gradlew :app:assembleDebug :app:lintDebug :app:testDebugUnitTest
 ```
 
@@ -124,4 +171,5 @@ El diseño y la carga de presentación se revisaron sobre `722ba103`. Inicio y V
 ## UI ruta 02 · Ajustes y paleta
 
 Ajustes pasa a una lista de siete categorías con submenús, retorno fijo y conservación de desplazamiento. La paleta combina morado, celeste y azul intenso en ambos temas, icono y burbuja. Ver [UI_RUTA_02.md](UI_RUTA_02.md).
+
 
