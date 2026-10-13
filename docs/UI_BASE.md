@@ -37,7 +37,7 @@ Para medir: registrar cinco aperturas frías (forzar cierre antes de cada una), 
 
 ### Validación de esta entrega
 
-El procesamiento de recursos y la compilación Kotlin pasaron en el entorno. `:app:assembleDebug` y `:app:testDebugUnitTest` completaron con 124 pruebas JVM, sin fallos ni errores, usando una interfaz temporal local de `openwakeword-android` fuera del repositorio. Esta sustitución permite detectar errores de compilación del rediseño, pero el APK resultante no valida detección de voz ni puede considerarse compilación real del producto. La dependencia `com.github.msnilsen:openwakeword-android:0.1.2` no está en caché y JitPack no es accesible desde este entorno. Repetir ambas tareas en Android Studio con la dependencia real. No hubo emulador o renderizador Compose para exportar capturas; los previews del código permanecen pendientes de inspección visual.
+El procesamiento de recursos y la compilación Kotlin pasaron en el entorno. `:app:assembleDebug` y `:app:testDebugUnitTest` completaron con 124 pruebas JVM, sin fallos ni errores, usando una interfaz temporal local de `openwakeword-android` fuera del repositorio. `:app:lintDebug` terminó sin errores (70 advertencias y 9 sugerencias). Esta sustitución permite detectar errores de compilación del rediseño, pero el APK resultante no valida detección de voz ni puede considerarse compilación real del producto. La dependencia `com.github.msnilsen:openwakeword-android:0.1.2` no está en caché y JitPack no es accesible desde este entorno. Repetir ambas tareas en Android Studio con la dependencia real. No hubo emulador o renderizador Compose para exportar capturas; los previews del código permanecen pendientes de inspección visual.
 
 ### Revisión física
 
