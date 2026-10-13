@@ -61,7 +61,7 @@ class TripVoiceService : Service() {
     private val capture by lazy { TripCaptureCoordinator(this, { speech }, {
         "modo=${wakeAudioMode.name}; manual=$manualActivationOnly; bloqueada=${getSystemService(KeyguardManager::class.java).isKeyguardLocked}; visible=${TripTestState.appVisible}; ${media.audioRouteDiagnostic()}"
     }, readyValidation = {
-        if (effectiveAudioMode == WakeAudioMode.BUTTON && !headsetRouteAvailable()) {
+        if (!headsetRouteAvailable()) {
             Result.failure(IllegalStateException("La ruta del casco no está lista; se canceló esta escucha."))
         } else Result.success(Unit)
     }) }
@@ -122,6 +122,7 @@ class TripVoiceService : Service() {
     private var appChoiceToken: String? = null
     private var draftCaptureToken: String? = null
     private var songCaptureToken: String? = null
+    private val callConfirmation = VoiceConfirmationGuard()
     private var appExpirationTask: Runnable? = null
     private var appLaunchPendingIntent: PendingIntent? = null
     private var resumeAfterButtonRoute = false
@@ -183,6 +184,7 @@ class TripVoiceService : Service() {
         }
         if (intent?.action == ACTION_CANCEL_APP) {
             val token = intent.getStringExtra(EXTRA_APP_TOKEN)
+            if (active && token != null && appRequests.current?.token == token) cancelAppChoice(signalCancellation = true)
             if (active && token != null && clearPendingApp(token)) {
                 TripTestState.lastCommandResult = "Apertura de aplicación cancelada; el viaje sigue activo."
                 updateNotification("Apertura cancelada · viaje activo")
@@ -190,15 +192,30 @@ class TripVoiceService : Service() {
             return START_NOT_STICKY
         }
         if (intent?.action == ACTION_SILENCE) {
+            if (callConfirmation.pending) {
+                callConfirmation.cancel()
+                val cycle = ++generation
+                followUpGate.cancel()
+                callPrompt.cancel()
+                resumeAfterButtonRoute = capture.cancel(resumePlayback = false, signalCancellation = true) || resumeAfterButtonRoute
+                TripTestState.status = "Llamada cancelada; no se marcó."
+                TripTestState.lastCommandResult = TripTestState.status
+                updateNotification("Llamada cancelada; recuperando viaje")
+                detector?.let { provider ->
+                    schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+                }
+                return START_NOT_STICKY
+            }
             if (songCaptureToken != null) {
-                finishSongCapture("Búsqueda de canción cancelada; viaje activo.")
+                finishSongCapture("Búsqueda de canción cancelada; viaje activo.", cancelled = true)
                 return START_NOT_STICKY
             }
             if (draftCaptureToken != null) {
-                finishDraftCapture("Dictado cancelado; no se abrió ni envió el mensaje.")
+                finishDraftCapture("Dictado cancelado; no se abrió ni envió el mensaje.", cancelled = true)
                 return START_NOT_STICKY
             }
             appChoiceToken?.let { token ->
+                cancelAppChoice(signalCancellation = true)
                 clearPendingApp(token)
                 TripTestState.status = "Apertura de aplicación cancelada; esperando activación."
                 TripTestState.lastCommandResult = TripTestState.status
@@ -207,13 +224,14 @@ class TripVoiceService : Service() {
             }
             val silenced = callPromptLazy.isInitialized() && callPrompt.cancel()
             if (active && silenced) {
+                capture.cancellationCue()
                 pendingTask?.let(mainHandler::removeCallbacks)
                 pendingTask = null
-                TripTestState.status = "Respuesta hablada detenida; llamada cancelada."
+                TripTestState.status = "Respuesta hablada detenida; esperando otra orden."
                 TripTestState.lastCommandResult = TripTestState.status
-                updateNotification("Llamada cancelada; esperando activación")
+                updateNotification("Respuesta detenida; esperando activación")
                 detector?.let { provider ->
-                    schedule(300L) { if (active && detector === provider) startDetector(provider) }
+                    schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider) startDetector(provider) }
                 }
             }
             return START_NOT_STICKY
@@ -573,7 +591,7 @@ class TripVoiceService : Service() {
                     stopSession("No se pudo liberar el micrófono: ${result.exceptionOrNull()?.message}")
                 } else {
                     val handoff = generation
-                    schedule(350L) {
+                    schedule(VoiceInteractionTiming.HANDOFF_MS) {
                         if (active && detector === provider && handoff == generation) {
                             listenForCommand(provider, now, provider.phrase)
                         }
@@ -622,7 +640,7 @@ class TripVoiceService : Service() {
             }
             return
         }
-        schedule(350L) {
+        schedule(VoiceInteractionTiming.HANDOFF_MS) {
             if (active && detector === provider && cycle == generation) {
                 listenForCommand(provider, startedAt, "Casco")
             }
@@ -721,7 +739,7 @@ class TripVoiceService : Service() {
                 TripTestState.status = "$source: Escuché ‘$heard’; restaurando la ruta para ajustar volumen…"
                 TripTestState.lastCommandResult = TripTestState.status
                 updateNotification("$source · restaurando ruta de voz")
-                schedule(if (effectiveAudioMode == WakeAudioMode.BUTTON) 100L else 350L) {
+                schedule(VoiceInteractionTiming.RECOVERY_MS) {
                     if (active && detector === provider && cycle == generation) startDetector(provider)
                 }
                 return@listenOnce
@@ -736,7 +754,7 @@ class TripVoiceService : Service() {
                 pendingMusicCommand = PendingRoutedCommand(command, heard.orEmpty(), source, wakeAt)
                 TripTestState.status = "Restaurando audio antes de buscar ‘${command.musicQuery}’…"
                 updateNotification("Preparando búsqueda de canción")
-                schedule(if (effectiveAudioMode == WakeAudioMode.BUTTON) 100L else 350L) {
+                schedule(VoiceInteractionTiming.RECOVERY_MS) {
                     if (active && detector === provider && cycle == generation) startDetector(provider)
                 }
                 return@listenOnce
@@ -794,6 +812,8 @@ class TripVoiceService : Service() {
                         updateNotification(if (pendingApp != null) "Acción lista: ${pendingApp?.label}" else "No se pudo preparar la acción")
                         val request = appRequests.current
                         if (request != null) requestAppChoice(provider, cycle, request)
+                        else if (found.isFailure) explainResolutionProblem(provider, cycle,
+                            found.exceptionOrNull()?.message ?: "No se pudo preparar la acción.")
                         else schedule(if (effectiveAudioMode == WakeAudioMode.BUTTON) 100L else 2_000L) {
                             if (active && detector === provider && cycle == generation) startDetector(provider)
                         }
@@ -822,7 +842,7 @@ class TripVoiceService : Service() {
                     TripTestState.save(this)
                     TripTestState.status = "Habilitá llamadas por nombre desde APP: requiere contactos y teléfono."
                     updateNotification("Llamada por nombre sin permisos")
-                    schedule(3_500L) { if (active && detector === provider && cycle == generation) startDetector(provider) }
+                    schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && cycle == generation) startDetector(provider) }
                 } else {
                     TripTestState.status = "Buscando ‘$name’ en contactos…"
                     worker.execute {
@@ -835,8 +855,7 @@ class TripVoiceService : Service() {
                                 TripTestState.failures++
                                 TripTestState.save(this)
                                 TripTestState.status = found.exceptionOrNull()?.message ?: "No se encontró el contacto."
-                                updateNotification("No se pudo resolver el contacto")
-                                schedule(3_500L) { if (active && detector === provider && cycle == generation) startDetector(provider) }
+                                explainResolutionProblem(provider, cycle, TripTestState.status)
                             }
                         }
                     }
@@ -861,10 +880,10 @@ class TripVoiceService : Service() {
             }
             TripTestState.status = "$source: ${TripTestState.status}"
             TripTestState.lastCommandResult = TripTestState.status
+            if (intent == TestIntent.CANCEL || intent == TestIntent.STOP_TTS) capture.cancellationCue()
             updateNotification("$source · orden terminada; esperando activación")
             // Ruido, silencio y órdenes desconocidas no terminan una sesión de viaje.
-            val delay = if (effectiveAudioMode == WakeAudioMode.BUTTON) 100L
-                else if (intent != TestIntent.UNKNOWN && outcome.isSuccess) 2_000L else 3_500L
+            val delay = VoiceInteractionTiming.RECOVERY_MS
             schedule(delay) { if (active && detector === provider && cycle == generation) startDetector(provider) }
         }
     }
@@ -872,6 +891,30 @@ class TripVoiceService : Service() {
     private fun isCurrentAppChoice(provider: WakeWordProvider, cycle: Int, token: String): Boolean =
         active && detector === provider && generation == cycle && appChoiceToken == token &&
             appRequests.current?.let { it.token == token && SystemClock.elapsedRealtime() < it.expiresAtMs } == true
+
+    private fun explainResolutionProblem(provider: WakeWordProvider, cycle: Int, message: String) {
+        if (!active || detector !== provider || generation != cycle) return
+        TripTestState.interactionPhase = TripInteractionPhase.SPEAKING
+        TripTestState.status = message
+        TripTestState.lastCommandResult = message
+        fun recover() {
+            if (!active || detector !== provider || generation != cycle) return
+            schedule(VoiceInteractionTiming.RECOVERY_MS) {
+                if (active && detector === provider && generation == cycle) startDetector(provider)
+            }
+        }
+        prepareFollowUp(provider, { active && detector === provider && generation == cycle },
+            onFailure = { reason ->
+                TripTestState.lastCommandResult = "$message No se pudo leer la aclaración: $reason"
+                recover()
+            }) {
+            TripTestState.interactionPhase = TripInteractionPhase.SPEAKING
+            TripTestState.status = message
+            runCatching { callPrompt.explain(message) { recover() } }
+                .onSuccess { updateNotification("Escuchá la aclaración · Silencio disponible") }
+                .onFailure { recover() }
+        }
+    }
 
     private fun prepareFollowUp(provider: WakeWordProvider, isCurrent: () -> Boolean,
         onFailure: (String) -> Unit, onReady: () -> Unit) {
@@ -916,7 +959,7 @@ class TripVoiceService : Service() {
                         if (!current()) return@listenOnce
                         val title = result.getOrNull()?.let(EnglishSongRequest::title)
                         if (title == null) {
-                            finishSongCapture(result.exceptionOrNull()?.message ?: "Búsqueda de canción cancelada.")
+                            finishSongCapture(result.exceptionOrNull()?.message ?: "Búsqueda de canción cancelada.", cancelled = result.isSuccess)
                         } else {
                             songCaptureToken = null
                             val command = RoutedCommand(TestIntent.MEDIA_SEARCH, musicQuery = title)
@@ -933,18 +976,18 @@ class TripVoiceService : Service() {
         }.onFailure { if (current()) finishSongCapture("No se pudo preparar el título: ${it.message}") }
     }
 
-    private fun finishSongCapture(message: String) {
+    private fun finishSongCapture(message: String, cancelled: Boolean = false) {
         if (songCaptureToken == null) return
         songCaptureToken = null
         followUpGate.cancel()
         val cycle = ++generation
         callPrompt.cancel()
-        resumeAfterButtonRoute = capture.cancel(resumePlayback = false) || resumeAfterButtonRoute
+        resumeAfterButtonRoute = capture.cancel(resumePlayback = false, signalCancellation = cancelled) || resumeAfterButtonRoute
         TripTestState.status = message
         TripTestState.lastCommandResult = message
         updateNotification(message)
         detector?.let { provider ->
-            schedule(300L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+            schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && generation == cycle) startDetector(provider) }
         }
     }
 
@@ -984,7 +1027,7 @@ class TripVoiceService : Service() {
                         if (control == TestIntent.STOP_SESSION) {
                             stopSession("Viaje detenido durante dictado; mensaje descartado.", expected = true)
                         } else if (text == null || control == TestIntent.CANCEL || control == TestIntent.STOP_TTS) {
-                            finishDraftCapture("No se preparó el mensaje: ${outcome.exceptionOrNull()?.message ?: "dictado cancelado"}.")
+                            finishDraftCapture("No se preparó el mensaje: ${outcome.exceptionOrNull()?.message ?: "dictado cancelado"}.", cancelled = outcome.isSuccess)
                         } else {
                             TripTestState.recognized++
                             TripTestState.save(this)
@@ -997,7 +1040,7 @@ class TripVoiceService : Service() {
         }.onFailure { if (current()) finishDraftCapture("No se pudo iniciar el dictado; no se preparó el mensaje.") }
     }
 
-    private fun finishDraftCapture(message: String) {
+    private fun finishDraftCapture(message: String, cancelled: Boolean = false) {
         if (draftCaptureToken == null) return
         draftCaptureToken = null
         followUpGate.cancel()
@@ -1005,12 +1048,12 @@ class TripVoiceService : Service() {
         pendingTask?.let(mainHandler::removeCallbacks)
         pendingTask = null
         if (callPromptLazy.isInitialized()) callPrompt.cancel()
-        if (speechLazy.isInitialized()) resumeAfterButtonRoute = capture.cancel(resumePlayback = false) || resumeAfterButtonRoute
+        if (speechLazy.isInitialized()) resumeAfterButtonRoute = capture.cancel(resumePlayback = false, signalCancellation = cancelled) || resumeAfterButtonRoute
         TripTestState.status = message
         TripTestState.lastCommandResult = message
         updateNotification("Dictado cancelado · viaje activo")
         detector?.let { provider ->
-            schedule(300L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+            schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && generation == cycle) startDetector(provider) }
         }
     }
 
@@ -1026,7 +1069,7 @@ class TripVoiceService : Service() {
             TripTestState.save(this)
             TripTestState.status = "No se preparó el borrador: ${it.message}"
             TripTestState.lastCommandResult = TripTestState.status
-            schedule(300L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+            schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && generation == cycle) startDetector(provider) }
         })
     }
 
@@ -1166,16 +1209,16 @@ class TripVoiceService : Service() {
         pendingTask?.let(mainHandler::removeCallbacks)
         pendingTask = null
         callPrompt.cancel()
-        resumeAfterButtonRoute = capture.cancel(resumePlayback = false) || resumeAfterButtonRoute
+        resumeAfterButtonRoute = capture.cancel(resumePlayback = false, signalCancellation = cancelRequest) || resumeAfterButtonRoute
         if (cancelRequest) clearPendingApp(token)
         TripTestState.status = message
         TripTestState.lastCommandResult = message
         updateNotification(if (cancelRequest) "Apertura cancelada · viaje activo" else "Confirmación terminada · viaje activo")
-        schedule(300L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+        schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && generation == cycle) startDetector(provider) }
     }
 
     /** Abrir, descartar, vencer o detener cancela también su confirmación por voz. */
-    private fun cancelAppChoice() {
+    private fun cancelAppChoice(signalCancellation: Boolean = false) {
         if (appChoiceToken == null) return
         appChoiceToken = null
         followUpGate.cancel()
@@ -1184,32 +1227,41 @@ class TripVoiceService : Service() {
         pendingTask = null
         if (callPromptLazy.isInitialized()) callPrompt.cancel()
         if (speechLazy.isInitialized()) {
-            resumeAfterButtonRoute = capture.cancel(resumePlayback = false) || resumeAfterButtonRoute
+            resumeAfterButtonRoute = capture.cancel(resumePlayback = false, signalCancellation = signalCancellation) || resumeAfterButtonRoute
         }
         detector?.let { provider ->
-            if (active) schedule(300L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+            if (active) schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && generation == cycle) startDetector(provider) }
         }
     }
 
     private fun requestCallConfirmation(provider: WakeWordProvider, cycle: Int, contact: TripCallContact) {
         if (!active || detector !== provider || generation != cycle) return
+        callConfirmation.begin(cycle)
         TripTestState.interactionPhase = TripInteractionPhase.SPEAKING
         TripTestState.status = "Anunciando destinatario: ${contact.display}…"
         updateNotification("Anunciando a ${contact.name}")
         runCatching { callPrompt.announce(contact.name) { announced ->
             if (!active || detector !== provider || generation != cycle) return@announce
             if (!announced) {
+                callConfirmation.cancel()
                 TripTestState.failures++
                 TripTestState.save(this)
                 TripTestState.status = "No se pudo anunciar a ${contact.name}; no se hará la llamada."
                 updateNotification("Llamada cancelada: fallo de voz")
-                schedule(2_000L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+                schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && generation == cycle) startDetector(provider) }
                 return@announce
             }
             TripTestState.status = "Llamar a ${contact.display}: después de la señal decí ‘confirmar llamada’ o ‘cancelar’."
             updateNotification("Confirmar llamada a ${contact.name}")
-            schedule(300L) {
-                if (!active || detector !== provider || generation != cycle) return@schedule
+            prepareFollowUp(provider, { active && detector === provider && generation == cycle && callConfirmation.isCurrent(cycle) },
+                onFailure = { message ->
+                    callConfirmation.cancel()
+                    TripTestState.status = "Llamada cancelada: $message"
+                    TripTestState.lastCommandResult = TripTestState.status
+                    schedule(VoiceInteractionTiming.RECOVERY_MS) {
+                        if (active && detector === provider && generation == cycle) startDetector(provider)
+                    }
+                }) {
                 capture.listenOnce(mode = SpeechCaptureMode.CONFIRMATION, onState = { state ->
                     if (active && generation == cycle && state == SpeechCaptureState.READY) {
                         TripTestState.interactionPhase = TripInteractionPhase.CONFIRMING
@@ -1219,6 +1271,7 @@ class TripVoiceService : Service() {
                     PlaybackResumePolicy.AFTER_ROUTE_RESTORED
                 }) { answer ->
                     if (!active || detector !== provider || generation != cycle) return@listenOnce
+                    if (!callConfirmation.take(cycle)) return@listenOnce
                     pendingTask?.let(mainHandler::removeCallbacks)
                     pendingTask = null
                     if (answer.getOrNull()?.let(MinimalIntentRouter::resolve) == TestIntent.CONFIRM_CALL) {
@@ -1226,9 +1279,9 @@ class TripVoiceService : Service() {
                     } else {
                         TripTestState.status = "Llamada cancelada; no se marcó a ${contact.name}."
                         TripTestState.lastCommandResult = TripTestState.status
-                        resumeAfterButtonRoute = capture.cancel(resumePlayback = false) || resumeAfterButtonRoute
+                        resumeAfterButtonRoute = capture.cancel(resumePlayback = false, signalCancellation = true) || resumeAfterButtonRoute
                         updateNotification("Llamada cancelada; esperando activación")
-                        schedule(2_000L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+                        schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && generation == cycle) startDetector(provider) }
                     }
                 }
             }
@@ -1238,7 +1291,8 @@ class TripVoiceService : Service() {
             TripTestState.failures++
             TripTestState.save(this)
             TripTestState.status = "No se pudo anunciar el contacto; no se hará la llamada."
-            schedule(2_000L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+            callConfirmation.cancel()
+            schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && generation == cycle) startDetector(provider) }
         }
     }
 
@@ -1248,7 +1302,7 @@ class TripVoiceService : Service() {
             TripTestState.status = "Habilitá el permiso de estado del teléfono en Ajustes → llamadas; no se marcó."
             TripTestState.lastCommandResult = TripTestState.status
             resumeAfterButtonRoute = capture.cancel(resumePlayback = false) || resumeAfterButtonRoute
-            schedule(300L) { if (active && detector === provider) startDetector(provider) }
+            schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider) startDetector(provider) }
             return
         }
         buttonCoordinator?.close()
@@ -1397,6 +1451,7 @@ class TripVoiceService : Service() {
 
     private fun stopSession(reason: String, expected: Boolean = false) {
         if (closing) return
+        callConfirmation.cancel()
         followUpGate.cancel()
         songCaptureToken = null
         if (active && !expected) {
@@ -1601,7 +1656,7 @@ class TripVoiceService : Service() {
                 notice.addAction(android.R.drawable.ic_menu_view, "Abrir ${target.label}", launch)
             }
         }
-        if (draftCaptureToken != null || (callPromptLazy.isInitialized() && callPrompt.isAnnouncing())) {
+        if (draftCaptureToken != null || appChoiceToken != null || callConfirmation.pending || (callPromptLazy.isInitialized() && callPrompt.isAnnouncing())) {
             val silence = PendingIntent.getService(this, 4,
                 Intent(this, TripVoiceService::class.java).setAction(ACTION_SILENCE),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
@@ -1617,6 +1672,8 @@ class TripVoiceService : Service() {
     }
 
     override fun onDestroy() {
+        followUpGate.cancel()
+        capture.releaseCue()
         mainHandler.removeCallbacks(overlayTick)
         overlay.close()
         clearPendingApp()
@@ -1626,4 +1683,5 @@ class TripVoiceService : Service() {
         super.onDestroy()
     }
 }
+
 

@@ -4,7 +4,7 @@ enum class PipelineEvent {
     ACTIVATION_ATTEMPT_ANNOTATED, FALSE_POSITIVE_ANNOTATED, EXTERNAL_EFFECT_ANNOTATED,
     AUDIO_RESTORED_AUDIBLE_ANNOTATED, MANUAL_ACTIVATION, WAKE_DETECTION,
     BUTTON_DOWN_RECEIVED, BUTTON_ACTIVATION, STT_STARTED, STT_SUCCESS, STT_FAILURE, STT_CANCELLED,
-    STT_SILENCE_RESTART, READY_CUE_STARTED, READY_CUE_FAILED,
+    STT_SILENCE_RESTART, READY_CUE_STARTED, READY_CUE_FAILED, CANCELLATION_CUE_STARTED, CANCELLATION_CUE_FAILED,
     INTENT_RESOLVED, INTENT_UNKNOWN, ACTION_DISPATCHED, ACTION_CONFIRMED_BY_READBACK,
     AUDIO_ROUTE_RESTORE_SUCCESS, AUDIO_ROUTE_RESTORE_FAILURE, SESSION_UNEXPECTED_END
 }
@@ -17,7 +17,9 @@ data class TripPipelineMetrics(
     val lastEndReason: String = "Sin cierre inesperado.",
     val lastButtonStatus: String = DEFAULT_BUTTON_STATUS,
     val lastButtonEvent: String = "Sin pulsación recibida.",
-    val lastReadyCue: String = "Sin señal para hablar."
+    val lastReadyCue: String = "Sin señal para hablar.",
+    val lastCancellationCue: String = "Sin tono de cancelación.",
+    val lastLanguageStatus: String = "Idiomas aún sin comprobar."
 ) {
     companion object {
         const val DEFAULT_BUTTON_STATUS = "Recepción del botón aún sin verificar."
@@ -33,6 +35,9 @@ data class TripPipelineMetrics(
         appendLine("Botón: $lastButtonStatus")
         appendLine("Última pulsación: $lastButtonEvent")
         appendLine("Señal para hablar: $lastReadyCue")
+        appendLine("Cancelación: $lastCancellationCue")
+        appendLine("Reconocimiento: $lastLanguageStatus")
         append("Último cierre inesperado: $lastEndReason")
     }
 }
+

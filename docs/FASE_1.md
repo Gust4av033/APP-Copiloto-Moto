@@ -1,5 +1,11 @@
 # Fase 1 — núcleo de comandos
 
+## Baseline vigente: Fase 1 RC1
+
+La referencia actual del alcance implementado, tiempos, idiomas, UI y evidencia es [FASE_1_RC1.md](FASE_1_RC1.md), en `release/fase-1-rc1`. Integra la rama `feature/ui-glass-redesign` y Escucha 03. La regresión de voz/botón se encuentra en [REGRESION_FASE_1_RC1.md](REGRESION_FASE_1_RC1.md).
+
+Los apartados siguientes conservan el historial de entregas: sus plazos, requisitos de apertura y cifras de pruebas describen cada corte y no sustituyen la baseline actual. La confirmación vigente usa 18 s desde READY; la apertura desde servicio requiere teléfono desbloqueado y los requisitos de superposición indicados en RC1. Envío manual de WhatsApp y silencio hablado durante TTS permanecen explícitos en el backlog.
+
 Rama de trabajo: `feature/fase-1-intent-router`. Reúne comandos, UI, recuperación de llamadas y apertura emergente.
 
 ## Núcleo implementado
@@ -160,3 +166,4 @@ La revisión 06 conserva la recepción de pulsaciones consecutivas, centraliza l
 Las órdenes de Casa, Trabajo y repetición de la última solicitud se incorporan como inicio de **Fase 2**, mediante NavigationProvider y la integración oficial de Waze. [Alcance y pruebas de Navegación 01](FASE_2_NAVEGACION_01.md). No implican lectura de ETA, giros o historial externo. El dictado/borrador es un adelanto de mensajería de Fase 5 y su ajuste pendiente queda separado del cierre del núcleo; envío automático y llamadas entrantes mantienen su estado no implementado.
 
 El siguiente incremento, **Prueba de salida 02**, permite tres/dictar de nuevo y cuatro/repetir mensaje durante la revisión de un borrador. Reutiliza la captura existente y conserva la elección del contacto; no cambia el motor STT ni declara calibrada su transcripción. [Guía y límites](PRUEBA_SALIDA_02_2026-10-12.md).
+

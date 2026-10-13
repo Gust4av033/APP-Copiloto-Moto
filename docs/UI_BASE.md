@@ -69,6 +69,8 @@ La navegación principal sigue siendo Inicio, Viaje y Ajustes. Comandos y Prueba
 
 ## Correspondencia con el núcleo vigente
 
+La candidata integrada [Fase 1 RC1](FASE_1_RC1.md), en `release/fase-1-rc1`, conserva el diseño glass de `4e99900f` y agrega en Ajustes → Activación una tarjeta de reconocimiento: disponibilidad de modelos, comprobación, preparación de inglés y evidencia informada por el motor. Consultar/preparar idiomas se ejecuta por lifecycle/eventos de Activity y no por composición; no abre el micrófono ni solicita foco de audio. Los controles se bloquean cuando hay una operación de audio y las disponibilidades no se presentan como precisión certificada. Comandos y Música describen títulos español/inglés con una orden normal. La notificación conserva Silencio durante anuncio, preparación y escucha de llamadas; Viaje/burbuja siguen observando el estado compartido. [Regresión UI y audio](REGRESION_FASE_1_RC1.md).
+
 - El modo botón no pide Alexa: explica la apertura temporal del micrófono, la restauración de música y la cancelación automática de una captura sin respuesta a los 15 segundos. La orden manual se habilita a partir de `armed`, observado como `commandReady`; queda deshabilitada mientras se procesa, llama o recupera el viaje.
 - El estado de llamada y recuperación se publica explícitamente desde el servicio. Se presenta en Inicio, Viaje y el acceso permanente; no se deduce leyendo textos de diagnóstico.
 - Las tarjetas de app conservan Abrir/Cancelar con el token de la solicitud visible. El servicio mantiene su validación, reemplazo por una orden nueva, vencimiento a los 30 segundos y cancelación al descartar el aviso. La UI no abre automáticamente una app desde segundo plano.
@@ -122,3 +124,4 @@ El diseño y la carga de presentación se revisaron sobre `722ba103`. Inicio y V
 ## UI ruta 02 · Ajustes y paleta
 
 Ajustes pasa a una lista de siete categorías con submenús, retorno fijo y conservación de desplazamiento. La paleta combina morado, celeste y azul intenso en ambos temas, icono y burbuja. Ver [UI_RUTA_02.md](UI_RUTA_02.md).
+

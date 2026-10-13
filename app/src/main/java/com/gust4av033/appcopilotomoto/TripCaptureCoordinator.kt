@@ -49,18 +49,30 @@ internal class TripCaptureCoordinator(
             readyCue.cancel()
             current = 0L
             TripTestState.pipeline = TripTestState.pipeline.copy(lastSttMs = SystemClock.elapsedRealtime() - startedAt)
+            TripTestState.pipeline = TripTestState.pipeline.copy(lastLanguageStatus = speech().languageDescription())
             TripTestState.record(context, if (result.isSuccess) PipelineEvent.STT_SUCCESS else PipelineEvent.STT_FAILURE)
             onResult(result)
         }
     }
 
-    fun cancel(resumePlayback: Boolean = true): Boolean {
+    fun cancel(resumePlayback: Boolean = true, signalCancellation: Boolean = false): Boolean {
         readyCue.cancel()
         if (current != 0L) {
             current = 0L
             TripTestState.record(context, PipelineEvent.STT_CANCELLED)
         }
+        if (signalCancellation) cancellationCue()
         return speech().cancel(resumePlayback)
     }
+
+    fun cancellationCue() {
+        val result = readyValidation().mapCatching { readyCue.play(VoiceCue.CANCELLED).getOrThrow() }
+        TripTestState.pipeline = TripTestState.pipeline.copy(lastCancellationCue =
+            result.getOrNull() ?: "Falló el tono de cancelación: ${result.exceptionOrNull()?.message}")
+        TripTestState.record(context, if (result.isSuccess) PipelineEvent.CANCELLATION_CUE_STARTED else PipelineEvent.CANCELLATION_CUE_FAILED)
+    }
+
+    fun releaseCue() = readyCue.cancel()
 }
+
 

@@ -59,7 +59,7 @@
     <string name="trip_last_result">Última orden</string>
     <string name="no_command_result">Todavía no hay órdenes en esta sesión.</string>
     <string name="trip_commands">Lo que podés decir</string>
-    <string name="commands_music">“Siguiente canción”, “pasa de canción”, “anterior canción”, “pon la música en pausa”, “reanudar” o “pon [nombre de canción]”. Para títulos en inglés: “busca canción en inglés” y decí el nombre después del nuevo tono. Elegí el reproductor en Ajustes → Música.</string>
+    <string name="commands_music">“Siguiente canción”, “pasa de canción”, “anterior canción”, “pon la música en pausa”, “reanudar”, “pon [título]” o “play [título]”. Podés mezclar la orden en español con el título en inglés. Comprobá los idiomas en Ajustes → Activación y elegí el reproductor en Música.</string>
     <string name="commands_volume">“Subir volumen”, “bajar volumen”, “volumen al 40 por ciento” o “volumen a 6”. El porcentaje se adapta al rango de Android; el número elige un nivel.</string>
     <string name="commands_apps">“Abre [nombre de la aplicación]”. Durante el viaje APP anuncia el nombre y escucha “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps; el aviso emergente también permite abrir o cancelar.</string>
     <string name="tests_apps_title">Aplicaciones del teléfono</string>
@@ -179,7 +179,7 @@
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps. También podés usar estos botones o el aviso; el aviso vence 30 segundos después del anuncio (60 para borradores).</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">Escucha 03 · Waze, borradores e inglés</string>
+    <string name="ui_revision">Fase 1 · RC1 · reconocimiento y glass UI</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>
@@ -270,7 +270,21 @@
     <string name="command_music_search">Buscar canción</string>
     <string name="command_music_query">Búsqueda: %1$s</string>
     <string name="music_settings_title">Música · búsqueda por nombre</string>
-    <string name="music_settings_hint">Decí “pon [nombre]”, “pon la canción [nombre]” o “reproduce [nombre]”. Para inglés, durante el viaje decí “busca canción en inglés” y pronunciá el título después del nuevo tono. Requiere reconocimiento local en inglés en el teléfono. La selección se guarda y aplica a búsquedas; siguiente/pausa/volumen usan la sesión multimedia de Android.</string>
+    <string name="music_settings_hint">Decí “pon [título]”, “busca la canción [título]” o “play [título]”. Con los modelos disponibles APP solicita reconocimiento automático español/inglés al motor local. Comprobá idiomas en Ajustes → Activación. La selección se guarda para búsquedas; siguiente/pausa/volumen usan la sesión multimedia de Android.</string>
+    <string name="speech_languages_title">Reconocimiento español e inglés</string>
+    <string name="speech_languages_not_checked">Disponibilidad sin comprobar.</string>
+    <string name="speech_languages_checking">Comprobando los idiomas del motor local…</string>
+    <string name="speech_languages_prepared">Español e inglés disponibles · cambio automático preparado.</string>
+    <string name="speech_languages_missing_english">Español disponible · falta preparar inglés.</string>
+    <string name="speech_languages_unsupported">El cambio automático de idioma requiere Android 14 o posterior.</string>
+    <string name="speech_languages_unavailable">No se comprobó un modelo local de español disponible.</string>
+    <string name="speech_languages_failed">No se pudo comprobar el cambio de idioma · se conserva español.</string>
+    <string name="speech_languages_hint">Usá una orden normal como “pon Sweet Child O’ Mine”. El cambio automático depende del reconocedor del teléfono; comprobá el resultado al buscar una canción. Para confirmar, seguí usando uno o dos. Comprobar y preparar idiomas no abre el micrófono.</string>
+    <string name="speech_languages_detected">Último idioma informado por el motor: %1$s</string>
+    <string name="speech_languages_switch_observed">El motor informó un cambio de idioma durante el reconocimiento.</string>
+    <string name="speech_languages_refresh">Comprobar idiomas</string>
+    <string name="speech_languages_prepare">Preparar inglés</string>
+    <string name="speech_languages_preparing">Preparando inglés…</string>
     <string name="music_player_auto">Automático · prioriza Poweramp; si no, un único compatible</string>
     <string name="music_search_background">Búsqueda directa: puede enviarse con otra app visible o pantalla bloqueada.</string>
     <string name="music_search_visible">Búsqueda estándar: requiere APP visible y teléfono desbloqueado; puede abrir el reproductor.</string>
@@ -380,7 +394,7 @@
     <string name="draft_open">Abrir borrador en WhatsApp</string>
     <string name="draft_discard">Descartar borrador</string>
     <string name="settings_category_activation">Activación</string>
-    <string name="settings_category_activation_hint">Modos, botones del casco, frase y sensibilidad.</string>
+    <string name="settings_category_activation_hint">Reconocimiento, idiomas, modos, botones y frase.</string>
     <string name="settings_category_audio">Audio y música</string>
     <string name="settings_category_audio_hint">Casco, rutas de audio y reproductor.</string>
     <string name="settings_category_appearance">Burbuja y pantalla</string>
@@ -396,4 +410,5 @@
     <string name="settings_back_to_list">Volver a Ajustes</string>
     <string name="settings_phrase_manual_inactive">En activación manual no se usa la frase de voz. Para ajustar la frase y sensibilidad, elegí un modo de voz y dejá desactivado “Solo activación manual”.</string>
 </resources>
+
 

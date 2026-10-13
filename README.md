@@ -1,5 +1,7 @@
 # APP Copiloto Moto
 
+Baseline integrada actual: **Fase 1 RC1**, versión `1.0.0-rc1`, en `release/fase-1-rc1`. Reúne la UI glass de `4e99900f` y el núcleo de Escucha 03 con reconocimiento automático español/inglés según capacidades del motor, aclaraciones habladas y preparación/cancelación común. [Estado y alcance](docs/FASE_1_RC1.md) · [Regresión repetible](docs/REGRESION_FASE_1_RC1.md). Es candidata a estable: la validación de los cambios nuevos en S22+/Y12 se registra por separado de las pruebas automatizadas.
+
 Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta rama inicia la fase 1 sobre el prototipo de fase 0: reúne las órdenes en un Action Executor, amplía las frases de música y volumen, y descubre los accesos instalados para abrir aplicaciones por voz. **Comandos** reúne la guía, una comprobación de frases sin ejecución y los accesos de apps disponibles con búsqueda. Inicio y Viaje muestran las aperturas pendientes y los estados de llamada/recuperación. El viaje y el audio Bluetooth siguen en validación con hardware real.
 
 En Ajustes y Pruebas, **Dispositivos de audio** permite elegir el casco de comunicación o mantener Automático. Muestra salida musical prevista, ruta de voz, niveles y la última entrada medida por separado. La salida de música de otras apps se elige en Android. Los cambios y nuevas capturas quedan bloqueados durante el viaje y la restauración del audio. Ver el protocolo de comparación en `docs/PRUEBA_AUDIO_PERFILES_Y12_SKULLCANDY.md`.
@@ -60,3 +62,4 @@ Corrección del 04-10-2026: confirmación de apps desde el servicio de viaje con
 Estabilización 03 corrige la pérdida del botón dedicado con música activa. El APK independiente **APP · Prueba botón 03** se compila con `assembleFieldTest` y permite probar sin reemplazar la instalación habitual. [Configuración y pruebas](docs/CORRECCION_BOTON_MUSICA_2026-10-04.md).
 
 Estabilización 04 distingue el permiso multimedia de la copia de prueba, abre su pantalla específica y muestra si está habilitado. El APK **APP · Prueba botón 04** actualiza la copia 03 manteniendo su identificador. [Permiso y diagnóstico](docs/PERMISO_BOTON_2026-10-04.md).
+

@@ -63,6 +63,8 @@ class MainActivity : ComponentActivity() {
     private var assistantSelected by mutableStateOf(false)
     private var appCatalogLoading by mutableStateOf(false)
     private val speech by lazy { AndroidSpeechToTextProvider(applicationContext) }
+    private val testReadyCueLazy = lazy { TripReadyCue(applicationContext) }
+    private val testReadyCue by testReadyCueLazy
     private val media by lazy { MediaActionAdapter(applicationContext) }
     private val actions by lazy { ActionExecutor(this, media) }
     private val audioManager by lazy { getSystemService(AudioManager::class.java) }
@@ -302,6 +304,7 @@ class MainActivity : ComponentActivity() {
             assistantSelected = assistantSelected,
             assistantMessage = assistantMessage,
             voiceMessage = voiceMessage,
+            speechLanguages = SpeechLanguageSupport.snapshot,
             appCatalogMessage = appCatalogMessage,
             appCatalogLoading = appCatalogLoading,
             appCommands = appCommands,
@@ -372,6 +375,8 @@ class MainActivity : ComponentActivity() {
                 onSelectHeadset = ::selectHeadset,
                 onOpenAudioControls = ::openAudioControls,
                 onSelectAssistant = ::requestAssistantRole,
+                onRefreshSpeechLanguages = { if (!audioBusy()) SpeechLanguageSupport.refresh(applicationContext, force = true) },
+                onPrepareEnglish = { if (!audioBusy()) SpeechLanguageSupport.prepareEnglish(applicationContext) },
                 onToggleListening = { if (listening) cancelVoiceTest() else requestAudioPermissions(::startVoiceTest) },
                 onRefreshApps = { refreshAppCatalog(force = true) },
                 onEnableChatContacts = {
@@ -581,6 +586,12 @@ class MainActivity : ComponentActivity() {
         TripTestState.playMusicFromVoice = voiceMusicSearcher
         chatContactsGranted = checkSelfPermission(Manifest.permission.READ_CONTACTS) == PackageManager.PERMISSION_GRANTED
         if (chatContactsGranted) chatIntegrationMessage = ""
+        val languageRefreshGeneration = presentationGeneration
+        mainHandler.postDelayed({
+            if (!isDestroyed && languageRefreshGeneration == presentationGeneration && !audioBusy()) {
+                SpeechLanguageSupport.refresh(applicationContext)
+            }
+        }, 500L)
         refreshAppCatalog()
         mainHandler.removeCallbacks(refreshDevicesTask)
         mainHandler.postDelayed(refreshDevicesTask, 250L)
@@ -947,7 +958,7 @@ class MainActivity : ComponentActivity() {
                         voiceMessage = "Reabriendo confirmación tras silencio; esperá a que esté lista."
                     }
                 }
-            }, playbackResumePolicy = { heard ->
+            }, readySignal = { testReadyCue.play().map { Unit } }, playbackResumePolicy = { heard ->
                 when (heard?.let(MinimalIntentRouter::resolve)) {
                     TestIntent.MEDIA_PAUSE -> PlaybackResumePolicy.KEEP_PAUSED
                     TestIntent.MEDIA_SEARCH -> PlaybackResumePolicy.AFTER_ROUTE_RESTORED
@@ -955,6 +966,7 @@ class MainActivity : ComponentActivity() {
                 }
             }) { outcome ->
                 if (!listening) return@listenOnce
+                testReadyCue.cancel()
                 listening = false
                 val elapsed = SystemClock.elapsedRealtime() - start
                 val routed = outcome.getOrNull()?.let(MinimalIntentRouter::route)
@@ -1035,6 +1047,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun cancelVoiceTest() {
+        if (testReadyCueLazy.isInitialized()) testReadyCue.cancel()
         pendingSpeechStart?.let(mainHandler::removeCallbacks)
         pendingSpeechStart = null
         speech.cancel()
@@ -1175,6 +1188,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        if (testReadyCueLazy.isInitialized()) testReadyCue.cancel()
         presentationGeneration++
         presentationWorker.shutdown()
         if (buttonProbeActive) buttonProbe.stop()
@@ -1195,4 +1209,5 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 }
+
 

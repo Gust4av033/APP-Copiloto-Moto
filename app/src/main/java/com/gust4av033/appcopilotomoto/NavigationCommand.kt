@@ -19,10 +19,10 @@ object NavigationCommandParser {
         return when (text) {
             "vamos a casa", "vamos a la casa", "vamos para casa", "vamos para la casa",
             "ir a casa", "llevame a casa", "navega a casa", "navegar a casa",
-            "regresa a casa", "volver a casa" -> NavigationRequest.HOME
+            "regresa a casa", "volver a casa", "take me home", "go home", "let s go home" -> NavigationRequest.HOME
             "vamos al trabajo", "vamos a trabajo", "vamos para el trabajo", "ir al trabajo",
             "llevame al trabajo", "navega al trabajo", "navegar al trabajo",
-            "regresa al trabajo", "volver al trabajo" -> NavigationRequest.WORK
+            "regresa al trabajo", "volver al trabajo", "vamos a la chamba", "llevame a la chamba", "take me to work", "go to work" -> NavigationRequest.WORK
             "vamos al ultimo destino", "ir al ultimo destino", "llevame al ultimo destino",
             "vamos a la ultima ubicacion", "vamos a la ultima ubicacion puesta",
             "ultima ubicacion", "ultimo destino", "repite el ultimo destino",
@@ -42,3 +42,4 @@ object WazeNavigationLink {
         return "https://waze.com/ul?favorite=$favorite&navigate=yes&utm_source=app_copiloto_moto"
     }
 }
+

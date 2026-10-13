@@ -4,6 +4,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class VoiceInteractionTimingTest {
+    @Test fun cancellationFeedbackFitsBeforeRecoveryAndEveryConfirmationHasTheSameBudget() {
+        assertTrue(VoiceInteractionTiming.CANCEL_CUE_MS < VoiceInteractionTiming.RECOVERY_MS)
+        assertTrue(VoiceInteractionTiming.READY_CUE_MS < VoiceInteractionTiming.CUE_SPEECH_GUARD_MS)
+        listOf("app", "llamada", "borrador").forEach {
+            val window = SpeechCaptureDeadline(SpeechCaptureMode.CONFIRMATION, 0)
+            assertTrue(window.ready(VoiceInteractionTiming.TTS_DRAIN_MS + VoiceInteractionTiming.ROUTE_POLL_MS))
+            assertEquals(18_000L, window.expiresAtMs - VoiceInteractionTiming.TTS_DRAIN_MS - VoiceInteractionTiming.ROUTE_POLL_MS)
+        }
+    }
     @Test fun slowPreparationStillLeavesAFullConfirmationOrDictationWindow() {
         val confirmation = SpeechCaptureDeadline(SpeechCaptureMode.CONFIRMATION, 100L)
         assertTrue(confirmation.ready(9_100L))
@@ -107,4 +116,5 @@ class VoiceInteractionTimingTest {
         listOf("uno o dos", "no abras", "uno dos").forEach { assertEquals(AppChoice.UNKNOWN, AppChoiceRouter.resolve(it)) }
     }
 }
+
 

@@ -12,26 +12,31 @@ import kotlin.math.PI
 import kotlin.math.sin
 
 /** Señal corta por la ruta de comunicación. No cambia volumen, foco ni selección de casco. */
+internal enum class VoiceCue { READY, CANCELLED }
+
 internal class TripReadyCue(context: Context) {
     private val audio = context.getSystemService(AudioManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
     private var track: AudioTrack? = null
     private val release = Runnable { cancel() }
 
-    fun play(): Result<String> = runCatching {
+    fun play(kind: VoiceCue = VoiceCue.READY): Result<String> = runCatching {
         cancel()
         // Dos pulsos con entrada/salida suave; el pequeño silencio inicial da margen a la salida.
         val rate = 16_000
-        val samples = ShortArray(rate * 360 / 1_000) { frame ->
+        val duration = if (kind == VoiceCue.READY) VoiceInteractionTiming.READY_CUE_MS else VoiceInteractionTiming.CANCEL_CUE_MS
+        val samples = ShortArray((rate * duration / 1_000).toInt()) { frame ->
             val ms = frame * 1_000.0 / rate
             val start = when {
+                kind == VoiceCue.CANCELLED && ms in 20.0..140.0 -> 20.0
+                kind == VoiceCue.CANCELLED -> return@ShortArray 0
                 ms in 40.0..160.0 -> 40.0
                 ms in 200.0..320.0 -> 200.0
                 else -> return@ShortArray 0
             }
             val position = ms - start
             val fade = minOf(position / 10.0, (120.0 - position) / 10.0, 1.0).coerceAtLeast(0.0)
-            val frequency = if (start == 40.0) 880.0 else 1_100.0
+            val frequency = if (kind == VoiceCue.CANCELLED) 440.0 else if (start == 40.0) 880.0 else 1_100.0
             (sin(2 * PI * frequency * frame / rate) * 8_000 * fade).toInt().toShort()
         }
         val output = AudioTrack.Builder()
@@ -48,8 +53,8 @@ internal class TripReadyCue(context: Context) {
         check(output.state == AudioTrack.STATE_INITIALIZED) { "Android no preparó la señal para hablar." }
         output.play()
         check(output.playState == AudioTrack.PLAYSTATE_PLAYING) { "Android no inició el tono." }
-        handler.postDelayed(release, 800L) // Deja drenar el buffer de la ruta Bluetooth.
-        "Tono iniciado; salida solicitada=${preferred?.productName ?: "ruta de comunicación"}; " +
+        handler.postDelayed(release, VoiceInteractionTiming.CUE_RELEASE_MS)
+        "Tono ${kind.name.lowercase()} iniciado; salida solicitada=${preferred?.productName ?: "ruta de comunicación"}; " +
             "volumen comunicación=${audio.getStreamVolume(AudioManager.STREAM_VOICE_CALL)}/${audio.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL)}. Audición pendiente de comprobar."
     }.onFailure { cancel() }
 
@@ -61,3 +66,4 @@ internal class TripReadyCue(context: Context) {
         runCatching { old.release() }
     }
 }
+

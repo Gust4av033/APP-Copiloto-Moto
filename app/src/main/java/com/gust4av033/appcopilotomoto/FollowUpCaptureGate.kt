@@ -18,7 +18,7 @@ internal class FollowUpCaptureGate(
             onFailure(message)
         }
         // Drain the last spoken audio before reselecting the communication device.
-        schedule(300L) {
+        schedule(VoiceInteractionTiming.TTS_DRAIN_MS) {
             if (!valid()) return@schedule
             background work@ {
                 if (id != sequence) return@work
@@ -29,7 +29,7 @@ internal class FollowUpCaptureGate(
                         fail("No se pudo preparar el casco: ${selected.exceptionOrNull()?.message}")
                         return@selected
                     }
-                    val deadline = now() + 4_000L
+                    val deadline = now() + VoiceInteractionTiming.ROUTE_PREPARATION_MS
                     var observedReady = false
                     fun poll() {
                         if (!valid()) return
@@ -41,11 +41,11 @@ internal class FollowUpCaptureGate(
                                 onReady()
                             } else {
                                 observedReady = true
-                                schedule(250L) { poll() }
+                                schedule(VoiceInteractionTiming.ROUTE_POLL_MS) { poll() }
                             }
                         } else {
                             observedReady = false
-                            schedule(250L) { poll() }
+                            schedule(VoiceInteractionTiming.ROUTE_POLL_MS) { poll() }
                         }
                     }
                     poll()
@@ -56,3 +56,4 @@ internal class FollowUpCaptureGate(
 
     fun cancel() { sequence++ }
 }
+

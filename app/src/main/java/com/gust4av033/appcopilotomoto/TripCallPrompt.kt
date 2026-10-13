@@ -31,6 +31,8 @@ class TripCallPrompt(private val context: Context) {
     fun askForEnglishSong(onFinished: (Boolean) -> Unit) = speak(
         "Después del tono, di el nombre de la canción en inglés. Para cancelar, di cancel.", onFinished)
 
+    fun explain(message: String, onFinished: (Boolean) -> Unit) = speak(message.take(480), onFinished)
+
     private fun speak(text: String, onFinished: (Boolean) -> Unit) {
         cancel()
         val cycle = ++generation
@@ -91,4 +93,5 @@ class TripCallPrompt(private val context: Context) {
         return wasAnnouncing
     }
 }
+
 

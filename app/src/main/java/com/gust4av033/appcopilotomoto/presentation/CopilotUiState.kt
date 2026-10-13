@@ -119,6 +119,7 @@ data class CopilotUiState(
     val assistantSelected: Boolean = false,
     val assistantMessage: String = "",
     val voiceMessage: String = "",
+    val speechLanguages: com.gust4av033.appcopilotomoto.SpeechLanguageSnapshot = com.gust4av033.appcopilotomoto.SpeechLanguageSnapshot(),
     val appCatalogMessage: String = "",
     val appCatalogLoading: Boolean = false,
     val appCommands: List<String> = emptyList(),
@@ -165,6 +166,8 @@ data class CopilotActions(
     val onOpenAudioControls: () -> Unit = {},
     val onSelectAssistant: () -> Unit = {},
     val onToggleListening: () -> Unit = {},
+    val onRefreshSpeechLanguages: () -> Unit = {},
+    val onPrepareEnglish: () -> Unit = {},
     val onRefreshApps: () -> Unit = {},
     val onEnableChatContacts: () -> Unit = {},
     val onMusicPlayerChange: (String?) -> Unit = {},
@@ -186,4 +189,5 @@ data class CopilotActions(
     val onChooseContact: () -> Unit = {},
     val onClearContact: () -> Unit = {}
 )
+
 

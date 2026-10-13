@@ -32,4 +32,18 @@ class ContactNameMatcherTest {
             assertThrows(IllegalArgumentException::class.java) { ContactNameMatcher.findUnique(name, listOf(entry(1, "Ana López"))) }
         }
     }
+
+    @Test fun ambiguousNamesExplainTheOptionsWithoutRevealingPhoneNumbers() {
+        val failure = assertThrows(IllegalArgumentException::class.java) {
+            ContactNameMatcher.findUnique("ana", listOf(entry(1, "Ana López"), entry(2, "Ana Pérez")))
+        }
+        assertTrue(failure.message!!.contains("Ana López"))
+        assertTrue(failure.message!!.contains("Ana Pérez"))
+        assertFalse(failure.message!!.contains("70000001"))
+        val duplicate = assertThrows(IllegalArgumentException::class.java) {
+            ContactNameMatcher.findUnique("ana", listOf(entry(1, "Ana"), entry(2, "Ana")))
+        }
+        assertTrue(duplicate.message!!.contains("nombres distintos"))
+    }
 }
+

@@ -3,6 +3,17 @@ package com.gust4av033.appcopilotomoto
 /** Cada plazo pertenece a una etapa: preparar, hablar o escuchar. */
 internal object VoiceInteractionTiming {
     const val PREPARATION_MS = 10_000L
+    const val LANGUAGE_CHECK_MS = 1_800L
+    const val HANDOFF_MS = 350L
+    const val SPEECH_START_MS = 250L
+    const val TTS_DRAIN_MS = 300L
+    const val ROUTE_POLL_MS = 250L
+    const val ROUTE_PREPARATION_MS = 4_000L
+    const val RECOVERY_MS = 300L
+    const val READY_CUE_MS = 360L
+    const val CANCEL_CUE_MS = 160L
+    const val CUE_SPEECH_GUARD_MS = 400L
+    const val CUE_RELEASE_MS = 800L
 
     fun playbackMs(text: String): Long = (5_000L + text.length * 150L).coerceIn(15_000L, 90_000L)
 
@@ -53,7 +64,7 @@ internal class SpeechStartEvidence {
     var detected = false
         private set
     private var cueEndsAt: Long? = null
-    fun ready(nowMs: Long) { cueEndsAt = nowMs + 400L }
+    fun ready(nowMs: Long) { cueEndsAt = nowMs + VoiceInteractionTiming.CUE_SPEECH_GUARD_MS }
     fun onset(nowMs: Long) {
         if (cueEndsAt?.let { nowMs >= it } == true) detected = true
     }
@@ -65,4 +76,5 @@ internal object TripAppLaunchPolicy {
     fun canOpen(active: Boolean, unlocked: Boolean, activityVisible: Boolean, overlayPermission: Boolean) =
         active && unlocked && (activityVisible || overlayPermission)
 }
+
 

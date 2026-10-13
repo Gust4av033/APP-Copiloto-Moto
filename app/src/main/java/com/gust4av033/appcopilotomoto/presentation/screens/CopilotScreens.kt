@@ -260,6 +260,32 @@ fun LazyListScope.SettingsScreen(
             }
         }
         SettingsSection.ACTIVATION -> {
+            item(key = "speech_languages") {
+                SectionCard(stringResource(R.string.speech_languages_title)) {
+                    val languages = state.speechLanguages
+                    SupportingText(stringResource(when (languages.phase) {
+                        com.gust4av033.appcopilotomoto.SpeechLanguagePhase.NOT_CHECKED -> R.string.speech_languages_not_checked
+                        com.gust4av033.appcopilotomoto.SpeechLanguagePhase.CHECKING -> R.string.speech_languages_checking
+                        com.gust4av033.appcopilotomoto.SpeechLanguagePhase.PREPARED -> R.string.speech_languages_prepared
+                        com.gust4av033.appcopilotomoto.SpeechLanguagePhase.MISSING_ENGLISH -> R.string.speech_languages_missing_english
+                        com.gust4av033.appcopilotomoto.SpeechLanguagePhase.UNSUPPORTED -> R.string.speech_languages_unsupported
+                        com.gust4av033.appcopilotomoto.SpeechLanguagePhase.UNAVAILABLE -> R.string.speech_languages_unavailable
+                        com.gust4av033.appcopilotomoto.SpeechLanguagePhase.FAILED -> R.string.speech_languages_failed
+                    }))
+                    SupportingText(stringResource(R.string.speech_languages_hint))
+                    if (languages.lastDetectedTag.isNotBlank()) SupportingText(stringResource(R.string.speech_languages_detected, languages.lastDetectedTag))
+                    if (languages.switchObserved) SupportingText(stringResource(R.string.speech_languages_switch_observed))
+                    if (languages.detail.isNotBlank()) SupportingText(languages.detail)
+                    val canCheck = !state.busy && !languages.downloading && languages.phase != com.gust4av033.appcopilotomoto.SpeechLanguagePhase.CHECKING
+                    ActionButton(stringResource(R.string.speech_languages_refresh), iconRes = R.drawable.ic_tests,
+                        enabled = canCheck, onClick = actions.onRefreshSpeechLanguages)
+                    if (languages.phase == com.gust4av033.appcopilotomoto.SpeechLanguagePhase.MISSING_ENGLISH ||
+                        languages.phase == com.gust4av033.appcopilotomoto.SpeechLanguagePhase.FAILED || languages.downloading) {
+                        ActionButton(stringResource(if (languages.downloading) R.string.speech_languages_preparing else R.string.speech_languages_prepare),
+                            iconRes = R.drawable.ic_mic, enabled = canCheck, onClick = actions.onPrepareEnglish)
+                    }
+                }
+            }
             item(key = "SettingsScreen_3") {
                 SectionCard(stringResource(R.string.settings_input)) {
                     ChoiceGroup(state.inputs, state.inputId, if (state.tripActive) state.canRequestTripCommand else !state.busy, actions.onInputChange)
@@ -382,5 +408,6 @@ private fun AudioComparison(state: CopilotUiState) {
     SupportingText(stringResource(R.string.audio_during, state.audioDuring))
     SupportingText(stringResource(R.string.audio_after, state.audioAfter))
 }
+
 
 

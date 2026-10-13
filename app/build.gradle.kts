@@ -14,18 +14,18 @@ android {
         applicationId = "com.gust4av033.appcopilotomoto"
         minSdk = 26
         targetSdk = 36
-        versionCode = 2
-        versionName = "0.1.0"
+        versionCode = 3
+        versionName = "1.0.0-rc1"
     }
 
     buildTypes {
         create("fieldTest") {
             initWith(getByName("debug"))
             applicationIdSuffix = ".pruebas"
-            versionNameSuffix = "-boton06"
+            versionNameSuffix = "-campo"
             matchingFallbacks += listOf("debug")
-            resValue("string", "app_name", "APP · Prueba botón 06")
-            resValue("string", "media_access_service_label", "APP · Prueba botón 06 · controles del reproductor")
+            resValue("string", "app_name", "APP · Campo RC1")
+            resValue("string", "media_access_service_label", "APP · Campo RC1 · controles del reproductor")
         }
     }
 
@@ -54,3 +54,4 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
     testImplementation("junit:junit:4.13.2")
 }
+
