@@ -381,8 +381,10 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(state.tripActive, state.switchingMode) {
             if (!state.switchingMode) syncTripPresentation()
         }
-        DisposableEffect(state.tripActive, state.keepScreenOnDuringTrip) {
-            if (state.tripActive && state.keepScreenOnDuringTrip) {
+        DisposableEffect(state.tripActive, state.keepScreenOnDuringTrip, state.overlayEnabled,
+            state.overlayPermissionGranted, state.overlayHidden) {
+            val bubbleActive = state.overlayEnabled && state.overlayPermissionGranted && !state.overlayHidden
+            if (state.tripActive && (state.keepScreenOnDuringTrip || bubbleActive)) {
                 window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             } else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }

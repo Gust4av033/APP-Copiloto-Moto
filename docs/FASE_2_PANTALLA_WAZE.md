@@ -6,6 +6,8 @@ La rama feature/fase-2-waze-screen parte de feature/ui-storm-glass b862acf, que 
 
 Versión 1.1.0-f2-screen1, código 6. La entrega incorpora un lector de pantalla independiente y una consulta por voz. Sigue siendo experimental hasta probar qué contenido accesible expone Waze en el S22+.
 
+Actualización Screen 2: versión 1.1.0-f2-screen2, código 7, sobre la misma rama por instrucción del usuario. La burbuja visible evita apagado por inactividad mediante la bandera de su ventana; al regresar a APP conserva esa protección si está habilitada y no oculta. Ocultar/desactivar o detener libera la protección de la burbuja. Se conserva el bloqueo físico voluntario. Detalle y prueba de temporizador: [UI azul tormenta](UI_AZUL_TORMENTA.md). assembleDebug y assembleFieldTest terminaron BUILD SUCCESSFUL; la prueba de tiempo de apagado en S22+ queda pendiente. No se atribuye a Screen 2 una reejecución de las pruebas de Screen 1.
+
 ## Lectura pasiva y límites
 
 Servicio de [Accesibilidad](https://developer.android.com/reference/android/accessibilityservice/AccessibilityService) con canRetrieveWindowContent y eventos restringidos a com.waze. Permiso propio, desactivado por defecto, con BuildConfig.DEBUG, desarrollo activo, opt-in específico y sesión de APP. Release no habilita el lector. No ejecuta gestos, clicks, acciones de nodos ni capturas de imagen, y no cambia la app al frente.

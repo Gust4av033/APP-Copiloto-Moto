@@ -1,5 +1,13 @@
 # Vidrio azul tormenta e Inicio deslizable
 
+## Pantalla encendida con burbuja · Fase 2 Screen 2
+
+Por solicitud del usuario, la ventana visible de la burbuja lleva FLAG_KEEP_SCREEN_ON: minimizada o con panel abierto evita el apagado por inactividad sobre Waze/otras apps. Ocultar/desactivar la burbuja, revocar superposición o detener el viaje retira la ventana y libera esa protección. Mientras APP esté al frente, el mismo comportamiento se conserva si la burbuja está habilitada y no oculta; sin burbuja se respeta la preferencia de pantalla de APP. No se fuerza encendido/desbloqueo ni se impide el botón físico de bloqueo. No se añaden permisos o cambios de audio. Se conserva material, dimensiones y acciones.
+
+Se actualizan las explicaciones en Apariencia y Viaje. [WindowManager.LayoutParams](https://developer.android.com/reference/android/view/WindowManager.LayoutParams#FLAG_KEEP_SCREEN_ON) define la bandera para ventanas visibles; el [sistema de ventanas de Android](https://android.googlesource.com/platform/frameworks/base/+/refs/heads/android16-release/services/core/java/com/android/server/wm/DisplayContent.java) aplica la protección a las superficies visibles con esa bandera. No se mantiene un wake lock propio del servicio.
+
+Prueba física pendiente: con tiempo de apagado corto, viaje y burbuja visibles, dejar Waze/otra app al frente más allá del tiempo; repetir con panel abierto/cerrado. Ocultar o detener debe liberar la protección de APP (otras apps pueden mantener su propia pantalla encendida). Pulsar bloqueo debe apagar la pantalla y retirar la burbuja. Verificar que mostrar/mover no inicia escucha.
+
 La prueba conjunta de Fase 2 continúa en feature/fase-2-waze-screen desde b862acf. Añade controles de lectura de pantalla en Navegación con desarrollo activo y una última indicación observada en Viaje, reutilizando las mismas superficies, colores y tamaños. No modifica el carrusel ni los controles de la burbuja. Ver [fuente, consulta y prueba](FASE_2_PANTALLA_WAZE.md).
 
 Rama: `feature/ui-storm-glass`, basada en `feature/fase-2-waze-observation`

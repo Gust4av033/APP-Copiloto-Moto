@@ -264,9 +264,9 @@
     <string name="commands_apps_more">Mostrar más aplicaciones</string>
     <string name="trip_command_timeout">Si no hablás, la captura se cancela tras 15 segundos y el modo botón recupera la música.</string>
     <string name="settings_screen_on">Pantalla durante el viaje</string>
-    <string name="settings_screen_on_toggle">Mantener pantalla encendida</string>
-    <string name="settings_screen_on_hint">Mientras APP esté visible y el viaje activo, evita el apagado automático. Al detener el viaje o pasar a otra app vuelve el comportamiento normal. No desbloquea el teléfono ni impide apagarlo con el botón. La opción se guarda.</string>
-    <string name="trip_screen_on_hint">Pantalla encendida mientras APP esté visible. Podés cambiarlo en Ajustes.</string>
+    <string name="settings_screen_on_toggle">Mantener pantalla encendida dentro de APP</string>
+    <string name="settings_screen_on_hint">Esta opción evita el apagado automático con APP visible durante un viaje. La burbuja activa mantiene la pantalla encendida también sobre Waze u otra app, aunque esta opción esté desactivada. Ocultar la burbuja o detener el viaje libera su protección. Puedes apagar la pantalla con el botón del teléfono. La opción se guarda.</string>
+    <string name="trip_screen_on_hint">La burbuja activa mantiene la pantalla encendida. Sin burbuja, la opción de Ajustes se aplica mientras APP esté visible.</string>
     <string name="command_music_search">Buscar canción</string>
     <string name="command_music_query">Búsqueda: %1$s</string>
     <string name="music_settings_title">Música · búsqueda por nombre</string>
@@ -294,7 +294,7 @@
     <string name="music_search_scope">Poweramp busca en su biblioteca. Cada reproductor decide qué encuentra y reproduce; enviar la búsqueda no confirma la canción. No todos ofrecen esta función.</string>
     <string name="overlay_settings_title">Burbuja del copiloto</string>
     <string name="overlay_settings_toggle">Mostrar sobre otras aplicaciones</string>
-    <string name="overlay_settings_hint">Opcional. Aparece durante el viaje al usar Waze u otra app, con el teléfono desbloqueado. Arrastrala hacia un borde. Mostrarla no abre el micrófono ni cambia el modo de activación.</string>
+    <string name="overlay_settings_hint">Opcional. Aparece durante el viaje al usar Waze u otra app, con el teléfono desbloqueado, y evita el apagado automático mientras esté visible. Arrastrala hacia un borde. Mostrarla no abre el micrófono ni cambia el modo de activación.</string>
     <string name="overlay_permission_hint">Para mostrar la burbuja, habilitá el permiso de superposición en Android. Si no lo concedés, podés seguir usando APP con el casco y la notificación.</string>
     <string name="overlay_permission_button">Permitir mostrar sobre otras apps</string>
     <string name="overlay_permission_error">No se pudo abrir el permiso. Buscá APP en Ajustes de Android → Mostrar sobre otras aplicaciones.</string>
