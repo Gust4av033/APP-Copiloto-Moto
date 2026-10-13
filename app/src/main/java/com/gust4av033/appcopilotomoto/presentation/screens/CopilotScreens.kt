@@ -20,6 +20,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.CopilotActions
+import com.gust4av033.appcopilotomoto.presentation.SettingsSection
+import com.gust4av033.appcopilotomoto.presentation.components.SettingsMenuRow
+import com.gust4av033.appcopilotomoto.presentation.components.NavigationCard
 import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 import com.gust4av033.appcopilotomoto.presentation.VoiceRouteUi
 import com.gust4av033.appcopilotomoto.presentation.components.JourneyHero
@@ -213,108 +216,140 @@ fun LazyListScope.TestsScreen(state: CopilotUiState, actions: CopilotActions) {
     }
 }
 
-fun LazyListScope.SettingsScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommands: () -> Unit, onOpenTests: () -> Unit) {
-    if (state.busy) item(key = "SettingsScreen_0") {
+fun LazyListScope.SettingsScreen(
+    state: CopilotUiState,
+    actions: CopilotActions,
+    section: SettingsSection,
+    onOpenSection: (SettingsSection) -> Unit,
+    onOpenCommands: () -> Unit,
+    onOpenTests: () -> Unit
+) {
+    if (state.busy) item(key = "settings_busy") {
         SupportingText(stringResource(if (state.tripActive) R.string.settings_trip_active else R.string.settings_busy))
     }
-    item(key = "SettingsScreen_1") {
-        SectionCard(stringResource(R.string.settings_screen_on)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.settings_screen_on_toggle), modifier = Modifier.weight(1f))
-                Switch(checked = state.keepScreenOnDuringTrip, onCheckedChange = actions.onKeepScreenOnChange)
+    when (section) {
+        SettingsSection.OVERVIEW -> {
+            SettingsSection.entries.filter { it != SettingsSection.OVERVIEW }.forEach { category ->
+                item(key = category.name) { SettingsMenuRow(category) { onOpenSection(category) } }
             }
-            SupportingText(stringResource(R.string.settings_screen_on_hint))
         }
-    }
-    item(key = "SettingsScreen_2") {
-        SectionCard(stringResource(R.string.overlay_settings_title)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.overlay_settings_toggle), modifier = Modifier.weight(1f))
-                Switch(checked = state.overlayEnabled, onCheckedChange = actions.onOverlayEnabledChange)
-            }
-            SupportingText(stringResource(R.string.overlay_settings_hint))
-            if (state.overlayEnabled && !state.overlayPermissionGranted) {
-                SupportingText(stringResource(R.string.overlay_permission_hint))
-                ActionButton(stringResource(R.string.overlay_permission_button), onClick = actions.onOverlayPermission)
-            } else if (state.overlayEnabled && state.tripActive && state.overlayHidden) {
-                SupportingText(stringResource(R.string.overlay_hidden_hint))
-                ActionButton(stringResource(R.string.overlay_show), onClick = actions.onShowOverlay)
-            }
-            if (state.overlayMessage.isNotBlank()) SupportingText(state.overlayMessage)
-        }
-    }
-    item(key = "SettingsScreen_3") {
-        SectionCard(stringResource(R.string.settings_input)) {
-            ChoiceGroup(state.inputs, state.inputId, if (state.tripActive) state.canRequestTripCommand else !state.busy, actions.onInputChange)
-            SupportingText(stringResource(R.string.mode_switch_hint))
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.manual_activation_title))
-                    SupportingText(stringResource(R.string.manual_activation_hint))
+        SettingsSection.ACTIVATION -> {
+            item(key = "SettingsScreen_3") {
+                SectionCard(stringResource(R.string.settings_input)) {
+                    ChoiceGroup(state.inputs, state.inputId, if (state.tripActive) state.canRequestTripCommand else !state.busy, actions.onInputChange)
+                    SupportingText(stringResource(R.string.mode_switch_hint))
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Column(Modifier.weight(1f)) {
+                            Text(stringResource(R.string.manual_activation_title))
+                            SupportingText(stringResource(R.string.manual_activation_hint))
+                        }
+                        Switch(checked = state.manualActivationOnly,
+                            onCheckedChange = actions.onManualActivationOnlyChange,
+                            enabled = if (state.tripActive) state.canRequestTripCommand else !state.busy)
+                    }
+                    if (state.switchingMode) SupportingText(stringResource(R.string.overlay_switching))
+                    if (state.buttonMode) SupportingText(stringResource(R.string.trip_button_hint))
                 }
-                Switch(checked = state.manualActivationOnly,
-                    onCheckedChange = actions.onManualActivationOnlyChange,
-                    enabled = if (state.tripActive) state.canRequestTripCommand else !state.busy)
             }
-            if (state.switchingMode) SupportingText(stringResource(R.string.overlay_switching))
-            if (state.buttonMode) SupportingText(stringResource(R.string.trip_button_hint))
-        }
-    }
-    item(key = "SettingsScreen_4") {
-        com.gust4av033.appcopilotomoto.presentation.components.TripButtonSettingsCard(state, actions)
-    }
-    if (!state.buttonMode) item(key = "SettingsScreen_5") {
-        SectionCard(stringResource(R.string.settings_phrase)) {
-            ChoiceGroup(state.phrases, state.phraseId, !state.busy, actions.onPhraseChange)
-            SupportingText(stringResource(R.string.settings_phrase_hint))
-            Text(stringResource(R.string.settings_sensitivity, state.sensitivity.toInt()))
-            Slider(
-                value = state.sensitivity,
-                onValueChange = actions.onSensitivityChange,
-                valueRange = 40f..85f,
-                steps = 8,
-                enabled = !state.busy
-            )
-            SupportingText(stringResource(R.string.settings_sensitivity_hint))
-        }
-    }
-    item(key = "SettingsScreen_6") {
-        AudioDevicesCard(state, actions)
-    }
-    item(key = "SettingsScreen_7") {
-        MusicPlayerCard(state, actions)
-    }
-    item(key = "SettingsScreen_8") {
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) { IntegrationsCard(state, actions) }
-    }
-    item(key = "SettingsScreen_9") {
-        SectionCard(stringResource(R.string.settings_calls)) {
-            SupportingText(stringResource(R.string.settings_calls_hint))
-            ActionButton(stringResource(R.string.calls_enable), enabled = !state.busy, onClick = actions.onEnableNamedCalls)
-            SupportingText(stringResource(R.string.calls_fixed_hint))
-            ActionButton(
-                stringResource(if (state.fixedContact == null) R.string.contact_choose else R.string.contact_change),
-                enabled = !state.busy,
-                onClick = actions.onChooseContact
-            )
-            state.fixedContact?.let { contact ->
-                Text(stringResource(R.string.contact_fixed, contact))
-                ActionButton(stringResource(R.string.contact_clear), enabled = !state.busy, onClick = actions.onClearContact)
+            item(key = "SettingsScreen_4") {
+                com.gust4av033.appcopilotomoto.presentation.components.TripButtonSettingsCard(state, actions)
             }
-            SupportingText(state.callMessage)
+            if (!state.buttonMode) item(key = "SettingsScreen_5") {
+                SectionCard(stringResource(R.string.settings_phrase)) {
+                    ChoiceGroup(state.phrases, state.phraseId, !state.busy, actions.onPhraseChange)
+                    SupportingText(stringResource(R.string.settings_phrase_hint))
+                    Text(stringResource(R.string.settings_sensitivity, state.sensitivity.toInt()))
+                    Slider(
+                        value = state.sensitivity,
+                        onValueChange = actions.onSensitivityChange,
+                        valueRange = 40f..85f,
+                        steps = 8,
+                        enabled = !state.busy
+                    )
+                    SupportingText(stringResource(R.string.settings_sensitivity_hint))
+                }
+            }
+            if (state.buttonMode) item(key = "wake_phrase_inactive") {
+                SectionCard(stringResource(R.string.settings_phrase)) {
+                    SupportingText(stringResource(R.string.settings_phrase_manual_inactive))
+                }
+            }
         }
-    }
-    item(key = "SettingsScreen_10") {
-        SectionCard(stringResource(R.string.home_command_core)) {
-            SupportingText(stringResource(R.string.home_command_core_hint))
-            ActionButton(stringResource(R.string.home_view_commands), onClick = onOpenCommands)
+        SettingsSection.AUDIO -> {
+            item(key = "SettingsScreen_6") {
+                AudioDevicesCard(state, actions)
+            }
+            item(key = "SettingsScreen_7") {
+                MusicPlayerCard(state, actions)
+            }
         }
-    }
-    item(key = "SettingsScreen_11") {
-        SectionCard(stringResource(R.string.settings_test_tools)) {
-            SupportingText(stringResource(R.string.settings_test_tools_hint))
-            ActionButton(stringResource(R.string.open_tests), onClick = onOpenTests)
+        SettingsSection.APPEARANCE -> {
+            item(key = "SettingsScreen_2") {
+                SectionCard(stringResource(R.string.overlay_settings_title)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(stringResource(R.string.overlay_settings_toggle), modifier = Modifier.weight(1f))
+                        Switch(checked = state.overlayEnabled, onCheckedChange = actions.onOverlayEnabledChange)
+                    }
+                    SupportingText(stringResource(R.string.overlay_settings_hint))
+                    if (state.overlayEnabled && !state.overlayPermissionGranted) {
+                        SupportingText(stringResource(R.string.overlay_permission_hint))
+                        ActionButton(stringResource(R.string.overlay_permission_button), onClick = actions.onOverlayPermission)
+                    } else if (state.overlayEnabled && state.tripActive && state.overlayHidden) {
+                        SupportingText(stringResource(R.string.overlay_hidden_hint))
+                        ActionButton(stringResource(R.string.overlay_show), onClick = actions.onShowOverlay)
+                    }
+                    if (state.overlayMessage.isNotBlank()) SupportingText(state.overlayMessage)
+                }
+            }
+            item(key = "SettingsScreen_1") {
+                SectionCard(stringResource(R.string.settings_screen_on)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(stringResource(R.string.settings_screen_on_toggle), modifier = Modifier.weight(1f))
+                        Switch(checked = state.keepScreenOnDuringTrip, onCheckedChange = actions.onKeepScreenOnChange)
+                    }
+                    SupportingText(stringResource(R.string.settings_screen_on_hint))
+                }
+            }
         }
+        SettingsSection.INTEGRATIONS -> {
+            item(key = "SettingsScreen_8") {
+                IntegrationsCard(state, actions, includeNavigation = false)
+            }
+        }
+        SettingsSection.CALLS -> {
+            item(key = "SettingsScreen_9") {
+                SectionCard(stringResource(R.string.settings_calls)) {
+                    SupportingText(stringResource(R.string.settings_calls_hint))
+                    ActionButton(stringResource(R.string.calls_enable), enabled = !state.busy, onClick = actions.onEnableNamedCalls)
+                    SupportingText(stringResource(R.string.calls_fixed_hint))
+                    ActionButton(
+                        stringResource(if (state.fixedContact == null) R.string.contact_choose else R.string.contact_change),
+                        enabled = !state.busy,
+                        onClick = actions.onChooseContact
+                    )
+                    state.fixedContact?.let { contact ->
+                        Text(stringResource(R.string.contact_fixed, contact))
+                        ActionButton(stringResource(R.string.contact_clear), enabled = !state.busy, onClick = actions.onClearContact)
+                    }
+                    SupportingText(state.callMessage)
+                }
+            }
+        }
+        SettingsSection.TOOLS -> {
+            item(key = "SettingsScreen_10") {
+                SectionCard(stringResource(R.string.home_command_core)) {
+                    SupportingText(stringResource(R.string.home_command_core_hint))
+                    ActionButton(stringResource(R.string.home_view_commands), onClick = onOpenCommands)
+                }
+            }
+            item(key = "SettingsScreen_11") {
+                SectionCard(stringResource(R.string.settings_test_tools)) {
+                    SupportingText(stringResource(R.string.settings_test_tools_hint))
+                    ActionButton(stringResource(R.string.open_tests), onClick = onOpenTests)
+                }
+            }
+        }
+        SettingsSection.NAVIGATION -> item(key = "settings_navigation") { NavigationCard(state, actions) }
     }
 }
 

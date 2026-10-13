@@ -171,7 +171,7 @@
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps. También podés usar estos botones o el aviso; el aviso vence 30 segundos después del anuncio (60 para borradores).</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">UI ruta 01 · Fase 1</string>
+    <string name="ui_revision">UI ruta 02 · Ajustes y paleta</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>
@@ -371,4 +371,20 @@
     <string name="catalog_loading">Actualizando aplicaciones…</string>
     <string name="draft_open">Abrir borrador en WhatsApp</string>
     <string name="draft_discard">Descartar borrador</string>
+    <string name="settings_category_activation">Activación</string>
+    <string name="settings_category_activation_hint">Modos, botones del casco, frase y sensibilidad.</string>
+    <string name="settings_category_audio">Audio y música</string>
+    <string name="settings_category_audio_hint">Casco, rutas de audio y reproductor.</string>
+    <string name="settings_category_appearance">Burbuja y pantalla</string>
+    <string name="settings_category_appearance_hint">Acceso flotante, permisos y pantalla encendida.</string>
+    <string name="settings_category_integrations">WhatsApp y aplicaciones</string>
+    <string name="settings_category_integrations_hint">Contactos, borradores y aplicaciones disponibles.</string>
+    <string name="settings_category_navigation">Navegación con Waze</string>
+    <string name="settings_category_navigation_hint">Casa, trabajo, búsquedas y última solicitud.</string>
+    <string name="settings_category_calls">Llamadas</string>
+    <string name="settings_category_calls_hint">Permisos y contacto de prueba.</string>
+    <string name="settings_category_tools">Pruebas y ayuda</string>
+    <string name="settings_category_tools_hint">Guía de comandos y diagnóstico del casco.</string>
+    <string name="settings_back_to_list">Volver a Ajustes</string>
+    <string name="settings_phrase_manual_inactive">En activación manual no se usa la frase de voz. Para ajustar la frase y sensibilidad, elegí un modo de voz y dejá desactivado “Solo activación manual”.</string>
 </resources>

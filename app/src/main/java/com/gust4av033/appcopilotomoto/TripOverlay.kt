@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.res.Configuration
 import android.content.res.ColorStateList
+import com.gust4av033.appcopilotomoto.presentation.theme.CopilotPalette
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.hardware.display.DisplayManager
@@ -109,8 +110,8 @@ class TripOverlay(
 
     private fun colors(): Pair<Int, Int> {
         val night = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        return if (night) Color.rgb(20, 36, 50) to Color.rgb(224, 236, 244)
-            else Color.rgb(255, 255, 255) to Color.rgb(23, 43, 58)
+        return if (night) CopilotPalette.NightSurface to CopilotPalette.NightText
+            else CopilotPalette.DaySurface to CopilotPalette.DayText
     }
 
     private fun buildContent() {
@@ -118,9 +119,14 @@ class TripOverlay(
         root.removeAllViews()
         val (background, foreground) = colors()
         root.background = GradientDrawable().apply {
-            setColor(background)
+            if (expanded) setColor(background)
+            else {
+                orientation = GradientDrawable.Orientation.TL_BR
+                colors = intArrayOf(CopilotPalette.HeroPurple, CopilotPalette.HeroBlue)
+            }
             cornerRadius = dp(if (expanded) 20 else 28).toFloat()
-            setStroke(dp(1).coerceAtLeast(1), Color.rgb(0, 107, 105))
+            setStroke(dp(1).coerceAtLeast(1),
+                if (!expanded || background == CopilotPalette.NightSurface) CopilotPalette.Sky else CopilotPalette.Purple)
         }
         root.setPadding(if (expanded) dp(12) else 0, 0, if (expanded) dp(12) else 0, if (expanded) dp(8) else 0)
         val header = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
@@ -128,7 +134,7 @@ class TripOverlay(
         badge = TextView(context).apply {
             gravity = Gravity.CENTER
             textSize = if (expanded) 16f else 12f
-            setTextColor(foreground)
+            setTextColor(if (expanded) foreground else CopilotPalette.HeroText)
             minimumHeight = dp(56)
             isClickable = true
             setOnClickListener { expanded = !expanded; buildContent(); updateState(); position() }

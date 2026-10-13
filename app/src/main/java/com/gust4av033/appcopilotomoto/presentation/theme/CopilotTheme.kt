@@ -15,24 +15,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 private val DayColors = lightColorScheme(
-    primary = Color(0xFF006B69), onPrimary = Color.White,
-    primaryContainer = Color(0xFFD2EFEB), onPrimaryContainer = Color(0xFF073B3C),
-    secondary = Color(0xFF425C70), secondaryContainer = Color(0xFFE0EAF1), onSecondaryContainer = Color(0xFF173246),
-    tertiary = Color(0xFF895A16), tertiaryContainer = Color(0xFFFFEDD0), onTertiaryContainer = Color(0xFF503300),
-    background = Color(0xFFF2F5F8), onBackground = Color(0xFF172B3A),
-    surface = Color(0xFFFFFFFF), onSurface = Color(0xFF172B3A),
-    surfaceVariant = Color(0xFFE7EDF2), onSurfaceVariant = Color(0xFF526574),
-    outline = Color(0xFF768994), outlineVariant = Color(0xFFDCE5EB)
+    primary = Color(0xFF7136B8), onPrimary = Color.White,
+    primaryContainer = Color(0xFFEBDDFD), onPrimaryContainer = Color(0xFF32144F),
+    secondary = Color(0xFF145BB7), secondaryContainer = Color(0xFFD9E9FF), onSecondaryContainer = Color(0xFF102C55),
+    tertiary = Color(0xFF006C89), tertiaryContainer = Color(0xFFBAEFFF), onTertiaryContainer = Color(0xFF003548),
+    background = Color(0xFFF6F3FC), onBackground = Color(0xFF241D39),
+    surface = Color(0xFFFFFBFF), onSurface = Color(0xFF241D39),
+    surfaceVariant = Color(0xFFEAE4F4), onSurfaceVariant = Color(0xFF5D526F),
+    outline = Color(0xFF7D7192), outlineVariant = Color(0xFFDFD7EF)
 )
 private val NightColors = darkColorScheme(
-    primary = Color(0xFF80DAD0), onPrimary = Color(0xFF003735),
-    primaryContainer = Color(0xFF104D50), onPrimaryContainer = Color(0xFFBAF4EA),
-    secondary = Color(0xFFB0CBDD), secondaryContainer = Color(0xFF273F50), onSecondaryContainer = Color(0xFFD9EAF6),
-    tertiary = Color(0xFFEBC17E), tertiaryContainer = Color(0xFF574117), onTertiaryContainer = Color(0xFFFFE6B9),
-    background = Color(0xFF0C1722), onBackground = Color(0xFFE0ECF4),
-    surface = Color(0xFF142432), onSurface = Color(0xFFE0ECF4),
-    surfaceVariant = Color(0xFF203441), onSurfaceVariant = Color(0xFFB3C5D1),
-    outline = Color(0xFF8BA2AF), outlineVariant = Color(0xFF2C424F)
+    primary = Color(0xFFC6A5FF), onPrimary = Color(0xFF2E154B),
+    primaryContainer = Color(0xFF4B286D), onPrimaryContainer = Color(0xFFEBDDFD),
+    secondary = Color(0xFF91BAFF), secondaryContainer = Color(0xFF183864), onSecondaryContainer = Color(0xFFD9E9FF),
+    tertiary = Color(0xFF69DFFF), tertiaryContainer = Color(0xFF004C64), onTertiaryContainer = Color(0xFFBAEFFF),
+    background = Color(0xFF110D20), onBackground = Color(0xFFECE4F8),
+    surface = Color(0xFF1C1630), onSurface = Color(0xFFECE4F8),
+    surfaceVariant = Color(0xFF2A2340), onSurfaceVariant = Color(0xFFC6BDD8),
+    outline = Color(0xFF9288A6), outlineVariant = Color(0xFF3E3455)
 )
 private val CopilotType = Typography(
     headlineLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 32.sp, lineHeight = 38.sp, letterSpacing = (-0.5).sp),

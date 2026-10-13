@@ -9,7 +9,7 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotActions
 import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 
 @Composable
-fun IntegrationsCard(state: CopilotUiState, actions: CopilotActions) {
+fun IntegrationsCard(state: CopilotUiState, actions: CopilotActions, includeNavigation: Boolean = true) {
     SectionCard(stringResource(R.string.integrations_title)) {
         if (state.appCatalogLoading) SupportingText(stringResource(R.string.catalog_loading))
         else SupportingText(stringResource(R.string.integrations_apps, state.appCommands.size))
@@ -31,5 +31,5 @@ fun IntegrationsCard(state: CopilotUiState, actions: CopilotActions) {
         SupportingText(stringResource(R.string.commands_chat_draft))
         SupportingText(stringResource(R.string.integrations_chat_hint))
     }
-    NavigationCard(state, actions)
+    if (includeNavigation) NavigationCard(state, actions)
 }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -53,19 +54,28 @@ fun CopilotApp(
     state: CopilotUiState,
     selectedScreen: CopilotScreen,
     onScreenChange: (CopilotScreen) -> Unit,
-    actions: CopilotActions
+    actions: CopilotActions,
+    initialSettingsSection: SettingsSection = SettingsSection.OVERVIEW
 ) {
     // Las rutas secundarias conservan su origen; navegar no toca el runtime.
+    var settingsSectionName by rememberSaveable { mutableStateOf(initialSettingsSection.name) }
+    val settingsSection = runCatching { SettingsSection.valueOf(settingsSectionName) }.getOrDefault(SettingsSection.OVERVIEW)
+    val settingsDetail = selectedScreen == CopilotScreen.SETTINGS && settingsSection != SettingsSection.OVERVIEW
     var secondaryParentName by rememberSaveable { mutableStateOf(CopilotScreen.SETTINGS.name) }
     val secondaryParent = runCatching { CopilotScreen.valueOf(secondaryParentName) }.getOrDefault(CopilotScreen.SETTINGS)
     val navigate: (CopilotScreen) -> Unit = { screen ->
         if (!screen.inMainNavigation && selectedScreen.inMainNavigation) {
             secondaryParentName = selectedScreen.name
         }
+        // Acceder desde una pestaña principal abre la lista; volver desde Pruebas conserva su origen.
+        if (screen == CopilotScreen.SETTINGS && selectedScreen.inMainNavigation) {
+            settingsSectionName = SettingsSection.OVERVIEW.name
+        }
         onScreenChange(screen)
     }
     val navigateBack: () -> Unit = {
-        navigate(if (!selectedScreen.inMainNavigation) secondaryParent else CopilotScreen.HOME)
+        if (settingsDetail) settingsSectionName = SettingsSection.OVERVIEW.name
+        else navigate(if (!selectedScreen.inMainNavigation) secondaryParent else CopilotScreen.HOME)
     }
     val mainSelection = if (!selectedScreen.inMainNavigation) secondaryParent else selectedScreen
     if (!LocalInspectionMode.current) {
@@ -74,6 +84,16 @@ fun CopilotApp(
     CopilotTheme {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
+            topBar = {
+                if (settingsDetail) Surface(color = MaterialTheme.colorScheme.surface) {
+                    Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { settingsSectionName = SettingsSection.OVERVIEW.name }) {
+                            Text(stringResource(R.string.settings_back_to_list))
+                        }
+                    }
+                }
+            },
             bottomBar = {
                 Column {
                     if (state.tripActive && selectedScreen != CopilotScreen.TRIP) {
@@ -108,7 +128,8 @@ fun CopilotApp(
             }
         ) { padding ->
             val screenState = rememberSaveableStateHolder()
-            screenState.SaveableStateProvider(selectedScreen.name) {
+            screenState.SaveableStateProvider(if (selectedScreen == CopilotScreen.SETTINGS)
+                "${selectedScreen.name}/${settingsSection.name}" else selectedScreen.name) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding).widthIn(max = 680.dp),
                     contentPadding = PaddingValues(20.dp),
@@ -119,7 +140,9 @@ fun CopilotApp(
                         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (!selectedScreen.inMainNavigation) {
                                 TextButton(onClick = navigateBack) {
-                                    Text(stringResource(R.string.back_to_screen, stringResource(secondaryParent.titleRes)))
+                                    Text(stringResource(R.string.back_to_screen, stringResource(
+                                        if (secondaryParent == CopilotScreen.SETTINGS && settingsSection != SettingsSection.OVERVIEW)
+                                            settingsSection.titleRes else secondaryParent.titleRes)))
                                 }
                             }
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -128,9 +151,9 @@ fun CopilotApp(
                                 Text(stringResource(R.string.ui_brand), Modifier.padding(start = 8.dp),
                                     style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                             }
-                            Text(stringResource(selectedScreen.titleRes), style = MaterialTheme.typography.headlineLarge,
+                            Text(stringResource(if (settingsDetail) settingsSection.titleRes else selectedScreen.titleRes), style = MaterialTheme.typography.headlineLarge,
                                 modifier = Modifier.semantics { heading() })
-                            Text(stringResource(when (selectedScreen) {
+                            Text(stringResource(if (settingsDetail) settingsSection.hintRes else when (selectedScreen) {
                                 CopilotScreen.HOME -> R.string.home_subtitle
                                 CopilotScreen.TRIP -> R.string.trip_subtitle
                                 CopilotScreen.SETTINGS -> R.string.settings_subtitle
@@ -147,6 +170,8 @@ fun CopilotApp(
                             CopilotScreen.COMMANDS -> CommandsScreen(state, actions)
                             CopilotScreen.TESTS -> TestsScreen(state, actions)
                             CopilotScreen.SETTINGS -> SettingsScreen(state, actions,
+                                section = settingsSection,
+                                onOpenSection = { settingsSectionName = it.name },
                                 onOpenCommands = { navigate(CopilotScreen.COMMANDS) },
                                 onOpenTests = { navigate(CopilotScreen.TESTS) })
                         }
@@ -328,7 +353,7 @@ private fun CallRecoveryPreview() {
 @Preview(name = "Burbuja: texto grande", showBackground = true, widthDp = 360, heightDp = 800, locale = "es", fontScale = 1.5f)
 @Composable
 private fun OverlaySettingsPreview() {
-    CopilotApp(PreviewState.copy(overlayEnabled = true), CopilotScreen.SETTINGS, {}, CopilotActions())
+    CopilotApp(PreviewState.copy(overlayEnabled = true), CopilotScreen.SETTINGS, {}, CopilotActions(), SettingsSection.APPEARANCE)
 }
 
 @Preview(name = "Cambio de modo: controles bloqueados", showBackground = true, widthDp = 360, heightDp = 800, locale = "es")
@@ -336,7 +361,7 @@ private fun OverlaySettingsPreview() {
 private fun SwitchingModePreview() {
     CopilotApp(PreviewState.copy(tripActive = true, switchingMode = true, inputId = "BUTTON",
         overlayEnabled = true, overlayPermissionGranted = true,
-        tripStatus = "Cambiando al modo 1; liberando audio…"), CopilotScreen.SETTINGS, {}, CopilotActions())
+        tripStatus = "Cambiando al modo 1; liberando audio…"), CopilotScreen.SETTINGS, {}, CopilotActions(), SettingsSection.ACTIVATION)
 }
 
 @Preview(name = "Borrador WhatsApp: revisar antes de abrir", showBackground = true, widthDp = 360, heightDp = 800, locale = "es", fontScale = 1.5f)
@@ -366,4 +391,16 @@ private fun HeadsetButtonTestPreview() {
         buttonProbeMessage = "Prueba activa; micrófono cerrado.",
         buttonProbeLog = listOf("3400 ms · MediaSession · KEYCODE_MEDIA_PLAY_PAUSE · DOWN · repeticiones=0")),
         CopilotScreen.TESTS, {}, CopilotActions())
+}
+
+@Preview(name = "Ajustes: lista ordenada", widthDp = 360, heightDp = 800, showBackground = true, locale = "es")
+@Preview(name = "Ajustes: lista nocturna", widthDp = 360, heightDp = 800, showBackground = true, locale = "es", uiMode = Configuration.UI_MODE_NIGHT_YES)
+@Preview(name = "Ajustes: lista con texto grande", widthDp = 360, heightDp = 800, showBackground = true, locale = "es", fontScale = 1.5f)
+@Composable
+private fun SettingsMenuPreview() { CopilotApp(PreviewState, CopilotScreen.SETTINGS, {}, CopilotActions()) }
+
+@Preview(name = "Ajustes: audio", widthDp = 360, heightDp = 800, showBackground = true, locale = "es")
+@Composable
+private fun SettingsAudioPreview() {
+    CopilotApp(PreviewState.copy(audioDevices = PreviewDevices), CopilotScreen.SETTINGS, {}, CopilotActions(), SettingsSection.AUDIO)
 }

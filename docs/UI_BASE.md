@@ -65,3 +65,7 @@ La revisión de cierre/dictado completó nuevamente esos cuatro comandos: 59 pru
 ## UI ruta 01 · 12 de octubre de 2026
 
 El diseño y la carga de presentación se revisaron sobre `722ba103`. Inicio y Viaje tienen una tarjeta principal, los comandos se agrupan por capacidad y las pantallas componen secciones mediante LazyColumn. Las consultas pasivas de audio y el catálogo se preparan fuera de UI; la lectura del asistente se conserva como estado. Ver [UI_RUTA_01.md](UI_RUTA_01.md) para alcance, limitaciones y comprobación en el S22+.
+
+## UI ruta 02 · Ajustes y paleta
+
+Ajustes pasa a una lista de siete categorías con submenús, retorno fijo y conservación de desplazamiento. La paleta combina morado, celeste y azul intenso en ambos temas, icono y burbuja. Ver [UI_RUTA_02.md](UI_RUTA_02.md).

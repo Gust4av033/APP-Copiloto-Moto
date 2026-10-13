@@ -10,6 +10,8 @@ El panel se minimiza con × o tocando fuera; Ocultar burbuja la retira durante e
 
 La revisión **UI ruta 01 · Fase 1** consolida el diseño diurno/nocturno, agrupa los comandos de WhatsApp/Waze y mueve la preparación de audio/catálogos fuera del hilo de interfaz. Alcance y comprobación de apertura: [docs/UI_RUTA_01.md](docs/UI_RUTA_01.md).
 
+La revisión **UI ruta 02 · Ajustes y paleta** organiza Ajustes en siete submenús y aplica la paleta morado/celeste/azul en ambos temas, tarjeta, burbuja e icono. [Detalle y comprobación](docs/UI_RUTA_02.md).
+
 ## Abrir en Android Studio
 
 1. Clonar el repositorio con **File > New > Project from Version Control** e introducir su URL HTTPS de GitHub. También se puede usar `git clone <URL>`.
