@@ -70,7 +70,7 @@ fun LazyListScope.CommandsScreen(state: CopilotUiState, actions: CopilotActions)
             Text(stringResource(R.string.commands_apps))
         }
     }
-    item(key = "phrase") { CommandPhraseTestCard() }
+    if (state.developerEnabled) item(key = "phrase") { CommandPhraseTestCard() }
     item(key = "catalog") { AppCatalogCard(state, actions) }
 }
 
@@ -86,7 +86,7 @@ private fun AppCatalogCard(state: CopilotUiState, actions: CopilotActions) {
         if (state.appCatalogLoading) {
             LinearProgressIndicator(Modifier.fillMaxWidth())
             SupportingText(stringResource(R.string.catalog_loading))
-        } else SupportingText(state.appCatalogMessage)
+        } else SupportingText(stringResource(R.string.integrations_apps, state.appCommands.size))
         SupportingText(stringResource(R.string.commands_apps_catalog_hint))
         ActionButton(stringResource(R.string.tests_apps_refresh), enabled = !state.appCatalogLoading, onClick = actions.onRefreshApps)
         OutlinedTextField(value = query, onValueChange = { query = it.take(100) },
@@ -106,3 +106,4 @@ private fun AppCatalogCard(state: CopilotUiState, actions: CopilotActions) {
         }
     }
 }
+

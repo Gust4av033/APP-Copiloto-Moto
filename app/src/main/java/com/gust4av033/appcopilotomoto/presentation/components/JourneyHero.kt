@@ -82,7 +82,20 @@ fun JourneyHero(state: CopilotUiState, tripScreen: Boolean, onPrimary: () -> Uni
                         color = MaterialTheme.colorScheme.onSecondaryContainer)
                 }
             }
-            if (state.tripStatus.isNotBlank()) Text(state.tripStatus, style = MaterialTheme.typography.bodyMedium,
+            val progress = when {
+                state.sessionProblem -> R.string.settings_session_problem
+                !state.tripActive -> R.string.journey_ready_hint
+                state.callPhase != TripCallPhase.NONE -> R.string.session_call
+                state.restoringAudio -> R.string.session_restoring
+                state.switchingMode -> R.string.overlay_switching
+                state.interactionPhase == com.gust4av033.appcopilotomoto.TripInteractionPhase.LISTENING -> R.string.settings_voice_listening
+                state.interactionPhase == com.gust4av033.appcopilotomoto.TripInteractionPhase.PROCESSING -> R.string.settings_voice_processing
+                state.interactionPhase == com.gust4av033.appcopilotomoto.TripInteractionPhase.CONFIRMING -> R.string.settings_voice_confirmation
+                state.interactionPhase == com.gust4av033.appcopilotomoto.TripInteractionPhase.SPEAKING -> R.string.settings_voice_speaking
+                state.commandReady || state.interactionPhase == com.gust4av033.appcopilotomoto.TripInteractionPhase.WAITING -> if (state.buttonMode) R.string.settings_button_ready else R.string.settings_voice_ready
+                else -> R.string.settings_voice_preparing
+            }
+            Text(if (state.developerEnabled) state.tripStatus else stringResource(progress), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             if (state.tripActive && state.buttonMode && tripScreen) {
@@ -120,3 +133,4 @@ fun QuickLink(title: String, hint: String, iconRes: Int, onClick: () -> Unit) {
         }
     }
 }
+

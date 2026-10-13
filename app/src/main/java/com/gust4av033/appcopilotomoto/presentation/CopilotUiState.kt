@@ -11,6 +11,7 @@ enum class CopilotScreen(val titleRes: Int, val iconRes: Int, val inMainNavigati
     TRIP(R.string.nav_trip, R.drawable.ic_trip),
     SETTINGS(R.string.nav_settings, R.drawable.ic_settings),
     COMMANDS(R.string.nav_commands, R.drawable.ic_commands, inMainNavigation = false),
+    DIAGNOSTICS(R.string.settings_basic_help, R.drawable.ic_help, inMainNavigation = false),
     TESTS(R.string.nav_tests, R.drawable.ic_tests, inMainNavigation = false)
 }
 
@@ -20,7 +21,7 @@ data class ChoiceUi(val id: String, val titleRes: Int, val descriptionRes: Int? 
 enum class VoiceRouteUi { NONE, SCO, LE, OTHER }
 
 @Immutable
-data class AudioDeviceUi(val id: Int, val label: String)
+data class AudioDeviceUi(val id: Int, val label: String, val technicalLabel: String = label)
 
 /** Lecturas pasivas del sistema; una ruta de comunicación no demuestra la entrada grabada. */
 @Immutable
@@ -72,6 +73,17 @@ data class ProbeUi(
 /** Snapshot de presentación. No crea servicios, grabadores ni proveedores de voz. */
 @Immutable
 data class CopilotUiState(
+    val developerAccess: com.gust4av033.appcopilotomoto.DeveloperAccess = com.gust4av033.appcopilotomoto.DeveloperAccess(),
+    val developerConfirmationRequested: Boolean = false,
+    val installedVersion: String = "",
+    val microphoneGranted: Boolean = false,
+    val bluetoothGranted: Boolean = false,
+    val notificationsGranted: Boolean = false,
+    val callsGranted: Boolean = false,
+    val configurationNotice: String = "",
+    val standaloneListening: Boolean = false,
+    val interactionPhase: com.gust4av033.appcopilotomoto.TripInteractionPhase = com.gust4av033.appcopilotomoto.TripInteractionPhase.PREPARING,
+    val sessionProblem: Boolean = false,
     val tripActive: Boolean = false,
     val keepScreenOnDuringTrip: Boolean = true,
     val restoringAudio: Boolean = false,
@@ -142,17 +154,30 @@ data class CopilotUiState(
     val fixedContact: String? = null,
     val probe: ProbeUi? = null
 ) {
+    val developerEnabled: Boolean get() = developerAccess.canViewDiagnostics
+    val developerToolsAvailable: Boolean get() = developerAccess.canRunExperiments
     val buttonMode: Boolean get() = inputId == "BUTTON" || manualActivationOnly
     val canStartTrip: Boolean get() = !busy && !audioDevices.selectionMissing
     val canRequestTripCommand: Boolean get() = tripActive && commandReady && !restoringAudio && !switchingMode && callPhase == TripCallPhase.NONE
     val busy: Boolean get() = tripActive || restoringAudio || measuring || listening || wakeEnabled || wakeTransition || buttonProbeActive
-    val canListen: Boolean get() = !buttonProbeActive && !measuring && !wakeEnabled && !wakeTransition && !tripActive && !restoringAudio
-    val canToggleWake: Boolean get() = !buttonProbeActive && !tripActive && !restoringAudio && !measuring &&
+    val canListen: Boolean get() = developerToolsAvailable && !buttonProbeActive && !measuring && !wakeEnabled && !wakeTransition && !tripActive && !restoringAudio
+    val canToggleWake: Boolean get() = developerToolsAvailable && !buttonProbeActive && !tripActive && !restoringAudio && !measuring &&
         (wakeEnabled || (!listening && !wakeTransition))
 }
 
+fun CopilotScreen.visibleFor(state: CopilotUiState): CopilotScreen =
+    if (this == CopilotScreen.TESTS && !state.developerEnabled) CopilotScreen.DIAGNOSTICS else this
+
 /** La Activity adapta estas acciones al runtime existente. Los previews usan callbacks vacíos. */
 data class CopilotActions(
+    val onVersionTap: () -> Unit = {},
+    val onConfirmDeveloper: () -> Unit = {},
+    val onCancelDeveloper: () -> Unit = {},
+    val onDisableDeveloper: () -> Unit = {},
+    val onOpenBasicDiagnostics: () -> Unit = {},
+    val onOpenAppPermissions: () -> Unit = {},
+    val onCopyBasicDiagnostics: (String) -> Unit = {},
+    val onCancelStandaloneCommand: () -> Unit = {},
     val onToggleTrip: () -> Unit = {},
     val onForgetNavigationRequest: () -> Unit = {},
     val onKeepScreenOnChange: (Boolean) -> Unit = {},
@@ -189,5 +214,6 @@ data class CopilotActions(
     val onChooseContact: () -> Unit = {},
     val onClearContact: () -> Unit = {}
 )
+
 
 

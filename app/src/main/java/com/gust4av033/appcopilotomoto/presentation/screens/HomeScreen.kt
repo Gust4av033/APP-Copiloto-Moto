@@ -26,7 +26,7 @@ fun LazyListScope.HomeScreen(state: CopilotUiState, actions: CopilotActions, onN
             }), style = MaterialTheme.typography.titleSmall)
             SupportingText(if (state.buttonMode) stringResource(R.string.home_button_short)
                 else stringResource(R.string.mode_voice_instruction, state.phraseLabel))
-            if (state.buttonMode && !state.assistantSelected) {
+            if (state.buttonMode && state.tripButtonBinding == "NONE" && !state.assistantSelected) {
                 SupportingText(stringResource(R.string.home_assistant_required))
                 ActionButton(stringResource(R.string.assistant_select), enabled = !state.busy,
                     iconRes = R.drawable.ic_button, onClick = actions.onSelectAssistant)
@@ -40,9 +40,10 @@ fun LazyListScope.HomeScreen(state: CopilotUiState, actions: CopilotActions, onN
         QuickLink(stringResource(R.string.home_view_commands), stringResource(R.string.home_commands_short),
             R.drawable.ic_commands) { onNavigate(CopilotScreen.COMMANDS) }
     }
+    if (state.buttonMode && state.tripButtonBinding != "NONE" && !state.mediaAccessGranted) item("media_access_help") { MediaAccessCard(state, actions) }
     item(key = "tests") {
         QuickLink(stringResource(R.string.home_check_headset), stringResource(R.string.home_tests_short),
-            R.drawable.ic_tests) { onNavigate(CopilotScreen.TESTS) }
+            R.drawable.ic_help) { onNavigate(CopilotScreen.DIAGNOSTICS) }
     }
     item(key = "upcoming") {
         ExpandableSectionCard(stringResource(R.string.home_next_modules)) {
@@ -54,3 +55,4 @@ fun LazyListScope.HomeScreen(state: CopilotUiState, actions: CopilotActions, onN
         }
     }
 }
+

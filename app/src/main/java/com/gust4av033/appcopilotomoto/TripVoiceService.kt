@@ -257,7 +257,10 @@ class TripVoiceService : Service() {
             return START_NOT_STICKY
         }
         if (active || callPending || closing) return START_NOT_STICKY
+        HeadsetSelection.restore(this)
+        TripTestState.sessionProblem = false
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            TripTestState.sessionProblem = true
             TripTestState.status = "Falta permiso de micrófono para iniciar la sesión."
             stopSelf(startId)
             return START_NOT_STICKY
@@ -267,6 +270,11 @@ class TripVoiceService : Service() {
         }.getOrDefault(WakeAudioMode.BLUETOOTH)
         manualActivationOnly = intent.getBooleanExtra(EXTRA_MANUAL_ONLY,
             getSharedPreferences("ui_settings", MODE_PRIVATE).getBoolean(TripActivationPolicy.PREFERENCE, false))
+        if (!(BuildConfig.DEBUG && UserSettingsStore(this).developerEnabled(BuildConfig.DEBUG))) {
+            if (wakeAudioMode == WakeAudioMode.PHONE_WAKE) wakeAudioMode = WakeAudioMode.BLUETOOTH
+            if (manualActivationOnly) wakeAudioMode = WakeAudioMode.BUTTON
+            manualActivationOnly = false
+        }
         TripTestState.manualActivationOnly = manualActivationOnly
         TripTestState.audioMode = wakeAudioMode
         TripTestState.switchingMode = false
@@ -285,6 +293,7 @@ class TripVoiceService : Service() {
                 startForeground(NOTIFICATION_ID, notice, serviceTypes)
             } else startForeground(NOTIFICATION_ID, notice)
         } catch (e: Exception) {
+            TripTestState.sessionProblem = true
             TripTestState.status = "No se pudo iniciar la sesión: ${e.message ?: e.javaClass.simpleName}"
             stopSelf(startId)
             return START_NOT_STICKY
@@ -345,6 +354,12 @@ class TripVoiceService : Service() {
 
     /** El modo cambia dentro de la sesión; no reinicia métricas ni abre dos proveedores. */
     private fun switchMode(provider: WakeWordProvider, target: WakeAudioMode, manualOnly: Boolean = manualActivationOnly) {
+        if ((target == WakeAudioMode.PHONE_WAKE || manualOnly) &&
+            !(BuildConfig.DEBUG && UserSettingsStore(this).developerEnabled(BuildConfig.DEBUG))) {
+            TripTestState.lastCommandResult = getString(R.string.settings_experimental_reset)
+            if (!armed && active && !closing && detector === provider) startDetector(provider)
+            return
+        }
         if (!active || callPending || closing || TripTestState.switchingMode || detector !== provider) return
         TripTestState.lastRoutedCommand = RoutedCommand(TestIntent.SWITCH_MODE, audioMode = target)
         if (target == wakeAudioMode && manualOnly == manualActivationOnly) {
@@ -548,7 +563,7 @@ class TripVoiceService : Service() {
             else -> "Fijar volumen"
         }
         TripTestState.lastCommandResult = if (action.isSuccess) {
-            "${pending.source}: Escuché ‘${pending.heard}’; $command (${media.commandVolumeStatus(change)}) en $elapsed ms."
+            "Escuché ‘${pending.heard}’; $command (${media.commandVolumeStatus(change)})."
         } else {
             "${pending.source}: Escuché ‘${pending.heard}’, pero falló $command: ${action.exceptionOrNull()?.message ?: "error de Android"}."
         }
@@ -866,7 +881,7 @@ class TripVoiceService : Service() {
                 outcome.isFailure -> "No se entendió la orden: ${outcome.exceptionOrNull()?.message}."
                 mediaAction != null -> {
                     val label = actions.description(intent, mediaAction.getOrNull() as? VolumeAdjustment)
-                    if (mediaAction.isSuccess) "Escuché ‘$heard’; $label en $elapsed ms."
+                    if (mediaAction.isSuccess) "Escuché ‘$heard’; $label."
                     else "Escuché ‘$heard’, pero falló $label: ${mediaAction.exceptionOrNull()?.message ?: "error de Android"}."
                 }
                 intent == TestIntent.CANCEL -> if (cancelledApp) "Escuché ‘$heard’; apertura de aplicación cancelada."
@@ -878,7 +893,6 @@ class TripVoiceService : Service() {
                 }
                 else -> "Escuché ‘$heard’; no coincide con las órdenes de prueba."
             }
-            TripTestState.status = "$source: ${TripTestState.status}"
             TripTestState.lastCommandResult = TripTestState.status
             if (intent == TestIntent.CANCEL || intent == TestIntent.STOP_TTS) capture.cancellationCue()
             updateNotification("$source · orden terminada; esperando activación")
@@ -1455,6 +1469,7 @@ class TripVoiceService : Service() {
         followUpGate.cancel()
         songCaptureToken = null
         if (active && !expected) {
+            TripTestState.sessionProblem = true
             TripTestState.pipeline = TripTestState.pipeline.copy(lastEndReason = reason)
             TripTestState.record(this, PipelineEvent.SESSION_UNEXPECTED_END)
         }
@@ -1683,5 +1698,6 @@ class TripVoiceService : Service() {
         super.onDestroy()
     }
 }
+
 
 

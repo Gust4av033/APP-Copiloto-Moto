@@ -16,6 +16,7 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 
 @Composable
 fun DiagnosticsReportCard(state: CopilotUiState, actions: CopilotActions) {
+    if (!state.developerEnabled) return
     val devices = state.audioDevices
     val roundKey = "${state.audioCaptureGeneration}:${state.inputId}:${state.manualActivationOnly}:${devices.selectedId}:${devices.automaticHeadset}"
     var savedRoundKey by rememberSaveable { mutableStateOf(roundKey) }
@@ -46,10 +47,10 @@ fun DiagnosticsReportCard(state: CopilotUiState, actions: CopilotActions) {
     val scope = stringResource(R.string.report_scope)
     SectionCard(heading) {
         SupportingText(stringResource(R.string.report_hint))
-        TextButton(onClick = { observationsVisible = !observationsVisible }) {
+        if (state.developerToolsAvailable) TextButton(onClick = { observationsVisible = !observationsVisible }) {
             Text(stringResource(if (observationsVisible) R.string.observations_hide else R.string.observations_show))
         }
-        if (observationsVisible) {
+        if (state.developerToolsAvailable && observationsVisible) {
             Text(audibleHeading)
             ChoiceGroup(audibleChoices, audible, true) { audible = it }
             Text(restoredHeading)
@@ -91,6 +92,7 @@ fun DiagnosticsReportCard(state: CopilotUiState, actions: CopilotActions) {
                 appendLine(scope)
             })
         })
+        if (state.developerToolsAvailable) {
         SupportingText(stringResource(R.string.pipeline_observation_hint))
         ActionButton(stringResource(R.string.pipeline_attempt), onClick = {
             actions.onTestObservation(com.gust4av033.appcopilotomoto.PipelineEvent.ACTIVATION_ATTEMPT_ANNOTATED)
@@ -104,6 +106,7 @@ fun DiagnosticsReportCard(state: CopilotUiState, actions: CopilotActions) {
         ActionButton(stringResource(R.string.pipeline_audible_restore), onClick = {
             actions.onTestObservation(com.gust4av033.appcopilotomoto.PipelineEvent.AUDIO_RESTORED_AUDIBLE_ANNOTATED)
         })
+        }
         SupportingText("STT: ${state.pipelineMetrics.count(com.gust4av033.appcopilotomoto.PipelineEvent.STT_SUCCESS)} correctos / " +
             "${state.pipelineMetrics.count(com.gust4av033.appcopilotomoto.PipelineEvent.STT_FAILURE)} fallidos. " +
             "Despachos: ${state.pipelineMetrics.count(com.gust4av033.appcopilotomoto.PipelineEvent.ACTION_DISPATCHED)}")

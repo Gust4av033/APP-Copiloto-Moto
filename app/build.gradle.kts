@@ -31,7 +31,10 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
+
+    testOptions { unitTests.isIncludeAndroidResources = true }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -53,5 +56,10 @@ dependencies {
     implementation("com.github.msnilsen:openwakeword-android:0.1.2")
     debugImplementation(libs.compose.ui.tooling)
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.robolectric:robolectric:4.16.1")
+    testImplementation(platform(libs.compose.bom))
+    testImplementation("androidx.compose.ui:ui-test-junit4")
+    debugImplementation("androidx.compose.ui:ui-test-manifest")
 }
+
 
