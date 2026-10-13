@@ -502,6 +502,12 @@
     <string name="waze_observation_received">Texto observado en una notificación de Waze:</string>
     <string name="waze_observation_sample_scope">Muestra sin interpretar; puede ser antigua o contener solo un aviso de la app. No confirma una ruta ni un próximo giro.</string>
     <string name="waze_observation_copy">Copiar muestra de Waze</string>
+    <string name="home_panel_copilot">Copiloto</string>
+    <string name="home_panel_equipment">Mi equipo</string>
+    <string name="home_panel_route">Mi ruta</string>
+    <string name="home_panel_hint">Desliza la tarjeta o toca una pestaña.</string>
+    <string name="home_panel_count">%1$d de %2$d</string>
+    <string name="home_panel_player">Música · %1$s</string>
 </resources>
 
 

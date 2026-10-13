@@ -8,6 +8,7 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -15,24 +16,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 internal val DayColors = lightColorScheme(
-    primary = Color(0xFF7136B8), onPrimary = Color.White,
-    primaryContainer = Color(0xFFEBDDFD), onPrimaryContainer = Color(0xFF32144F),
-    secondary = Color(0xFF145BB7), secondaryContainer = Color(0xFFD9E9FF), onSecondaryContainer = Color(0xFF102C55),
+    primary = Color(0xFF075BA8), onPrimary = Color.White,
+    primaryContainer = Color(0xFFC6E3FD), onPrimaryContainer = Color(0xFF082D50),
+    secondary = Color(0xFF235F96), secondaryContainer = Color(0xFFC4DFF6), onSecondaryContainer = Color(0xFF103150),
     tertiary = Color(0xFF006C89), tertiaryContainer = Color(0xFFBAEFFF), onTertiaryContainer = Color(0xFF003548),
-    background = Color(0xFFE9EEFA), onBackground = Color(0xFF20253D),
-    surface = Color(0xFFF9FBFF), onSurface = Color(0xFF20253D),
-    surfaceVariant = Color(0xFFEAE4F4), onSurfaceVariant = Color(0xFF5D526F),
-    outline = Color(0xFF7D7192), outlineVariant = Color(0xFFDFD7EF)
+    background = StormGlass.DayBackdrop, onBackground = Color(0xFF102D46),
+    surface = Color(0xFFEAF4FC), onSurface = Color(0xFF102D46),
+    surfaceVariant = Color(0xFFCBDDED), onSurfaceVariant = Color(0xFF3D536B),
+    outline = Color(0xFF597992), outlineVariant = Color(0xFFA5C3DD)
 )
 internal val NightColors = darkColorScheme(
-    primary = Color(0xFFB69CFF), onPrimary = Color(0xFF251442),
-    primaryContainer = Color(0xFF4B286D), onPrimaryContainer = Color(0xFFEBDDFD),
-    secondary = Color(0xFF82AFFF), secondaryContainer = Color(0xFF183864), onSecondaryContainer = Color(0xFFD9E9FF),
+    primary = Color(0xFF97CBFA), onPrimary = Color(0xFF082D50),
+    primaryContainer = Color(0xFF153F66), onPrimaryContainer = Color(0xFFE0F1FF),
+    secondary = Color(0xFF92C9FA), secondaryContainer = Color(0xFF163E63), onSecondaryContainer = Color(0xFFE0F1FF),
     tertiary = Color(0xFF6DDCFF), tertiaryContainer = Color(0xFF004C64), onTertiaryContainer = Color(0xFFBAEFFF),
-    background = Color(0xFF0B1020), onBackground = Color(0xFFF4F6FF),
-    surface = Color(0xFF151D31), onSurface = Color(0xFFF4F6FF),
-    surfaceVariant = Color(0xFF24304B), onSurfaceVariant = Color(0xFFBDC5DA),
-    outline = Color(0xFF9288A6), outlineVariant = Color(0xFF3E3455)
+    background = StormGlass.NightBackdrop, onBackground = Color(0xFFEAF5FF),
+    surface = Color(0xFF0D2740), onSurface = Color(0xFFEAF5FF),
+    surfaceVariant = Color(0xFF183952), onSurfaceVariant = Color(0xFFBCD4E8),
+    outline = Color(0xFF78A6C8), outlineVariant = Color(0xFF305777)
 )
 private val CopilotType = Typography(
     headlineLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.4).sp),
@@ -50,7 +51,9 @@ private val CopilotShapes = Shapes(
 
 @Composable
 fun CopilotTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (darkTheme) NightColors else DayColors,
-        typography = CopilotType, shapes = CopilotShapes, content = content)
+    CompositionLocalProvider(LocalGlassDark provides darkTheme) {
+        MaterialTheme(colorScheme = if (darkTheme) NightColors else DayColors,
+            typography = CopilotType, shapes = CopilotShapes, content = content)
+    }
 }
 

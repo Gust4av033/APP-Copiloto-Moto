@@ -15,8 +15,8 @@ internal object OverlayGlassStyle {
 
     fun panel(context: Context, night: Boolean): LayerDrawable {
         val base = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            if (night) intArrayOf(0xEA2F2857.toInt(), 0xE61A2745.toInt(), 0xEC171D39.toInt())
-            else intArrayOf(0xEFF7F3FF.toInt(), 0xEBEDF7FF.toInt(), 0xF0E3EBFB.toInt())).apply {
+            if (night) intArrayOf(0xEA173C5A.toInt(), 0xE6112D48.toInt(), 0xEC0A2037.toInt())
+            else intArrayOf(0xEFE3F1FF.toInt(), 0xEBD1E8FA.toInt(), 0xF0C5DEF2.toInt())).apply {
             cornerRadius = dp(context, 24)
             setStroke(dp(context, 1).toInt().coerceAtLeast(1), if (night) 0xA39CDCF5.toInt() else 0xCFFFFFFF.toInt())
         }
@@ -36,9 +36,9 @@ internal object OverlayGlassStyle {
 
     fun button(context: Context, night: Boolean, primary: Boolean): RippleDrawable {
         val normal = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            if (primary) intArrayOf(0xFF6546A2.toInt(), 0xFF28538C.toInt())
-            else if (night) intArrayOf(0xB832405F.toInt(), 0xD126304D.toInt())
-            else intArrayOf(0xE6FFFFFF.toInt(), 0xE6E5ECFA.toInt())).apply {
+            if (primary) intArrayOf(0xFF104F87.toInt(), 0xFF0D345A.toInt())
+            else if (night) intArrayOf(0xB8244F73.toInt(), 0xD1163857.toInt())
+            else intArrayOf(0xE6FFFFFF.toInt(), 0xE6CDE5F8.toInt())).apply {
             cornerRadius = dp(context, 16)
             setStroke(dp(context, 1).toInt().coerceAtLeast(1), if (primary) 0xAA9DCFFF.toInt() else 0x4588ABD5)
         }

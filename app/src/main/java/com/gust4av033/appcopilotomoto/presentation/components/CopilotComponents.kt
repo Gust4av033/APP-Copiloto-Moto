@@ -43,6 +43,8 @@ import com.gust4av033.appcopilotomoto.presentation.ChoiceUi
 import com.gust4av033.appcopilotomoto.TripCallPhase
 import com.gust4av033.appcopilotomoto.presentation.theme.Glass
 import com.gust4av033.appcopilotomoto.presentation.theme.GlassPanel
+import com.gust4av033.appcopilotomoto.presentation.theme.StormGlass
+import com.gust4av033.appcopilotomoto.presentation.theme.LocalGlassDark
 
 @Composable
 fun SessionStatus(active: Boolean, restoring: Boolean = false, callPhase: TripCallPhase = TripCallPhase.NONE) {
@@ -97,9 +99,9 @@ fun ActionButton(label: String, enabled: Boolean = true, primary: Boolean = fals
                  iconRes: Int? = null, onClick: () -> Unit) {
     val modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 52.dp)
     if (primary) {
-        Button(onClick = onClick, enabled = enabled, modifier = modifier,
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary)) {
+        Button(onClick = onClick, enabled = enabled, modifier = modifier, shape = MaterialTheme.shapes.small,
+            colors = ButtonDefaults.buttonColors(containerColor = if (LocalGlassDark.current) StormGlass.NightAction else StormGlass.DayAction,
+                contentColor = androidx.compose.ui.graphics.Color.White)) {
             if (iconRes != null) {
                 Icon(painterResource(iconRes), null, Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
@@ -108,8 +110,10 @@ fun ActionButton(label: String, enabled: Boolean = true, primary: Boolean = fals
         }
     } else {
         val outline = Glass.outline()
-        OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier,
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+        OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier, shape = MaterialTheme.shapes.small,
+            colors = ButtonDefaults.outlinedButtonColors(
+                containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .66f),
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer),
             border = BorderStroke(1.dp, outline.copy(alpha = if (enabled) outline.alpha else .12f))) {
             if (iconRes != null) {
                 Icon(painterResource(iconRes), null, Modifier.size(20.dp))
