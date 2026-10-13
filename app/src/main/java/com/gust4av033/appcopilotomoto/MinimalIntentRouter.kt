@@ -16,7 +16,8 @@ data class RoutedCommand(
     val audioMode: WakeAudioMode? = null,
     val messageText: String? = null,
     val navigationRequest: NavigationRequest? = null,
-    val placeQuery: String? = null
+    val placeQuery: String? = null,
+    val musicTitleInEnglish: Boolean = false
 )
 
 /** Las órdenes claras pasan por reglas locales; una frase desconocida no ejecuta nada. */
@@ -102,6 +103,7 @@ object MinimalIntentRouter {
 
     fun route(transcript: String): RoutedCommand {
         val normalized = commandText(transcript)
+        val englishTitle = EnglishSongRequest.matches(normalized)
         val placeQuery = PlaceSearchParser.parse(transcript)
         val navigation = NavigationCommandParser.parse(normalized)
         val mode = TripModeCommands.parse(normalized)
@@ -134,20 +136,22 @@ object MinimalIntentRouter {
             normalized in setOf("anterior cancion", "cancion anterior", "pista anterior", "anterior pista", "pon la anterior", "pasa a la anterior", "anterior", "previous", "regresa a la cancion anterior", "pon anterior cancion", "pon la cancion anterior") -> TestIntent.MEDIA_PREVIOUS
             normalized in setOf("reanudar", "reanuda", "reproducir", "reproduce", "play", "continuar musica", "pon la musica", "sigue la musica", "continua la musica") -> TestIntent.MEDIA_PLAY
             normalized in setOf("pausa", "pausar", "pon pausa", "detener", "detener musica", "para la musica", "pausa la musica", "pon la musica en pausa") -> TestIntent.MEDIA_PAUSE
-            song != null -> TestIntent.MEDIA_SEARCH
+            englishTitle || song != null -> TestIntent.MEDIA_SEARCH
             else -> TestIntent.UNKNOWN
         }
         return RoutedCommand(intent, if (intent == TestIntent.VOLUME_SET) volume else null,
             if (intent == TestIntent.CALL_NAMED) contact else if (intent == TestIntent.OPEN_CONTACT_CHAT) chat?.contactName
                 else if (intent == TestIntent.DRAFT_CONTACT_MESSAGE) draft?.recipient?.contactName else null,
             if (intent == TestIntent.OPEN_APP) app else null,
-            if (intent == TestIntent.MEDIA_SEARCH) song else null,
+            if (intent == TestIntent.MEDIA_SEARCH && !englishTitle) song else null,
             if (intent == TestIntent.OPEN_CONTACT_CHAT) chat?.app else if (intent == TestIntent.DRAFT_CONTACT_MESSAGE) draft?.recipient?.app else null,
             if (intent == TestIntent.SWITCH_MODE) mode else null,
             if (intent == TestIntent.DRAFT_CONTACT_MESSAGE) draft?.text else null,
             if (intent == TestIntent.NAVIGATE) navigation else null,
-            if (intent == TestIntent.SEARCH_PLACE) placeQuery else null)
+            if (intent == TestIntent.SEARCH_PLACE) placeQuery else null,
+            intent == TestIntent.MEDIA_SEARCH && englishTitle)
     }
 
     fun resolve(transcript: String): TestIntent = route(transcript).intent
 }
+

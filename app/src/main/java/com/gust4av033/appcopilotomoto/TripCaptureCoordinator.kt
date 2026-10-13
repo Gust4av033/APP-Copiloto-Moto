@@ -29,7 +29,7 @@ internal class TripCaptureCoordinator(
                 if (state == SpeechCaptureState.RESTARTING) {
                     TripTestState.record(context, PipelineEvent.STT_SILENCE_RESTART)
                     TripTestState.interactionPhase = TripInteractionPhase.PREPARING
-                    TripTestState.status = "La confirmación cerró por silencio; reabriendo. Esperá la señal para responder."
+                    TripTestState.status = "La escucha cerró por silencio; reabriendo. Esperá la señal para responder."
                 }
                 onState(state)
             }
@@ -63,3 +63,4 @@ internal class TripCaptureCoordinator(
         return speech().cancel(resumePlayback)
     }
 }
+

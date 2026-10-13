@@ -30,8 +30,9 @@ class ContactChatCommandTest {
     @Test fun incompleteUnsupportedAndCompoundRequestsExecuteNothing() {
         listOf("abre el chat", "abre WhatsApp con", "abre el chat de 12345", "abre el chat de Ana en Telegram",
             "abre el chat de Ana y llama a José", "abre WhatsApp con Ana y envía hola",
-            "manda un WhatsApp a Ana", "abre el chat de a").forEach { text ->
+            "manda un WhatsApp a", "abre el chat de a").forEach { text ->
             assertEquals(text, TestIntent.UNKNOWN, MinimalIntentRouter.resolve(text))
         }
     }
 }
+

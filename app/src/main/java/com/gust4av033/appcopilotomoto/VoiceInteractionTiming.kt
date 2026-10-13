@@ -16,7 +16,7 @@ internal object VoiceInteractionTiming {
 }
 
 enum class SpeechCaptureMode(val listeningMs: Long) {
-    COMMAND(15_000L), CONFIRMATION(18_000L), DICTATION(40_000L)
+    COMMAND(15_000L), CONFIRMATION(18_000L), DICTATION(40_000L), SONG_TITLE(20_000L)
 }
 
 /** READY abre una sola ventana nueva; la preparación no resta tiempo al dictado. */
@@ -41,11 +41,23 @@ internal class ConfirmationSilenceRecovery {
 
     fun shouldRestart(mode: SpeechCaptureMode, ready: Boolean, voiceStarted: Boolean,
                       silenceError: Boolean, remainingMs: Long): Boolean {
-        if (mode != SpeechCaptureMode.CONFIRMATION || !ready || voiceStarted || !silenceError ||
+        if (mode == SpeechCaptureMode.COMMAND || !ready || voiceStarted || !silenceError ||
             restarts >= 2 || remainingMs < 2_000L) return false
         restarts++
         return true
     }
+}
+
+/** The ready cue may trigger onset without any spoken words. */
+internal class SpeechStartEvidence {
+    var detected = false
+        private set
+    private var cueEndsAt: Long? = null
+    fun ready(nowMs: Long) { cueEndsAt = nowMs + 400L }
+    fun onset(nowMs: Long) {
+        if (cueEndsAt?.let { nowMs >= it } == true) detected = true
+    }
+    fun partial(hasWords: Boolean) { if (hasWords) detected = true }
 }
 
 /** Permiso ya concedido, sin desbloquear ni abrir automáticamente desde la pantalla bloqueada. */
@@ -53,3 +65,4 @@ internal object TripAppLaunchPolicy {
     fun canOpen(active: Boolean, unlocked: Boolean, activityVisible: Boolean, overlayPermission: Boolean) =
         active && unlocked && (activityVisible || overlayPermission)
 }
+

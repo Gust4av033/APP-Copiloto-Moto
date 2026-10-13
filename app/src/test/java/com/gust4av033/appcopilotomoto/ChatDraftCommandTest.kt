@@ -26,7 +26,7 @@ class ChatDraftCommandTest {
     @Test fun malformedOrUnsupportedDestinationsDoNothing() {
         listOf("escribe a Ana", "escribe a Ana en Telegram", "escribe a 12345 en WhatsApp",
             "escribe a Ana y llama a José en WhatsApp", "escribe a Ana en WhatsApp mensaje",
-            "envía un mensaje a Ana en WhatsApp", "escribe a Ana en WhatsApp mensaje " + "x".repeat(241))
+            "escribe a Ana en WhatsApp mensaje " + "x".repeat(241))
             .forEach { assertEquals(it, TestIntent.UNKNOWN, MinimalIntentRouter.resolve(it)) }
     }
 
@@ -37,4 +37,19 @@ class ChatDraftCommandTest {
         assertEquals("Ánimo 🙂", ChatDraftParser.validateText("  Ánimo 🙂  "))
         assertEquals(240, ChatDraftParser.validateText("x".repeat(240)).length)
     }
+
+    @Test fun sendingPhrasesPrepareADraftForReviewRatherThanSending() {
+        listOf("envía un mensaje a Ana en WhatsApp", "manda mensaje a Ana por WhatsApp",
+            "envia un mensaje por WhatsApp a Ana", "manda un WhatsApp a Ana").forEach {
+            val command = MinimalIntentRouter.route(it)
+            assertEquals(it, TestIntent.DRAFT_CONTACT_MESSAGE, command.intent)
+            assertEquals("ana", command.contactName)
+            assertEquals(ChatApp.WHATSAPP, command.chatApp)
+            assertNull(command.messageText)
+        }
+        val command = MinimalIntentRouter.route("envía un mensaje por WhatsApp Business a Ana que diga ¡Ya voy!")
+        assertEquals(ChatApp.WHATSAPP_BUSINESS, command.chatApp)
+        assertEquals("¡Ya voy!", command.messageText)
+    }
 }
+

@@ -53,7 +53,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         val deadline = SpeechCaptureDeadline(mode, SystemClock.elapsedRealtime())
         try {
             var ready = false
-            var speechOnset = false
+            val speechEvidence = SpeechStartEvidence()
             var activeInputs = "no informadas"
             var attempt = 0
             val recovery = ConfirmationSilenceRecovery()
@@ -63,7 +63,8 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                 audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
             }.getOrDefault(false)
             val focusGrantedForSession = audioFocusGranted
-            val locale = Locale.getDefault().takeIf { it.language == "es" } ?: Locale.forLanguageTag("es-ES")
+            val locale = if (mode == SpeechCaptureMode.SONG_TITLE) Locale.US
+                else Locale.getDefault().takeIf { it.language == "es" } ?: Locale.forLanguageTag("es-ES")
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale.toLanguageTag())
@@ -91,6 +92,7 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                         if (valid() && !attemptReady && (deadline.ready(now) || deadline.listeningAt(now))) {
                             attemptReady = true
                             ready = true
+                            speechEvidence.ready(now)
                             activeInputs = activeInputDevices()
                             armRecognitionTimeout(session, (deadline.expiresAtMs - SystemClock.elapsedRealtime()).coerceAtLeast(1L),
                                 "La escucha terminó sin respuesta.", playbackResumePolicy, onResult)
@@ -106,7 +108,9 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                     }
                     override fun onBeginningOfSpeech() {
                         if (valid()) {
-                            speechOnset = true
+                            // The 360 ms ready cue can itself trigger the engine's speech callback.
+                            // Partial text still counts as voice even if the user starts early.
+                            speechEvidence.onset(SystemClock.elapsedRealtime())
                             activeInputs = activeInputDevices().takeUnless { it == "no informadas" } ?: activeInputs
                             onState(SpeechCaptureState.SPEECH_ONSET)
                         }
@@ -116,12 +120,12 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                     override fun onEndOfSpeech() = Unit
                     override fun onPartialResults(partialResults: Bundle?) {
                         if (valid() && partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                                ?.any { it.isNotBlank() } == true) speechOnset = true
+                                ?.any { it.isNotBlank() } == true) speechEvidence.partial(true)
                     }
                     override fun onEvent(eventType: Int, params: Bundle?) = Unit
                     override fun onError(error: Int) {
                         if (!valid()) return
-                        if (recovery.shouldRestart(mode, ready, speechOnset,
+                        if (recovery.shouldRestart(mode, ready, speechEvidence.detected,
                                 error == SpeechRecognizer.ERROR_NO_MATCH || error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT,
                                 deadline.expiresAtMs - SystemClock.elapsedRealtime())) {
                             // Mantiene pausa/foco y el mismo plazo. Nunca reenvía una acción externa.
@@ -137,9 +141,11 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                             SpeechRecognizer.ERROR_NO_MATCH -> "No se entendieron palabras reconocibles"
                             SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> "No se detectó voz durante la escucha"
                             SpeechRecognizer.ERROR_AUDIO -> "Falló la captura de audio"
+                            SpeechRecognizer.ERROR_LANGUAGE_NOT_SUPPORTED -> "El motor local no admite ${locale.toLanguageTag()}"
+                            SpeechRecognizer.ERROR_LANGUAGE_UNAVAILABLE -> "Falta descargar el modelo de voz ${locale.toLanguageTag()} en el teléfono"
                             else -> "Error de reconocimiento local"
                         }
-                        val diagnostic = "$detail (código $error). STT listo: ${if (ready) "sí" else "no"}; inicio de voz marcado: ${if (speechOnset) "sí" else "no"}; entradas activas: $activeInputs; pausa multimedia: ${if (pauseRequestedForSession) "solicitada" else "no solicitada"}; foco: ${if (focusGrantedForSession) "concedido" else "no concedido"}."
+                        val diagnostic = "$detail (código $error). Idioma: ${locale.toLanguageTag()}; STT listo: ${if (ready) "sí" else "no"}; inicio de voz marcado: ${if (speechEvidence.detected) "sí" else "no"}; entradas activas: $activeInputs; pausa multimedia: ${if (pauseRequestedForSession) "solicitada" else "no solicitada"}; foco: ${if (focusGrantedForSession) "concedido" else "no concedido"}."
                         finish(Result.failure(IllegalStateException(diagnostic)), session, playbackResumePolicy, onResult)
                     }
                     override fun onResults(results: Bundle?) {
@@ -245,3 +251,4 @@ class AndroidSpeechToTextProvider(private val context: Context) {
         callback(result)
     }
 }
+

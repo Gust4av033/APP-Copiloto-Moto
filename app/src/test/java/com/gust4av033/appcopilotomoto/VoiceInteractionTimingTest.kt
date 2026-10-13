@@ -37,7 +37,6 @@ class VoiceInteractionTimingTest {
     @Test fun earlySilenceHasAtMostTwoRestartsWithoutRestartingRecognizedSpeech() {
         val recovery = ConfirmationSilenceRecovery()
         assertFalse(recovery.shouldRestart(SpeechCaptureMode.COMMAND, true, false, true, 10_000))
-        assertFalse(recovery.shouldRestart(SpeechCaptureMode.DICTATION, true, false, true, 10_000))
         assertFalse(recovery.shouldRestart(SpeechCaptureMode.CONFIRMATION, false, false, true, 10_000))
         assertFalse(recovery.shouldRestart(SpeechCaptureMode.CONFIRMATION, true, true, true, 10_000))
         assertFalse(recovery.shouldRestart(SpeechCaptureMode.CONFIRMATION, true, false, false, 10_000))
@@ -45,6 +44,41 @@ class VoiceInteractionTimingTest {
         assertTrue(recovery.shouldRestart(SpeechCaptureMode.CONFIRMATION, true, false, true, 10_000))
         assertTrue(recovery.shouldRestart(SpeechCaptureMode.CONFIRMATION, true, false, true, 5_000))
         assertFalse(recovery.shouldRestart(SpeechCaptureMode.CONFIRMATION, true, false, true, 3_000))
+    }
+
+    @Test fun dictationAndEnglishTitlesRecoverEarlySilenceWithoutRepeatingSpeech() {
+        listOf(SpeechCaptureMode.DICTATION, SpeechCaptureMode.SONG_TITLE).forEach { mode ->
+            val recovery = ConfirmationSilenceRecovery()
+            assertTrue(recovery.shouldRestart(mode, true, false, true, 10_000))
+            assertFalse(recovery.shouldRestart(mode, true, true, true, 9_000))
+            assertFalse(recovery.shouldRestart(mode, true, false, false, 9_000))
+            assertTrue(recovery.shouldRestart(mode, true, false, true, 8_000))
+            assertFalse(recovery.shouldRestart(mode, true, false, true, 6_000))
+        }
+    }
+
+    @Test fun readyCueOnsetDoesNotDisableSilenceRecovery() {
+        val evidence = SpeechStartEvidence()
+        evidence.onset(0)
+        assertFalse(evidence.detected)
+        evidence.ready(100)
+        evidence.onset(300)
+        assertFalse(evidence.detected)
+        assertTrue(ConfirmationSilenceRecovery().shouldRestart(SpeechCaptureMode.DICTATION,
+            true, evidence.detected, true, 10_000))
+        evidence.onset(500)
+        assertTrue(evidence.detected)
+    }
+
+    @Test fun realPartialWordsDuringTheCueStillCountAsSpeech() {
+        val evidence = SpeechStartEvidence()
+        evidence.ready(100)
+        evidence.partial(false)
+        assertFalse(evidence.detected)
+        evidence.partial(true)
+        assertTrue(evidence.detected)
+        evidence.ready(1_000)
+        assertTrue(evidence.detected)
     }
 
     @Test fun fullDraftHasEnoughBudgetForSlowReadbackAndResponse() {
@@ -73,3 +107,4 @@ class VoiceInteractionTimingTest {
         listOf("uno o dos", "no abras", "uno dos").forEach { assertEquals(AppChoice.UNKNOWN, AppChoiceRouter.resolve(it)) }
     }
 }
+

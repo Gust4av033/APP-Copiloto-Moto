@@ -51,7 +51,7 @@
     <string name="trip_last_result">Última orden</string>
     <string name="no_command_result">Todavía no hay órdenes en esta sesión.</string>
     <string name="trip_commands">Lo que podés decir</string>
-    <string name="commands_music">“Siguiente canción”, “pasa de canción”, “anterior canción”, “pon la música en pausa”, “reanudar” o “pon [nombre de canción]”. Elegí el reproductor de búsqueda en Ajustes → Música.</string>
+    <string name="commands_music">“Siguiente canción”, “pasa de canción”, “anterior canción”, “pon la música en pausa”, “reanudar” o “pon [nombre de canción]”. Para títulos en inglés: “busca canción en inglés” y decí el nombre después del nuevo tono. Elegí el reproductor en Ajustes → Música.</string>
     <string name="commands_volume">“Subir volumen”, “bajar volumen”, “volumen al 40 por ciento” o “volumen a 6”. El porcentaje se adapta al rango de Android; el número elige un nivel.</string>
     <string name="commands_apps">“Abre [nombre de la aplicación]”. Durante el viaje APP anuncia el nombre y escucha “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps; el aviso emergente también permite abrir o cancelar.</string>
     <string name="tests_apps_title">Aplicaciones del teléfono</string>
@@ -171,7 +171,7 @@
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps. También podés usar estos botones o el aviso; el aviso vence 30 segundos después del anuncio (60 para borradores).</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">UI ruta 02 · Ajustes y paleta</string>
+    <string name="ui_revision">Escucha 03 · Waze, borradores e inglés</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>
@@ -262,7 +262,7 @@
     <string name="command_music_search">Buscar canción</string>
     <string name="command_music_query">Búsqueda: %1$s</string>
     <string name="music_settings_title">Música · búsqueda por nombre</string>
-    <string name="music_settings_hint">Decí “pon [nombre]”, “pon la canción [nombre]” o “reproduce [nombre]”. La selección se guarda y aplica a búsquedas; los controles siguiente/pausa/volumen siguen usando la sesión multimedia de Android.</string>
+    <string name="music_settings_hint">Decí “pon [nombre]”, “pon la canción [nombre]” o “reproduce [nombre]”. Para inglés, durante el viaje decí “busca canción en inglés” y pronunciá el título después del nuevo tono. Requiere reconocimiento local en inglés en el teléfono. La selección se guarda y aplica a búsquedas; siguiente/pausa/volumen usan la sesión multimedia de Android.</string>
     <string name="music_player_auto">Automático · prioriza Poweramp; si no, un único compatible</string>
     <string name="music_search_background">Búsqueda directa: puede enviarse con otra app visible o pantalla bloqueada.</string>
     <string name="music_search_visible">Búsqueda estándar: requiere APP visible y teléfono desbloqueado; puede abrir el reproductor.</string>
@@ -388,3 +388,4 @@
     <string name="settings_back_to_list">Volver a Ajustes</string>
     <string name="settings_phrase_manual_inactive">En activación manual no se usa la frase de voz. Para ajustar la frase y sensibilidad, elegí un modo de voz y dejá desactivado “Solo activación manual”.</string>
 </resources>
+

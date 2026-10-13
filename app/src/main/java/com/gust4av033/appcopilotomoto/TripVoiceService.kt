@@ -52,6 +52,10 @@ class TripVoiceService : Service() {
 
     private val mainHandler = Handler(Looper.getMainLooper())
     private val worker = Executors.newSingleThreadExecutor()
+    private val followUpGate = FollowUpCaptureGate(
+        background = { task -> worker.execute { task() } },
+        schedule = { delay, task -> mainHandler.postDelayed({ task() }, delay) },
+        now = SystemClock::elapsedRealtime)
     private val speechLazy = lazy { AndroidSpeechToTextProvider(applicationContext) }
     private val speech by speechLazy
     private val capture by lazy { TripCaptureCoordinator(this, { speech }, {
@@ -117,6 +121,7 @@ class TripVoiceService : Service() {
     private val pendingApp: AppTarget? get() = appRequests.current?.target
     private var appChoiceToken: String? = null
     private var draftCaptureToken: String? = null
+    private var songCaptureToken: String? = null
     private var appExpirationTask: Runnable? = null
     private var appLaunchPendingIntent: PendingIntent? = null
     private var resumeAfterButtonRoute = false
@@ -185,6 +190,10 @@ class TripVoiceService : Service() {
             return START_NOT_STICKY
         }
         if (intent?.action == ACTION_SILENCE) {
+            if (songCaptureToken != null) {
+                finishSongCapture("Búsqueda de canción cancelada; viaje activo.")
+                return START_NOT_STICKY
+            }
             if (draftCaptureToken != null) {
                 finishDraftCapture("Dictado cancelado; no se abrió ni envió el mensaje.")
                 return START_NOT_STICKY
@@ -720,6 +729,10 @@ class TripVoiceService : Service() {
             if (intent == TestIntent.MEDIA_SEARCH) {
                 TripTestState.recognized++
                 TripTestState.save(this)
+                if (command.musicTitleInEnglish) {
+                    requestEnglishSongCapture(provider, cycle, source, wakeAt)
+                    return@listenOnce
+                }
                 pendingMusicCommand = PendingRoutedCommand(command, heard.orEmpty(), source, wakeAt)
                 TripTestState.status = "Restaurando audio antes de buscar ‘${command.musicQuery}’…"
                 updateNotification("Preparando búsqueda de canción")
@@ -860,6 +873,81 @@ class TripVoiceService : Service() {
         active && detector === provider && generation == cycle && appChoiceToken == token &&
             appRequests.current?.let { it.token == token && SystemClock.elapsedRealtime() < it.expiresAtMs } == true
 
+    private fun prepareFollowUp(provider: WakeWordProvider, isCurrent: () -> Boolean,
+        onFailure: (String) -> Unit, onReady: () -> Unit) {
+        buttonCoordinator?.beforeCapture()
+        TripTestState.interactionPhase = TripInteractionPhase.PREPARING
+        TripTestState.status = "Preparando la siguiente escucha en el casco; esperá el tono."
+        updateNotification(TripTestState.status)
+        followUpGate.prepare(isCurrent,
+            selectRoute = { runCatching { provider.pause() } },
+            routeReady = { headsetRouteAvailable() },
+            onReady = onReady, onFailure = onFailure)
+    }
+
+    private fun requestEnglishSongCapture(provider: WakeWordProvider, cycle: Int, source: String, wakeAt: Long) {
+        val token = UUID.randomUUID().toString()
+        songCaptureToken = token
+        fun current() = active && detector === provider && generation == cycle && songCaptureToken == token
+        TripTestState.interactionPhase = TripInteractionPhase.SPEAKING
+        TripTestState.status = "Preparando escucha del título en inglés."
+        updateNotification(TripTestState.status)
+        runCatching {
+            callPrompt.askForEnglishSong { announced ->
+                if (!current()) return@askForEnglishSong
+                if (!announced) {
+                    finishSongCapture("No se pudo anunciar la búsqueda de canción.")
+                    return@askForEnglishSong
+                }
+                prepareFollowUp(provider, ::current,
+                    onFailure = { finishSongCapture(it) }) {
+                    capture.listenOnce(mode = SpeechCaptureMode.SONG_TITLE, onState = { state ->
+                        if (current() && state == SpeechCaptureState.READY) {
+                            val input = speech.activeInputDescription()
+                            if (effectiveAudioMode == WakeAudioMode.BUTTON && input.contains("micrófono del teléfono") && !input.contains("Bluetooth")) {
+                                finishSongCapture("Android abrió el micrófono del teléfono; búsqueda cancelada.")
+                            } else {
+                                TripTestState.interactionPhase = TripInteractionPhase.LISTENING
+                                TripTestState.status = "Título listo: después del tono decí el nombre en inglés o cancel."
+                                updateNotification(TripTestState.status)
+                            }
+                        }
+                    }, playbackResumePolicy = { PlaybackResumePolicy.AFTER_ROUTE_RESTORED }) { result ->
+                        if (!current()) return@listenOnce
+                        val title = result.getOrNull()?.let(EnglishSongRequest::title)
+                        if (title == null) {
+                            finishSongCapture(result.exceptionOrNull()?.message ?: "Búsqueda de canción cancelada.")
+                        } else {
+                            songCaptureToken = null
+                            val command = RoutedCommand(TestIntent.MEDIA_SEARCH, musicQuery = title)
+                            TripTestState.lastRoutedCommand = command
+                            TripTestState.recognized++
+                            pendingMusicCommand = PendingRoutedCommand(command, title, source, wakeAt)
+                            TripTestState.lastCommandResult = "Título reconocido: ‘$title’. Restaurando audio antes de buscar."
+                            TripTestState.save(this)
+                            schedule(100L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+                        }
+                    }
+                }
+            }
+        }.onFailure { if (current()) finishSongCapture("No se pudo preparar el título: ${it.message}") }
+    }
+
+    private fun finishSongCapture(message: String) {
+        if (songCaptureToken == null) return
+        songCaptureToken = null
+        followUpGate.cancel()
+        val cycle = ++generation
+        callPrompt.cancel()
+        resumeAfterButtonRoute = capture.cancel(resumePlayback = false) || resumeAfterButtonRoute
+        TripTestState.status = message
+        TripTestState.lastCommandResult = message
+        updateNotification(message)
+        detector?.let { provider ->
+            schedule(300L) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+        }
+    }
+
     private fun requestDraftCapture(provider: WakeWordProvider, cycle: Int, target: AppTarget) {
         val token = UUID.randomUUID().toString()
         draftCaptureToken = token
@@ -874,8 +962,7 @@ class TripVoiceService : Service() {
                     finishDraftCapture("No se pudo anunciar el destinatario; dictado cancelado.")
                     return@askForDraft
                 }
-                schedule(300L) {
-                    if (!current()) return@schedule
+                prepareFollowUp(provider, ::current, onFailure = { finishDraftCapture(it) }) {
                     TripTestState.interactionPhase = TripInteractionPhase.PREPARING
                     capture.listenOnce(mode = SpeechCaptureMode.DICTATION, onState = { state ->
                         if (current() && state == SpeechCaptureState.READY) {
@@ -897,7 +984,7 @@ class TripVoiceService : Service() {
                         if (control == TestIntent.STOP_SESSION) {
                             stopSession("Viaje detenido durante dictado; mensaje descartado.", expected = true)
                         } else if (text == null || control == TestIntent.CANCEL || control == TestIntent.STOP_TTS) {
-                            finishDraftCapture("Dictado cancelado o no entendido; no se preparó el mensaje.")
+                            finishDraftCapture("No se preparó el mensaje: ${outcome.exceptionOrNull()?.message ?: "dictado cancelado"}.")
                         } else {
                             TripTestState.recognized++
                             TripTestState.save(this)
@@ -913,6 +1000,7 @@ class TripVoiceService : Service() {
     private fun finishDraftCapture(message: String) {
         if (draftCaptureToken == null) return
         draftCaptureToken = null
+        followUpGate.cancel()
         val cycle = ++generation
         pendingTask?.let(mainHandler::removeCallbacks)
         pendingTask = null
@@ -955,8 +1043,8 @@ class TripVoiceService : Service() {
                     return@announceApp
                 }
                 renewAppChoiceWindow(token)
-                schedule(300L) {
-                    if (!isCurrentAppChoice(provider, cycle, token)) return@schedule
+                prepareFollowUp(provider, { isCurrentAppChoice(provider, cycle, token) },
+                    onFailure = { finishAppChoice(provider, cycle, token, it) }) {
                     TripTestState.status = if (request.target.draftText != null) "Esperá el tono: uno abre, dos descarta, tres vuelve a dictar, cuatro repite la lectura."
                         else "Abriendo confirmación: esperá el tono y decí uno o dos."
                     updateNotification(if (request.target.draftText != null) "Borrador: 1 abrir · 2 descartar · 3 dictar · 4 repetir" else "Confirmación: 1 abrir · 2 cancelar")
@@ -1000,7 +1088,8 @@ class TripVoiceService : Service() {
                             AppChoice.REDICTATE -> redictateDraft(provider, cycle, request)
                             AppChoice.REPEAT -> repeatDraftReadback(provider, cycle, request)
                             AppChoice.UNKNOWN -> finishAppChoice(provider, cycle, token,
-                                if (request.target.draftText != null) "No se reconoció uno, dos, tres o cuatro; el borrador sigue en el aviso, sin enviar."
+                                if (answer.isFailure) "Falló la escucha de confirmación: ${answer.exceptionOrNull()?.message}. La solicitud sigue en el aviso."
+                                else if (request.target.draftText != null) "No se reconoció uno, dos, tres o cuatro; el borrador sigue en el aviso, sin enviar."
                                 else "No se reconoció uno o dos; la app no se abrió. La solicitud sigue en el aviso.")
                         }
                         TripTestState.save(this)
@@ -1073,6 +1162,7 @@ class TripVoiceService : Service() {
         message: String, cancelRequest: Boolean = false) {
         if (!isCurrentAppChoice(provider, cycle, token)) return
         appChoiceToken = null
+        followUpGate.cancel()
         pendingTask?.let(mainHandler::removeCallbacks)
         pendingTask = null
         callPrompt.cancel()
@@ -1088,6 +1178,7 @@ class TripVoiceService : Service() {
     private fun cancelAppChoice() {
         if (appChoiceToken == null) return
         appChoiceToken = null
+        followUpGate.cancel()
         val cycle = ++generation
         pendingTask?.let(mainHandler::removeCallbacks)
         pendingTask = null
@@ -1306,6 +1397,8 @@ class TripVoiceService : Service() {
 
     private fun stopSession(reason: String, expected: Boolean = false) {
         if (closing) return
+        followUpGate.cancel()
+        songCaptureToken = null
         if (active && !expected) {
             TripTestState.pipeline = TripTestState.pipeline.copy(lastEndReason = reason)
             TripTestState.record(this, PipelineEvent.SESSION_UNEXPECTED_END)
@@ -1466,6 +1559,7 @@ class TripVoiceService : Service() {
                 .putExtra(EXTRA_APP_TOKEN, request.token),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
         val notice = Notification.Builder(this, APP_CHANNEL_ID)
+            .setOnlyAlertOnce(true)
             .setSmallIcon(android.R.drawable.ic_menu_view)
             .setContentTitle("Abrir ${target.label}")
             .setContentText(if (target.draftText == null) "Tras el anuncio y el tono: 1 abrir · 2 cancelar."
@@ -1532,3 +1626,4 @@ class TripVoiceService : Service() {
         super.onDestroy()
     }
 }
+

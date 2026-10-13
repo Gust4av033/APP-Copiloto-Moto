@@ -962,6 +962,10 @@ class MainActivity : ComponentActivity() {
                             }
                             TestIntent.MEDIA_SEARCH -> {
                                 val pausedBySpeech = speech.cancel(resumePlayback = false)
+                                if (command.musicTitleInEnglish) {
+                                    if (pausedBySpeech) runCatching { media.resumePlayback() }
+                                    return@fold "La escucha del título en inglés está disponible durante el viaje: decí ‘busca canción en inglés’."
+                                }
                                 val sent = actions.prepareMusicSearch(command).mapCatching { request ->
                                     val result = if (request.player.backgroundSearch) actions.sendMusicSearch(request)
                                         else voiceMusicSearcher(request)
@@ -1179,3 +1183,4 @@ class MainActivity : ComponentActivity() {
         super.onDestroy()
     }
 }
+

@@ -59,7 +59,8 @@ class OpenWakeWordProvider(
     /** Libera la grabación wake antes de abrir STT; la orden usa el casco en ambos modos. */
     override fun pause() {
         detector.stop()
-        if (audioMode == WakeAudioMode.PHONE_WAKE && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            // TTS or a finished recognizer can change the communication route between turns.
             selectHeadset()
         }
     }
@@ -167,3 +168,4 @@ class ButtonWakeWordProvider(context: Context) : WakeWordProvider {
         releaseRoute()
     }
 }
+
