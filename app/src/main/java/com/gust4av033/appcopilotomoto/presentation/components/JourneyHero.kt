@@ -95,7 +95,7 @@ fun JourneyHero(state: CopilotUiState, tripScreen: Boolean, onPrimary: () -> Uni
                 state.commandReady || state.interactionPhase == com.gust4av033.appcopilotomoto.TripInteractionPhase.WAITING -> if (state.buttonMode) R.string.settings_button_ready else R.string.settings_voice_ready
                 else -> R.string.settings_voice_preparing
             }
-            Text(if (state.developerEnabled) state.tripStatus else stringResource(progress), style = MaterialTheme.typography.bodyMedium,
+            if (state.tripActive || state.sessionProblem || state.developerEnabled) Text(if (state.developerEnabled) state.tripStatus else stringResource(progress), style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             if (state.tripActive && state.buttonMode && tripScreen) {

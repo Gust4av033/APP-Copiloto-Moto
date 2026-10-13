@@ -6,6 +6,8 @@ import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.text.TextLayoutResult
 import com.gust4av033.appcopilotomoto.presentation.*
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
@@ -91,6 +93,17 @@ class HomeDashboardUiTest {
             val node=compose.onNodeWithTag("home_tab_$i")
             assertTrue(node.fetchSemanticsNode().boundsInRoot.height/density>=48f)
             node.performClick();node.assertIsSelected()
+        }
+        render("route-storm-large-font")
+        for (label in listOf("Copiloto", "Mi equipo", "Mi ruta")) {
+            val layouts=mutableListOf<TextLayoutResult>()
+            compose.onNodeWithText(label,useUnmergedTree=true).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+            assertEquals(1,layouts.single().lineCount)
+            val layout=layouts.single()
+            // Intrinsic width may round upward by a subpixel; assert the actual painted line bounds.
+            assertTrue("$label must fit its label bounds",layout.getLineRight(0)<=layout.size.width+1f)
+            assertTrue(layout.getLineLeft(0)>=-1f)
+            assertFalse(layout.didOverflowHeight)
         }
         render("route-storm-large-font")
     }

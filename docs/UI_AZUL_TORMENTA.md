@@ -35,6 +35,7 @@ El panel principal y la preparación del equipo se organizan en tres tarjetas:
   y acceso a Viaje. No inventa ETA, kilómetros ni estado de ruta activa.
 
 Se puede deslizar horizontalmente o pulsar pestañas etiquetadas de al menos 48 dp.
+Con fuente de 130 % o mayor, las pestañas pasan a una lista vertical para conservar las palabras completas.
 La página elegida se conserva con el estado guardable de Compose; la altura se adapta
 al contenido y la fuente. El resto de Inicio continúa desplazándose verticalmente.
 Los accesos a Comandos, permisos pendientes y ayuda permanecen fuera del carrusel.
@@ -49,8 +50,23 @@ de desarrollador y no se convierte en navegación activa por aparecer esta tarje
 
 ## Validación
 
-La compilación y pruebas de esta entrega están en curso. Los resultados anteriores
-no se reutilizan como evidencia de la paleta ni del carrusel nuevos.
+Se compilaron debug, release y fieldTest con la dependencia real openwakeword-android
+0.1.2; los tres APK se comprobaron como ZIP válidos. Las pruebas finales tienen 221 casos
+por variante: debug 220 aprobados y 1 omitido; release 204 aprobados y 17 omitidos,
+sin fallos ni errores. Debug omite el caso exclusivo de release; release omite las
+pruebas Compose que necesitan el host exclusivo de debug. Los seis casos nuevos del
+carrusel y los cuatro de contraste pasaron. Lint debug terminó con cero errores,
+110 advertencias y 9 recomendaciones. No se atribuyen resultados de entregas previas
+a la paleta ni al carrusel nuevos.
+
+Se inspeccionaron renders de Inicio en claro/oscuro, equipo y ruta con fuente ampliada.
+En fuente grande las pestañas mantienen palabras completas y acceso táctil; se verifica
+la línea pintada con tolerancia de un píxel para el redondeo de medidas de texto.
+Se eliminó el mensaje duplicado de preparación en el estado de reposo de Inicio.
+Las opciones de viaje, solicitudes pendientes y avisos de problema siguen disponibles.
+
+La herramienta local usa JDK 17, SDK 36 y Gradle 8.13. Los ajustes del proxy/certificados,
+repositorios y límites de workers de este entorno no se añaden al proyecto.
 
 Las pruebas añadidas usan la UI Compose real en Android JVM: gestos, selección de
 pestañas, ausencia de callbacks de audio durante swipes, arrastre sobre Iniciar,
@@ -80,3 +96,21 @@ Sincroniza con JDK 17/SDK 36 y ejecuta debug o fieldTest.
    revisa Ajustes y que las herramientas internas permanezcan protegidas.
 
 El clima, el historial y el perfil de moto no se implementan en esta entrega visual.
+
+## Archivos de la entrega
+
+- `app/src/main/java/com/gust4av033/appcopilotomoto/OverlayGlassStyle.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/components/CopilotComponents.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/components/HomeDashboardPager.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/components/JourneyHero.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/screens/HomeScreen.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/theme/CopilotPalette.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/theme/CopilotTheme.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/theme/Glass.kt`
+- `app/src/main/java/com/gust4av033/appcopilotomoto/presentation/theme/StormGlass.kt`
+- `app/src/main/res/values/brand_colors.xml`
+- `app/src/main/res/values/ui_strings.xml`
+- `app/src/test/java/com/gust4av033/appcopilotomoto/HomeDashboardUiTest.kt`
+- `app/src/test/java/com/gust4av033/appcopilotomoto/SettingsContrastTest.kt`
+- `docs/UI_AZUL_TORMENTA.md`
+- `docs/UI_BASE.md`

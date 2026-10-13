@@ -16,6 +16,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -38,18 +39,19 @@ fun HomeDashboardPager(state: CopilotUiState, actions: CopilotActions, onNavigat
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         GlassPanel(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.small) {
-            Row(Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            if (LocalDensity.current.fontScale >= 1.3f) {
+                Column(Modifier.padding(4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    labels.forEachIndexed { index, title ->
+                        DashboardTab(index, title, pager.currentPage == index, Modifier.fillMaxWidth()) {
+                            scope.launch { pager.animateScrollToPage(index) }
+                        }
+                    }
+                }
+            } else Row(Modifier.padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 labels.forEachIndexed { index, title ->
-                    val active = pager.currentPage == index
-                    TextButton(
-                        onClick = { scope.launch { pager.animateScrollToPage(index) } },
-                        modifier = Modifier.weight(1f).sizeIn(minHeight = 48.dp).testTag("home_tab_$index")
-                            .semantics { selected = active; role = Role.Tab },
-                        shape = MaterialTheme.shapes.small,
-                        colors = ButtonDefaults.textButtonColors(
-                            containerColor = if (active) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent,
-                            contentColor = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
-                    ) { Text(stringResource(title), style = MaterialTheme.typography.labelLarge) }
+                    DashboardTab(index, title, pager.currentPage == index, Modifier.weight(1f)) {
+                        scope.launch { pager.animateScrollToPage(index) }
+                    }
                 }
             }
         }
@@ -77,6 +79,18 @@ fun HomeDashboardPager(state: CopilotUiState, actions: CopilotActions, onNavigat
                 style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+@Composable
+private fun DashboardTab(index: Int, title: Int, active: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    TextButton(onClick = onClick,
+        modifier = modifier.sizeIn(minHeight = 48.dp).testTag("home_tab_$index")
+            .semantics { selected = active; role = Role.Tab },
+        shape = MaterialTheme.shapes.small,
+        colors = ButtonDefaults.textButtonColors(
+            containerColor = if (active) MaterialTheme.colorScheme.secondaryContainer else androidx.compose.ui.graphics.Color.Transparent,
+            contentColor = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant)
+    ) { Text(stringResource(title), style = MaterialTheme.typography.labelLarge, maxLines = 1, softWrap = false) }
 }
 
 @Composable
