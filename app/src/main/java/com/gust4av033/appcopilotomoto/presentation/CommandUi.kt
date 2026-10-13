@@ -27,6 +27,7 @@ fun RoutedCommand.toCommandUi(): CommandUi = when (intent) {
     TestIntent.DRAFT_CONTACT_MESSAGE -> CommandUi(R.string.command_chat_draft, R.string.command_contact_parameter,
         "${chatApp?.label.orEmpty()}: ${contactName.orEmpty()}")
     TestIntent.SEARCH_PLACE -> CommandUi(R.string.command_search_place, R.string.command_place_query, placeQuery.orEmpty())
+    TestIntent.NEXT_TURN -> CommandUi(R.string.command_next_turn)
     TestIntent.NAVIGATE -> CommandUi(R.string.command_navigate, R.string.command_navigation_parameter,
         when (navigationRequest) {
             com.gust4av033.appcopilotomoto.NavigationRequest.HOME -> "Casa"

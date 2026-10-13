@@ -508,6 +508,20 @@
     <string name="home_panel_hint">Desliza la tarjeta o toca una pestaña.</string>
     <string name="home_panel_count">%1$d de %2$d</string>
     <string name="home_panel_player">Música · %1$s</string>
+    <string name="waze_screen_label">APP · lectura de pantalla de Waze</string>
+    <string name="waze_screen_title">Pantalla de Waze · experimental</string>
+    <string name="waze_screen_description">Lee solo texto visible de la parte superior de Waze durante un viaje de APP. Requiere desarrollo activo y permiso de Accesibilidad. No pulsa controles ni cambia de app. Descarta lecturas al terminar el viaje.</string>
+    <string name="waze_screen_toggle">Observar pantalla de Waze</string>
+    <string name="waze_screen_permission">Configurar Accesibilidad para Waze</string>
+    <string name="waze_screen_granted">Accesibilidad concedida a esta instalación.</string>
+    <string name="waze_screen_missing">Falta activar APP · lectura de pantalla de Waze en Accesibilidad.</string>
+    <string name="waze_screen_command">Consulta experimental: «¿Cuál es el próximo giro?» o «¿Qué indica Waze?». Mantén Waze al frente con la ruta iniciada; si no hay una lectura reciente, APP lo explica.</string>
+    <string name="waze_screen_empty">Todavía no hay texto de pantalla de Waze en este viaje.</string>
+    <string name="waze_screen_sample">Hay una muestra de pantalla. Puedes copiarla para comprobar la interpretación.</string>
+    <string name="waze_screen_copy">Copiar lectura de pantalla de Waze</string>
+    <string name="command_next_turn">Consultar próximo giro</string>
+    <string name="waze_screen_last">Última indicación observada: %1$s. %2$s</string>
+    <string name="waze_screen_last_scope">Lectura experimental de pantalla; puede haber cambiado. La consulta por voz requiere Waze visible y una lectura de hasta 15 segundos. ETA y distancia total siguen no disponibles.</string>
 </resources>
 
 

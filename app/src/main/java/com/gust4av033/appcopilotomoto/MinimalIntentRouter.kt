@@ -3,7 +3,7 @@ package com.gust4av033.appcopilotomoto
 import java.text.Normalizer
 import java.util.Locale
 
-enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, MEDIA_SEARCH, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, OPEN_APP, OPEN_CONTACT_CHAT, DRAFT_CONTACT_MESSAGE, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, SWITCH_MODE, OPEN_ASSISTANT, NAVIGATE, SEARCH_PLACE, UNKNOWN }
+enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, MEDIA_SEARCH, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, OPEN_APP, OPEN_CONTACT_CHAT, DRAFT_CONTACT_MESSAGE, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, SWITCH_MODE, OPEN_ASSISTANT, NAVIGATE, SEARCH_PLACE, NEXT_TURN, UNKNOWN }
 
 data class VolumeRequest(val amount: Int, val percent: Boolean)
 data class RoutedCommand(
@@ -120,6 +120,7 @@ object MinimalIntentRouter {
         val chat = ContactChatParser.parse(normalized)
         val draft = ChatDraftParser.parse(transcript)
         val intent = when {
+            normalized in setOf("cual es el proximo giro", "proximo giro", "que indica waze", "que dice waze", "next turn", "what is the next turn") -> TestIntent.NEXT_TURN
             mode != null -> TestIntent.SWITCH_MODE
             navigation != null -> TestIntent.NAVIGATE
             placeQuery != null -> TestIntent.SEARCH_PLACE

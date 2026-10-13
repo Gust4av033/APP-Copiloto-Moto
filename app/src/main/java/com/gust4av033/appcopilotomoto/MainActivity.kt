@@ -128,6 +128,8 @@ class MainActivity : ComponentActivity() {
     private var mediaAccessGranted by mutableStateOf(false)
     private var wazeObservationEnabled by mutableStateOf(false)
     private var wazeObservationGranted by mutableStateOf(false)
+    private var wazeScreenEnabled by mutableStateOf(false)
+    private var wazeScreenGranted by mutableStateOf(false)
     private var manualActivationOnly by mutableStateOf(false)
     private var buttonProbeActive by mutableStateOf(false)
     private var buttonProbeLog by mutableStateOf<List<String>>(emptyList())
@@ -354,6 +356,9 @@ class MainActivity : ComponentActivity() {
             wazeObservationEnabled = wazeObservationEnabled,
             wazeObservationGranted = wazeObservationGranted,
             wazeObservation = WazeNotificationObservation.snapshot,
+            wazeScreenEnabled = wazeScreenEnabled,
+            wazeScreenGranted = wazeScreenGranted,
+            wazeScreen = WazeScreenState.snapshot,
             navigationContext = TripNavigationState.context,
             lastNavigationRequest = lastNavigationRequest?.label.orEmpty(),
             chatCapabilities = chatCapabilities,
@@ -408,6 +413,8 @@ class MainActivity : ComponentActivity() {
                         settingsStore.setDeveloperEnabled(BuildConfig.DEBUG, false)
                         WazeObservationAccess.setEnabled(this@MainActivity, false)
                         wazeObservationEnabled = false
+                        WazeScreenAccess.setEnabled(this@MainActivity, false)
+                        wazeScreenEnabled = false
                         if (tripAudioMode == WakeAudioMode.PHONE_WAKE || manualActivationOnly) {
                             tripAudioMode = if (manualActivationOnly) WakeAudioMode.BUTTON else WakeAudioMode.BLUETOOTH
                             manualActivationOnly = false
@@ -528,6 +535,15 @@ class MainActivity : ComponentActivity() {
                         WazeObservationAccess.setEnabled(this@MainActivity, enabled)
                         wazeObservationEnabled = enabled
                     }
+                },
+                onWazeScreenChange = { enabled ->
+                    if (canRunDeveloperTools() && !audioBusy()) {
+                        WazeScreenAccess.setEnabled(this@MainActivity, enabled)
+                        wazeScreenEnabled = enabled
+                    }
+                },
+                onWazeScreenPermission = {
+                    if (canRunDeveloperTools() && wazeScreenEnabled && !audioBusy()) startActivity(WazeScreenAccess.settingsIntent())
                 },
                 onWazeObservationPermission = {
                     if (canRunDeveloperTools() && wazeObservationEnabled && !audioBusy())
@@ -721,6 +737,9 @@ class MainActivity : ComponentActivity() {
         lastNavigationRequest = NavigationRequestStore.last(this)
         wazeObservationEnabled = WazeObservationAccess.enabled(this)
         wazeObservationGranted = WazeObservationAccess.granted(this)
+        wazeScreenEnabled = WazeScreenAccess.enabled(this)
+        wazeScreenGranted = WazeScreenAccess.granted(this)
+        if (!WazeScreenAccess.allowed(this)) WazeScreenState.clear()
         if (!WazeObservationAccess.allowed(this)) WazeNotificationObservation.clearSample()
         tripButtonBinding = TripButtonBinding.parse(prefs.getString(TripButtonBinding.PREFERENCE, null))
         manualActivationOnly = if (TripTestState.running) TripTestState.manualActivationOnly else
@@ -1155,6 +1174,7 @@ class MainActivity : ComponentActivity() {
                                 onFailure = { it.message ?: "No se encontró la aplicación." }
                             )
                             TestIntent.SEARCH_PLACE -> "Búsqueda interpretada; se confirma en el viaje. No se abrió Waze."
+                            TestIntent.NEXT_TURN -> actions.nextTurnAnswer()
                             TestIntent.NAVIGATE -> "Destino interpretado; la ruta y su confirmación se prueban durante el viaje. No se abrió Waze."
                             TestIntent.OPEN_CONTACT_CHAT -> "Escuché: ‘$heard’. Los chats con confirmación por voz se prueban en la sesión de viaje."
                             TestIntent.DRAFT_CONTACT_MESSAGE -> "Borrador interpretado; dictado y confirmación se prueban en el viaje. No se abrió ni envió un mensaje."

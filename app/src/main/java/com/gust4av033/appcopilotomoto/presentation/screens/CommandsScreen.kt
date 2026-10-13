@@ -32,6 +32,7 @@ fun LazyListScope.CommandsScreen(state: CopilotUiState, actions: CopilotActions)
                 else stringResource(R.string.commands_voice_intro, state.phraseLabel))
         }
     }
+    item(key = "next_turn") { SupportingText(stringResource(R.string.waze_screen_command)) }
     item(key = "music") {
         ExpandableSectionCard(stringResource(R.string.command_group_music)) {
             Text(stringResource(R.string.commands_music))

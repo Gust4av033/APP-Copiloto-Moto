@@ -31,7 +31,8 @@ object TripNavigationState {
     fun beginSession() {
         context = TripNavigationContext(sessionId = UUID.randomUUID().toString())
         WazeNotificationObservation.beginSession(context.sessionId)
+        WazeScreenState.session(context.sessionId)
     }
-    fun endSession() { context = TripNavigationContext(); WazeNotificationObservation.endSession() }
+    fun endSession() { context = TripNavigationContext(); WazeNotificationObservation.endSession(); WazeScreenState.session(null) }
     fun record(session: String?, dispatch: NavigationDispatch) { context = context.record(session, dispatch) }
 }

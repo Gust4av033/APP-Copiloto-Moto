@@ -735,6 +735,7 @@ class TripVoiceService : Service() {
                 return@listenOnce
             }
             if (intent == TestIntent.OPEN_ASSISTANT) {
+                // Opening APP remains separate from reading the navigation source.
                 TripTestState.recognized++
                 val opened = openAssistant()
                 if (opened) {
@@ -745,6 +746,12 @@ class TripVoiceService : Service() {
                     else "No se pudo abrir APP. Desbloqueá el teléfono y usá la burbuja o la notificación."
                 TripTestState.save(this)
                 schedule(100L) { if (active && detector === provider && cycle == generation) startDetector(provider) }
+                return@listenOnce
+            }
+            if (intent == TestIntent.NEXT_TURN) {
+                TripTestState.recognized++
+                TripTestState.save(this)
+                explainResolutionProblem(provider, cycle, actions.nextTurnAnswer())
                 return@listenOnce
             }
             if (intent == TestIntent.VOLUME_UP || intent == TestIntent.VOLUME_DOWN ||

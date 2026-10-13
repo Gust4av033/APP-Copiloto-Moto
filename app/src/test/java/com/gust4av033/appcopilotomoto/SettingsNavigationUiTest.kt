@@ -77,6 +77,25 @@ class SettingsNavigationUiTest {
         app(section=SettingsSection.NAVIGATION)
         compose.onNodeWithText("Muestra de Waze · experimental").assertDoesNotExist()
     }
+    @Test fun screenConsentEmitsOnlyItsExplicitPreferenceCallback() {
+        var enabled:Boolean?=null
+        var microphoneRequests=0
+        app(state=CopilotUiState(developerAccess=DeveloperAccess(true,true)),section=SettingsSection.NAVIGATION,
+            actions=CopilotActions(onWazeScreenChange={enabled=it},onManualTripCommand={microphoneRequests++}))
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Observar pantalla de Waze"))
+        compose.onNodeWithText("Observar pantalla de Waze").performClick()
+        assertEquals(true,enabled)
+        assertEquals(0,microphoneRequests)
+    }
+    @Test fun screenTurnIsShownAsALastObservationInStormGlass() {
+        app(state=CopilotUiState(tripActive=true,wazeScreen=WazeScreenSnapshot("s",true,false,1000,
+            turn=WazeTurn("Gira a la izquierda","300 m"))),screen=CopilotScreen.TRIP,scale=1.5f)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Última indicación observada: Gira a la izquierda. 300 m"))
+        compose.onNodeWithText("Última indicación observada: Gira a la izquierda. 300 m").assertExists()
+        compose.onNodeWithText("Estado de ruta no disponible.").assertExists()
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Lectura experimental de pantalla; puede haber cambiado.",substring=true))
+        saveRender("phase2-screen-turn-storm-150")
+    }
     @Test fun wazeObservationShowsBoundedSampleAndCopyIsExplicit() {
         var copied: String? = null
         app(state=CopilotUiState(developerAccess=DeveloperAccess(true,true), tripActive=true,

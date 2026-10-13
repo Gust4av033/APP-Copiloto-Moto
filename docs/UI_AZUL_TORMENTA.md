@@ -1,5 +1,7 @@
 # Vidrio azul tormenta e Inicio deslizable
 
+La prueba conjunta de Fase 2 continúa en feature/fase-2-waze-screen desde b862acf. Añade controles de lectura de pantalla en Navegación con desarrollo activo y una última indicación observada en Viaje, reutilizando las mismas superficies, colores y tamaños. No modifica el carrusel ni los controles de la burbuja. Ver [fuente, consulta y prueba](FASE_2_PANTALLA_WAZE.md).
+
 Rama: `feature/ui-storm-glass`, basada en `feature/fase-2-waze-observation`
 `f10672490a2a0951195db5375d415adf1240a111`. Esa base contiene Ajustes separados,
 la Fase 2 de contexto de navegación y la observación opcional de Waze.

@@ -7,7 +7,7 @@ import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.TripNavigationContext
 
 @Composable
-fun TripNavigationCard(context: TripNavigationContext) {
+fun TripNavigationCard(context: TripNavigationContext, screen: com.gust4av033.appcopilotomoto.WazeScreenSnapshot = com.gust4av033.appcopilotomoto.WazeScreenSnapshot()) {
     SectionCard(stringResource(R.string.trip_navigation_title)) {
         val request = context.lastDispatch
         if (request == null) SupportingText(stringResource(R.string.trip_navigation_empty))
@@ -19,6 +19,10 @@ fun TripNavigationCard(context: TripNavigationContext) {
                 SupportingText(stringResource(R.string.trip_navigation_search_unconfirmed))
         }
         SupportingText(stringResource(R.string.trip_navigation_route_unknown))
-        SupportingText(stringResource(R.string.trip_navigation_data_unavailable))
+        if (screen.turn == null) SupportingText(stringResource(R.string.trip_navigation_data_unavailable))
+        else {
+            SupportingText(stringResource(R.string.waze_screen_last, screen.turn.instruction, screen.turn.distance.orEmpty()))
+            SupportingText(stringResource(R.string.waze_screen_last_scope))
+        }
     }
 }

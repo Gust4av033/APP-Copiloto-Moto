@@ -18,11 +18,13 @@ interface NavigationProvider {
     val label: String
     val capabilities: NavigationCapabilities
     fun available(): Boolean
+    fun nextTurnAnswer(): String = "Este navegador no ofrece una indicación reciente para APP."
     fun prepare(destination: NavigationDestination): Result<AppTarget>
     fun search(query: String): Result<AppTarget> = Result.failure(UnsupportedOperationException("Este navegador no ofrece búsqueda de lugares."))
 }
 
 class WazeNavigationProvider(private val context: Context) : NavigationProvider {
+    override fun nextTurnAnswer(): String = WazeScreenAccess.answer(context)
     override val id = "waze"
     override val label = "Waze"
     override val capabilities = NavigationCapabilities(opensSavedDestinations = true, searchesPlaces = true)

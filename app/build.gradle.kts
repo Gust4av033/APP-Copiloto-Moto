@@ -14,8 +14,8 @@ android {
         applicationId = "com.gust4av033.appcopilotomoto"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.1.0-f2-observation1"
+        versionCode = 6
+        versionName = "1.1.0-f2-screen1"
     }
 
     buildTypes {
