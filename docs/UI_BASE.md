@@ -1,6 +1,6 @@
 # UI de APP Copiloto Moto · Fase 1
 
-## Rediseño de vidrio · 13 de octubre de 2026
+## Rediseño de vidrio · 12 de octubre de 2026
 
 Base comprobada: `feature/fase-1-intent-router` en `1c826ff72b686e23760e089b3556b06669456467`. `main` permanece en `c8d80c7` y no contiene el núcleo actual. La entrega vive en `feature/ui-glass-redesign`, derivada de fase 1. Las reglas de evolución se guardan en el `AGENTS.md` raíz.
 
