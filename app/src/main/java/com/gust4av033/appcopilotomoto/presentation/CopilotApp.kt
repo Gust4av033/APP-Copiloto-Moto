@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -90,8 +91,10 @@ fun CopilotApp(
             CopilotBackdrop()
         Scaffold(
             containerColor = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onBackground,
             topBar = {
-                if (settingsDetail) Surface(color = Glass.surface(strong = true)) {
+                if (settingsDetail) Surface(color = Glass.surface(strong = true),
+                    contentColor = MaterialTheme.colorScheme.onSurface) {
                     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = { settingsSectionName = SettingsSection.OVERVIEW.name }) {
@@ -103,7 +106,8 @@ fun CopilotApp(
             bottomBar = {
                 Column {
                     if (state.tripActive && selectedScreen != CopilotScreen.TRIP) {
-                        Surface(color = Glass.surface(strong = true)) {
+                        Surface(color = Glass.surface(strong = true),
+                            contentColor = MaterialTheme.colorScheme.onSurface) {
                             Row(
                                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -120,13 +124,20 @@ fun CopilotApp(
                             }
                         }
                     }
-                    NavigationBar(containerColor = Glass.surface(strong = true)) {
+                    NavigationBar(containerColor = Glass.surface(strong = true),
+                        contentColor = MaterialTheme.colorScheme.onSurface) {
                         CopilotScreen.entries.filter { it.inMainNavigation }.forEach { screen ->
                             NavigationBarItem(
                                 selected = mainSelection == screen,
                                 onClick = { navigate(screen) },
                                 icon = { Icon(painterResource(screen.iconRes), contentDescription = null, modifier = Modifier.size(24.dp)) },
-                                label = { Text(stringResource(screen.titleRes)) }
+                                label = { Text(stringResource(screen.titleRes)) },
+                                colors = NavigationBarItemDefaults.colors(
+                                    selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                                    selectedTextColor = MaterialTheme.colorScheme.onSurface,
+                                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .78f),
+                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant)
                             )
                         }
                     }
@@ -138,8 +149,8 @@ fun CopilotApp(
                 "${selectedScreen.name}/${settingsSection.name}" else selectedScreen.name) {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding).widthIn(max = 680.dp),
-                    contentPadding = PaddingValues(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(18.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     item(key = "header") {

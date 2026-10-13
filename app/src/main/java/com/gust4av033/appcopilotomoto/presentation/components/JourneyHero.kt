@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -29,6 +27,7 @@ import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.TripCallPhase
 import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 import com.gust4av033.appcopilotomoto.presentation.theme.Glass
+import com.gust4av033.appcopilotomoto.presentation.theme.GlassPanel
 
 /** Resume el estado compartido del servicio sin ejecutar efectos al dibujarse. */
 @Composable
@@ -46,11 +45,7 @@ fun JourneyHero(state: CopilotUiState, tripScreen: Boolean, onPrimary: () -> Uni
         "PHONE_WAKE" -> R.string.mode_phone_title
         else -> R.string.mode_voice_title
     }
-    Surface(
-        modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large,
-        color = Glass.surface(strong = true),
-        border = BorderStroke(1.dp, Glass.outline()), shadowElevation = 8.dp
-    ) {
+    GlassPanel(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, strong = true) {
         Column(
             Modifier.background(Brush.linearGradient(listOf(
                 MaterialTheme.colorScheme.primary.copy(alpha = .13f),
@@ -61,7 +56,8 @@ fun JourneyHero(state: CopilotUiState, tripScreen: Boolean, onPrimary: () -> Uni
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Surface(shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .85f),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .72f),
+                    contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
                     border = BorderStroke(1.dp, Glass.outline())) {
                     Icon(painterResource(R.drawable.ic_motorcycle), null,
                         Modifier.padding(16.dp).size(28.dp), tint = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -70,15 +66,17 @@ fun JourneyHero(state: CopilotUiState, tripScreen: Boolean, onPrimary: () -> Uni
                     Text(stringResource(R.string.home_copilot), style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary)
                     Text(stringResource(status), style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
                 }
             }
             Text(stringResource(if (state.tripActive) R.string.journey_active_hint else R.string.journey_ready_hint),
                 style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .8f)) {
+            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .7f),
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
                 Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(painterResource(R.drawable.ic_mic), null, Modifier.size(20.dp),
+                    Icon(painterResource(if (state.buttonMode) R.drawable.ic_button else R.drawable.ic_mic), null, Modifier.size(20.dp),
                         tint = MaterialTheme.colorScheme.onSecondaryContainer)
                     Text(stringResource(mode), style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.onSecondaryContainer)
@@ -89,15 +87,14 @@ fun JourneyHero(state: CopilotUiState, tripScreen: Boolean, onPrimary: () -> Uni
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             if (state.tripActive && state.buttonMode && tripScreen) {
                 ActionButton(stringResource(R.string.trip_manual_command),
-                    enabled = state.canRequestTripCommand, onClick = onCommand)
+                    enabled = state.canRequestTripCommand, iconRes = R.drawable.ic_mic, onClick = onCommand)
             }
-            Button(onClick = onPrimary, enabled = state.tripActive || state.canStartTrip,
-                modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary)) {
-                Text(stringResource(if (!state.tripActive) R.string.trip_start else if (tripScreen)
-                    R.string.trip_stop else R.string.home_open_trip), Modifier.padding(vertical = 6.dp))
-            }
+            ActionButton(stringResource(if (!state.tripActive) R.string.trip_start else if (tripScreen)
+                    R.string.trip_stop else R.string.home_open_trip),
+                enabled = state.tripActive || state.canStartTrip, primary = true,
+                iconRes = when { !state.tripActive -> R.drawable.ic_play
+                    tripScreen -> R.drawable.ic_stop
+                    else -> R.drawable.ic_trip }, onClick = onPrimary)
             if (state.manualActivationOnly) SupportingText(stringResource(R.string.manual_activation_summary))
             if (state.audioDevices.selectionMissing) Text(stringResource(R.string.devices_selection_lost),
                 color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
@@ -107,13 +104,12 @@ fun JourneyHero(state: CopilotUiState, tripScreen: Boolean, onPrimary: () -> Uni
 
 @Composable
 fun QuickLink(title: String, hint: String, iconRes: Int, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 88.dp),
-        shape = MaterialTheme.shapes.medium, color = Glass.surface(),
-        border = BorderStroke(1.dp, Glass.outline())) {
+    GlassPanel(onClick = onClick, modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 88.dp)) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             Surface(shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .8f)) {
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .74f),
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer) {
                 Icon(painterResource(iconRes), null, Modifier.padding(12.dp).size(24.dp),
                     tint = MaterialTheme.colorScheme.onPrimaryContainer)
             }

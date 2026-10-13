@@ -28,10 +28,12 @@ fun LazyListScope.HomeScreen(state: CopilotUiState, actions: CopilotActions, onN
                 else stringResource(R.string.mode_voice_instruction, state.phraseLabel))
             if (state.buttonMode && !state.assistantSelected) {
                 SupportingText(stringResource(R.string.home_assistant_required))
-                ActionButton(stringResource(R.string.assistant_select), enabled = !state.busy, onClick = actions.onSelectAssistant)
+                ActionButton(stringResource(R.string.assistant_select), enabled = !state.busy,
+                    iconRes = R.drawable.ic_button, onClick = actions.onSelectAssistant)
             }
             if (state.busy && !state.tripActive) SupportingText(stringResource(R.string.home_test_active))
-            ActionButton(stringResource(R.string.home_configure), onClick = { onNavigate(CopilotScreen.SETTINGS) })
+            ActionButton(stringResource(R.string.home_configure), iconRes = R.drawable.ic_settings,
+                onClick = { onNavigate(CopilotScreen.SETTINGS) })
         }
     }
     item(key = "commands") {

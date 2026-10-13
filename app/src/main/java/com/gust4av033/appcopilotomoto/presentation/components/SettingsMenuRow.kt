@@ -1,6 +1,5 @@
 package com.gust4av033.appcopilotomoto.presentation.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -21,16 +20,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.SettingsSection
-import com.gust4av033.appcopilotomoto.presentation.theme.Glass
+import com.gust4av033.appcopilotomoto.presentation.theme.GlassPanel
 
 @Composable
 fun SettingsMenuRow(section: SettingsSection, value: String?, onClick: () -> Unit) {
-    Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 88.dp),
-        shape = MaterialTheme.shapes.medium, color = Glass.surface(),
-        border = BorderStroke(1.dp, Glass.outline()), shadowElevation = 2.dp) {
+    GlassPanel(onClick = onClick, modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 88.dp)) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .8f)) {
+            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .74f),
+                contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
                 Icon(painterResource(section.iconRes), null, Modifier.padding(10.dp).size(24.dp),
                     tint = MaterialTheme.colorScheme.onSecondaryContainer)
             }

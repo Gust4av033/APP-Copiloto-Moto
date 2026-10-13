@@ -1,5 +1,15 @@
 # UI de APP Copiloto Moto · Fase 1
 
+## Refinamiento de vidrio · versión 1.2 · 13 de octubre de 2026
+
+La rama `feature/ui-glass-redesign` continúa la entrega vigente sin tocar los flujos de voz, llamadas, música, navegación ni borradores. El material visual se centraliza en `presentation/theme/Glass.kt`: `GlassPanel` aplica tinte, borde con reflejo y elevación a Inicio, Viaje y Ajustes. Los paneles normales usan blanco al 64 % en claro y azul noche al 39 % en oscuro; el principal usa 76 % y 51 %. El fondo estático morado, celeste y azul se distingue a través del material. El reflejo del borde y la sombra dan profundidad sin reducir la opacidad de textos e iconos.
+
+El color del contenido se fija según el tema (`onSurface` dentro de vidrio y `onBackground` en el cuerpo), ya que el color translúcido personalizado no resuelve automáticamente el color de contenido en Material 3. `glassTextFieldColors` fija texto, etiqueta, placeholder, cursor y bordes de las entradas. Los botones principales usan el par `primary/onPrimary`; los claros y los menús conservan su contraste propio. `ActionButton` admite icono vectorial, disponible/deshabilitado y respuesta táctil de Material. `ChoiceGroup` distingue la fila elegida mediante borde, tinte y radio, además del texto. El botón de sesión cambia entre iniciar, detener y abrir Viaje de acuerdo con el estado real; el modo botón usa icono propio en vez del micrófono. Este sistema se usa también en las rutas auxiliares para mantener coherencia.
+
+No se añade desenfoque real: el fondo ya consiste en gradientes de escala grande y Compose `Modifier.blur` desenfocaría el panel y sus controles, sin aislar la capa posterior en Android 26. La transparencia más visible y las capas de color conservan la legibilidad y evitan coste de captura o procesamiento adicional durante el audio. Los previews de `CopilotApp.kt` cubren Inicio, Viaje y Ajustes en claro/oscuro y texto al 150 %, pero solo una ejecución con renderizador permite inspeccionar el resultado. Si se dispone de emulador o dispositivo, guardar capturas antes y después con misma pantalla, tema, tamaño de fuente y estado de sesión; revisar especialmente contraste, transmisión del fondo, estados pulsado/deshabilitado y alineación.
+
+La comprobación local de la versión 1.2 completó `assembleDebug`, `testDebugUnitTest` (124 pruebas, sin fallos) y `lintDebug` (cero errores, 70 advertencias y 9 sugerencias). Se usó una interfaz temporal local para `openwakeword-android` fuera del repositorio porque JitPack no es accesible en este entorno; el APK de esa comprobación no sirve para validar la detección de voz. Solo hay `adb`, sin emulador, acceso a un dispositivo o motor de previews, por lo que no se pudieron exportar capturas reales antes/después. La compilación con la dependencia real, inspección de previews y pruebas del S22+ con Y12 Pro siguen pendientes.
+
 ## Rediseño de vidrio · 12 de octubre de 2026
 
 Base comprobada: `feature/fase-1-intent-router` en `1c826ff72b686e23760e089b3556b06669456467`. `main` permanece en `c8d80c7` y no contiene el núcleo actual. La entrega vive en `feature/ui-glass-redesign`, derivada de fase 1. Las reglas de evolución se guardan en el `AGENTS.md` raíz.
@@ -11,13 +21,13 @@ La navegación principal conserva Inicio, Viaje y Ajustes. Comandos y Pruebas pe
 | Elemento | Implementación |
 | --- | --- |
 | Fondo | `CopilotBackdrop`: azul noche `#0B1020` o claro `#E9EEFA`, con tres gradientes radiales morado, celeste y azul, estáticos. |
-| Material | `Glass.surface()`: tinte blanco al 79 % en claro y azul al 76 % en oscuro; panel principal al 92 %/88 %. Borde claro de 1 dp y sombra moderada donde importa. |
+| Material | `GlassPanel`: tinte blanco al 64 % en claro y azul al 39 % en oscuro; panel principal al 76 %/51 %. Borde con reflejo de 1 dp y sombra moderada. |
 | Acentos | Morado `#B69CFF`, celeste `#6DDCFF`, azul `#82AFFF` en tema oscuro; variantes de mayor contraste en claro. |
 | Forma y espacios | Radios Material 3 de 12/20/28 dp y espacios de 8/12/16/24 dp. Botones y filas mantienen al menos 48 dp de alto. |
-| Iconos | Vectores de trazo de 2 dp para navegación y categorías; etiquetas de texto acompañan cada acción. |
+| Iconos | Vectores de trazo de 2 dp para navegación, categorías y acciones principales; etiquetas de texto acompañan cada acción. |
 | Estado | `MainActivity.AppUi` adapta `TripTestState` y lecturas pasivas a `CopilotUiState`. `JourneyHero`, tarjetas de pendientes y ajustes reciben ese estado. |
 
-El vidrio es una aproximación con transparencias y gradientes; no usa desenfoque real. Los controles y su texto no reciben alpha global. El fondo se dibuja dentro de APP sin hacer transparente la Activity ni añadir permisos.
+El vidrio utiliza transparencias y gradientes; no usa desenfoque real por las razones de la sección 1.2. Los controles y su texto no reciben alpha global. El fondo se dibuja dentro de APP sin hacer transparente la Activity ni añadir permisos.
 
 ### Trazabilidad de capacidades
 
@@ -43,7 +53,7 @@ El procesamiento de recursos y la compilación Kotlin pasaron en el entorno. `:a
 
 En S22+ con Y12 Pro: probar activación por voz y botón, confirmar/cancelar una acción, volver de llamada, perder y reconectar Bluetooth, cambiar entre Inicio/Viaje/Ajustes, mantener Waze al frente, bloquear el teléfono y mostrar/minimizar/ocultar la burbuja. Comprobar música, recuperación audible y que la burbuja no abre el micrófono por sí sola. Revisar tema claro/oscuro, texto al 150 %, sol directo e insets. Las capturas de esas condiciones deben obtenerse del dispositivo o de un emulador; la compilación no las valida.
 
-Todo el trabajo de fase 1 se concentra en `feature/fase-1-intent-router`. Esta entrega integra las mejoras previas de `feature/ui-base-compose` con el núcleo vigente de llamadas, captura por botón y apertura de apps. La rama de UI queda como antecedente; las próximas mejoras continúan en fase 1.
+El núcleo funcional de fase 1 se concentra en `feature/fase-1-intent-router`. Esta entrega integra las mejoras previas de `feature/ui-base-compose` con ese núcleo y sigue en `feature/ui-glass-redesign` para revisión visual sin mezclarla automáticamente.
 
 ## Pantallas
 
@@ -72,8 +82,8 @@ La navegación principal sigue siendo Inicio, Viaje y Ajustes. Comandos y Prueba
 
 ```bash
 git fetch origin
-git switch feature/fase-1-intent-router
-git pull --ff-only origin feature/fase-1-intent-router
+git switch feature/ui-glass-redesign
+git pull --ff-only origin feature/ui-glass-redesign
 ./gradlew :app:assembleDebug :app:lintDebug :app:testDebugUnitTest
 ```
 

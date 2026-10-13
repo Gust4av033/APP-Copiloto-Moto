@@ -91,7 +91,8 @@ private fun AppCatalogCard(state: CopilotUiState, actions: CopilotActions) {
         ActionButton(stringResource(R.string.tests_apps_refresh), enabled = !state.appCatalogLoading, onClick = actions.onRefreshApps)
         OutlinedTextField(value = query, onValueChange = { query = it.take(100) },
             modifier = Modifier.fillMaxWidth(), singleLine = true,
-            label = { Text(stringResource(R.string.commands_apps_search)) })
+            label = { Text(stringResource(R.string.commands_apps_search)) },
+            colors = com.gust4av033.appcopilotomoto.presentation.theme.glassTextFieldColors())
         SupportingText(stringResource(R.string.commands_apps_count, matches.size))
         if (matches.isEmpty() && !state.appCatalogLoading) SupportingText(stringResource(if (state.appCommands.isEmpty())
             R.string.commands_apps_empty else R.string.commands_apps_no_match))

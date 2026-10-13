@@ -5,18 +5,23 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.RadioButton
+import androidx.compose.material3.RadioButtonDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -31,10 +36,12 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.painterResource
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.ChoiceUi
 import com.gust4av033.appcopilotomoto.TripCallPhase
 import com.gust4av033.appcopilotomoto.presentation.theme.Glass
+import com.gust4av033.appcopilotomoto.presentation.theme.GlassPanel
 
 @Composable
 fun SessionStatus(active: Boolean, restoring: Boolean = false, callPhase: TripCallPhase = TripCallPhase.NONE) {
@@ -58,12 +65,7 @@ fun SessionStatus(active: Boolean, restoring: Boolean = false, callPhase: TripCa
 
 @Composable
 fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Glass.surface()),
-        border = BorderStroke(1.dp, Glass.outline()),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
-    ) {
+    GlassPanel(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
             content()
@@ -77,32 +79,72 @@ fun SupportingText(text: String) {
 }
 
 @Composable
-fun ActionButton(label: String, enabled: Boolean = true, primary: Boolean = false, onClick: () -> Unit) {
+fun ToggleSettingRow(label: String, checked: Boolean, enabled: Boolean = true,
+                     onCheckedChange: (Boolean) -> Unit) {
+    Row(Modifier.fillMaxWidth().sizeIn(minHeight = 56.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(label, Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface)
+        Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
+    }
+}
+
+@Composable
+fun ActionButton(label: String, enabled: Boolean = true, primary: Boolean = false,
+                 iconRes: Int? = null, onClick: () -> Unit) {
     val modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 52.dp)
     if (primary) {
-        Button(onClick = onClick, enabled = enabled, modifier = modifier) { Text(label) }
+        Button(onClick = onClick, enabled = enabled, modifier = modifier,
+            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary)) {
+            if (iconRes != null) {
+                Icon(painterResource(iconRes), null, Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(label)
+        }
     } else {
-        OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier) { Text(label) }
+        val outline = Glass.outline()
+        OutlinedButton(onClick = onClick, enabled = enabled, modifier = modifier,
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface),
+            border = BorderStroke(1.dp, outline.copy(alpha = if (enabled) outline.alpha else .12f))) {
+            if (iconRes != null) {
+                Icon(painterResource(iconRes), null, Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+            }
+            Text(label)
+        }
     }
 }
 
 @Composable
 fun ChoiceGroup(options: List<ChoiceUi>, selectedId: String, enabled: Boolean, onSelect: (String) -> Unit) {
-    Column(Modifier.selectableGroup()) {
+    Column(Modifier.selectableGroup(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         options.forEach { option ->
-            Row(
-                modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 56.dp).selectable(
-                    selected = selectedId == option.id,
-                    enabled = enabled,
-                    role = Role.RadioButton,
-                    onClick = { onSelect(option.id) }
-                ).padding(vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                RadioButton(selected = selectedId == option.id, enabled = enabled, onClick = null)
-                Column(Modifier.weight(1f).padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(stringResource(option.titleRes), style = MaterialTheme.typography.titleSmall)
-                    option.descriptionRes?.let { SupportingText(stringResource(it)) }
+            val selected = selectedId == option.id
+            Surface(shape = MaterialTheme.shapes.small,
+                color = if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = .62f)
+                    else androidx.compose.ui.graphics.Color.Transparent,
+                contentColor = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurface,
+                border = BorderStroke(1.dp, if (selected) MaterialTheme.colorScheme.primary.copy(alpha = .62f)
+                    else Glass.outline())) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 56.dp).selectable(
+                        selected = selected,
+                        enabled = enabled,
+                        role = Role.RadioButton,
+                        onClick = { onSelect(option.id) }
+                    ).padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(selected = selected, enabled = enabled, onClick = null,
+                        colors = RadioButtonDefaults.colors(selectedColor = MaterialTheme.colorScheme.primary))
+                    Column(Modifier.weight(1f).padding(start = 12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(stringResource(option.titleRes), style = MaterialTheme.typography.titleSmall)
+                        option.descriptionRes?.let { SupportingText(stringResource(it)) }
+                    }
                 }
             }
         }
@@ -112,9 +154,10 @@ fun ChoiceGroup(options: List<ChoiceUi>, selectedId: String, enabled: Boolean, o
 @Composable
 fun ExpandableSectionCard(title: String, initiallyExpanded: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     var expanded by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(initiallyExpanded) }
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Glass.surface()),
-        border = BorderStroke(1.dp, Glass.outline())) {
-        Surface(onClick = { expanded = !expanded }, color = Glass.surface(),
+    GlassPanel(Modifier.fillMaxWidth()) {
+        Column {
+        Surface(onClick = { expanded = !expanded }, color = androidx.compose.ui.graphics.Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -127,5 +170,6 @@ fun ExpandableSectionCard(title: String, initiallyExpanded: Boolean = false, con
         }
         if (expanded) Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+        }
     }
 }

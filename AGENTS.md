@@ -8,6 +8,9 @@
 - La dirección visual es vidrio esmerilado sobre un fondo propio morado,
   celeste y azul. Mantén texto nítido, iconos vectoriales coherentes y contraste.
   Representa la profundidad sin efectos que degraden la fluidez o el audio.
+- Revisa colores semánticos de contenido, inputs y botones. Los controles
+  principales necesitan identificación clara y selección/estado visible.
+  Comprueba el acabado en capturas reales cuando se pueda renderizar.
 - La UI observa estado real compartido y emite eventos. No dupliques reglas
   del servicio ni actives micrófono o acciones al dibujar una pantalla.
 - Distingue modo de activación, estado de voz, sesión, audio y acción pendiente.

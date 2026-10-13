@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -42,6 +41,7 @@ import com.gust4av033.appcopilotomoto.presentation.components.ExpandableSectionC
 import com.gust4av033.appcopilotomoto.presentation.components.SectionCard
 import com.gust4av033.appcopilotomoto.presentation.components.SessionStatus
 import com.gust4av033.appcopilotomoto.presentation.components.SupportingText
+import com.gust4av033.appcopilotomoto.presentation.components.ToggleSettingRow
 
 fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommands: () -> Unit, onOpenTests: () -> Unit) {
     item(key = "TripScreen_0") {
@@ -84,7 +84,7 @@ fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onO
                 Text(stringResource(if (comparisonVisible) R.string.audio_comparison_hide else R.string.audio_comparison_show))
             }
             if (comparisonVisible) AudioComparison(state)
-            ActionButton(stringResource(R.string.open_tests), onClick = onOpenTests)
+            ActionButton(stringResource(R.string.open_tests), iconRes = R.drawable.ic_tests, onClick = onOpenTests)
         }
     }
     item(key = "TripScreen_5") {
@@ -162,6 +162,7 @@ fun LazyListScope.TestsScreen(state: CopilotUiState, actions: CopilotActions) {
                 stringResource(if (state.listening) R.string.listen_cancel else R.string.listen_start),
                 enabled = state.canListen,
                 primary = true,
+                iconRes = R.drawable.ic_mic,
                 onClick = actions.onToggleListening
             )
             state.lastTestCommand?.let {
@@ -263,15 +264,11 @@ fun LazyListScope.SettingsScreen(
                 SectionCard(stringResource(R.string.settings_input)) {
                     ChoiceGroup(state.inputs, state.inputId, if (state.tripActive) state.canRequestTripCommand else !state.busy, actions.onInputChange)
                     SupportingText(stringResource(R.string.mode_switch_hint))
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Column(Modifier.weight(1f)) {
-                            Text(stringResource(R.string.manual_activation_title))
-                            SupportingText(stringResource(R.string.manual_activation_hint))
-                        }
-                        Switch(checked = state.manualActivationOnly,
-                            onCheckedChange = actions.onManualActivationOnlyChange,
-                            enabled = if (state.tripActive) state.canRequestTripCommand else !state.busy)
-                    }
+                    ToggleSettingRow(stringResource(R.string.manual_activation_title),
+                        checked = state.manualActivationOnly,
+                        enabled = if (state.tripActive) state.canRequestTripCommand else !state.busy,
+                        onCheckedChange = actions.onManualActivationOnlyChange)
+                    SupportingText(stringResource(R.string.manual_activation_hint))
                     if (state.switchingMode) SupportingText(stringResource(R.string.overlay_switching))
                     if (state.buttonMode) SupportingText(stringResource(R.string.trip_button_hint))
                 }
@@ -311,27 +308,25 @@ fun LazyListScope.SettingsScreen(
         SettingsSection.APPEARANCE -> {
             item(key = "SettingsScreen_2") {
                 SectionCard(stringResource(R.string.overlay_settings_title)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.overlay_settings_toggle), modifier = Modifier.weight(1f))
-                        Switch(checked = state.overlayEnabled, onCheckedChange = actions.onOverlayEnabledChange)
-                    }
+                    ToggleSettingRow(stringResource(R.string.overlay_settings_toggle),
+                        checked = state.overlayEnabled, onCheckedChange = actions.onOverlayEnabledChange)
                     SupportingText(stringResource(R.string.overlay_settings_hint))
                     if (state.overlayEnabled && !state.overlayPermissionGranted) {
                         SupportingText(stringResource(R.string.overlay_permission_hint))
-                        ActionButton(stringResource(R.string.overlay_permission_button), onClick = actions.onOverlayPermission)
+                        ActionButton(stringResource(R.string.overlay_permission_button), iconRes = R.drawable.ic_display,
+                            onClick = actions.onOverlayPermission)
                     } else if (state.overlayEnabled && state.tripActive && state.overlayHidden) {
                         SupportingText(stringResource(R.string.overlay_hidden_hint))
-                        ActionButton(stringResource(R.string.overlay_show), onClick = actions.onShowOverlay)
+                        ActionButton(stringResource(R.string.overlay_show), iconRes = R.drawable.ic_display,
+                            onClick = actions.onShowOverlay)
                     }
                     if (state.overlayMessage.isNotBlank()) SupportingText(state.overlayMessage)
                 }
             }
             item(key = "SettingsScreen_1") {
                 SectionCard(stringResource(R.string.settings_screen_on)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.settings_screen_on_toggle), modifier = Modifier.weight(1f))
-                        Switch(checked = state.keepScreenOnDuringTrip, onCheckedChange = actions.onKeepScreenOnChange)
-                    }
+                    ToggleSettingRow(stringResource(R.string.settings_screen_on_toggle),
+                        checked = state.keepScreenOnDuringTrip, onCheckedChange = actions.onKeepScreenOnChange)
                     SupportingText(stringResource(R.string.settings_screen_on_hint))
                 }
             }
@@ -345,7 +340,8 @@ fun LazyListScope.SettingsScreen(
             item(key = "SettingsScreen_9") {
                 SectionCard(stringResource(R.string.settings_calls)) {
                     SupportingText(stringResource(R.string.settings_calls_hint))
-                    ActionButton(stringResource(R.string.calls_enable), enabled = !state.busy, onClick = actions.onEnableNamedCalls)
+                    ActionButton(stringResource(R.string.calls_enable), enabled = !state.busy,
+                        iconRes = R.drawable.ic_phone, onClick = actions.onEnableNamedCalls)
                     SupportingText(stringResource(R.string.calls_fixed_hint))
                     ActionButton(
                         stringResource(if (state.fixedContact == null) R.string.contact_choose else R.string.contact_change),
@@ -364,13 +360,14 @@ fun LazyListScope.SettingsScreen(
             item(key = "SettingsScreen_10") {
                 SectionCard(stringResource(R.string.home_command_core)) {
                     SupportingText(stringResource(R.string.home_command_core_hint))
-                    ActionButton(stringResource(R.string.home_view_commands), onClick = onOpenCommands)
+                    ActionButton(stringResource(R.string.home_view_commands), iconRes = R.drawable.ic_commands,
+                        onClick = onOpenCommands)
                 }
             }
             item(key = "SettingsScreen_11") {
                 SectionCard(stringResource(R.string.settings_test_tools)) {
                     SupportingText(stringResource(R.string.settings_test_tools_hint))
-                    ActionButton(stringResource(R.string.open_tests), onClick = onOpenTests)
+                    ActionButton(stringResource(R.string.open_tests), iconRes = R.drawable.ic_tests, onClick = onOpenTests)
                 }
             }
         }

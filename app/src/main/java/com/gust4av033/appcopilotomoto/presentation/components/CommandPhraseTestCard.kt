@@ -34,7 +34,8 @@ fun CommandPhraseTestCard() {
         SupportingText(stringResource(R.string.phrase_check_hint))
         OutlinedTextField(value = phrase, onValueChange = { phrase = it.take(200) },
             modifier = Modifier.fillMaxWidth(), label = { Text(stringResource(R.string.phrase_check_label)) },
-            placeholder = { Text(stringResource(R.string.phrase_check_example)) }, minLines = 2, maxLines = 4)
+            placeholder = { Text(stringResource(R.string.phrase_check_example)) }, minLines = 2, maxLines = 4,
+            colors = com.gust4av033.appcopilotomoto.presentation.theme.glassTextFieldColors())
         interpreted?.let { CommandInterpretation(it) }
         SupportingText(stringResource(R.string.phrase_check_scope))
         SupportingText(stringResource(R.string.phrase_check_limits))
