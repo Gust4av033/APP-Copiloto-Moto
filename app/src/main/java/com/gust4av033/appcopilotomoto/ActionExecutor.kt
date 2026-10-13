@@ -75,8 +75,9 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
     /** Solo la prueba con Activity visible abre otra pantalla directamente. */
     fun openAppFromActivity(target: AppTarget): Result<Unit> = runCatching {
         check(context is Activity && !context.isFinishing) { "APP debe estar visible para abrir otra aplicación." }
+        val navigationSession = TripNavigationState.context.sessionId
         context.startActivity(target.launchIntent)
-        NavigationRequestStore.recordDispatched(context, target)
+        NavigationRequestStore.recordDispatched(context, target, navigationSession)
     }
 
     fun description(intent: TestIntent, change: VolumeAdjustment? = null): String = when (intent) {

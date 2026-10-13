@@ -349,6 +349,7 @@ class MainActivity : ComponentActivity() {
             selectedMusicPlayer = selectedMusicPlayer,
             musicPlayersMessage = musicPlayersMessage,
             navigationAvailable = navigationAvailable,
+            navigationContext = TripNavigationState.context,
             lastNavigationRequest = lastNavigationRequest?.label.orEmpty(),
             chatCapabilities = chatCapabilities,
             chatContactsGranted = chatContactsGranted,

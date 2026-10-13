@@ -480,6 +480,13 @@
     <string name="settings_button_ready">Listo para el botón del casco o la burbuja.</string>
     <string name="settings_voice_ready">Listo para la frase de activación.</string>
     <string name="settings_voice_preparing">Preparando la escucha; espera la señal.</string>
+    <string name="trip_navigation_title">Navegación de este viaje</string>
+    <string name="trip_navigation_empty">Aún no has enviado un destino o búsqueda desde APP en este viaje.</string>
+    <string name="trip_navigation_favorite_sent">Solicitud enviada a Waze: %1$s</string>
+    <string name="trip_navigation_search_sent">Búsqueda enviada a Waze: %1$s</string>
+    <string name="trip_navigation_search_unconfirmed">El lugar elegido en Waze no está confirmado en APP.</string>
+    <string name="trip_navigation_route_unknown">Estado de ruta no disponible.</string>
+    <string name="trip_navigation_data_unavailable">ETA, distancia y próximo giro todavía no disponibles.</string>
 </resources>
 
 

@@ -62,6 +62,17 @@ class SettingsNavigationUiTest {
         compose.onNodeWithText("Herramientas de desarrollador").assertDoesNotExist()
         compose.onNodeWithText("Medición de micrófono").assertDoesNotExist()
     }
+    @Test fun tripShowsSearchDispatchWithoutClaimingAnActiveRoute() {
+        app(state=CopilotUiState(tripActive=true, navigationContext=TripNavigationContext("session",
+            NavigationDispatch("waze", NavigationRequestKind.SEARCH, "gasolinera", 1000))),
+            screen=CopilotScreen.TRIP, scale=1.5f)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Navegación de este viaje"))
+        compose.onNodeWithText("Búsqueda enviada a Waze: gasolinera").assertExists()
+        compose.onNodeWithText("El lugar elegido en Waze no está confirmado en APP.").assertExists()
+        compose.onNodeWithText("Estado de ruta no disponible.").assertExists()
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("ETA, distancia y próximo giro todavía no disponibles."))
+        saveRender("phase2-trip-search-large-font")
+    }
     @Test fun audioAtLargeFontStillOffersInstallationSpecificPermission() {
         app(section=SettingsSection.AUDIO,scale=2f)
         compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Acceso a controles multimedia"))
