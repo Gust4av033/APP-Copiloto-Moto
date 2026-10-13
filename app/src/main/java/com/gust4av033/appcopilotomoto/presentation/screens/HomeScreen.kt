@@ -24,7 +24,7 @@ fun LazyListScope.HomeScreen(state: CopilotUiState, actions: CopilotActions, onN
             Text(stringResource(R.string.home_headset, state.audioDevices.selectedLabel.ifBlank {
                 state.audioDevices.automaticHeadset.ifBlank { stringResource(R.string.devices_auto_unresolved) }
             }), style = MaterialTheme.typography.titleSmall)
-            SupportingText(if (state.buttonMode) stringResource(R.string.trip_button_hint)
+            SupportingText(if (state.buttonMode) stringResource(R.string.home_button_short)
                 else stringResource(R.string.mode_voice_instruction, state.phraseLabel))
             if (state.buttonMode && !state.assistantSelected) {
                 SupportingText(stringResource(R.string.home_assistant_required))
@@ -43,7 +43,7 @@ fun LazyListScope.HomeScreen(state: CopilotUiState, actions: CopilotActions, onN
             R.drawable.ic_tests) { onNavigate(CopilotScreen.TESTS) }
     }
     item(key = "upcoming") {
-        SectionCard(stringResource(R.string.home_next_modules)) {
+        ExpandableSectionCard(stringResource(R.string.home_next_modules)) {
             SupportingText(stringResource(R.string.home_next_hint))
             upcomingModules.forEach { module ->
                 Text(stringResource(module.titleRes) + " · " + stringResource(R.string.module_upcoming),

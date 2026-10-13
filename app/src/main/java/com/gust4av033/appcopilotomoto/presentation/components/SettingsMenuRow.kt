@@ -21,21 +21,24 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.SettingsSection
+import com.gust4av033.appcopilotomoto.presentation.theme.Glass
 
 @Composable
-fun SettingsMenuRow(section: SettingsSection, onClick: () -> Unit) {
+fun SettingsMenuRow(section: SettingsSection, value: String?, onClick: () -> Unit) {
     Surface(onClick = onClick, modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 88.dp),
-        shape = MaterialTheme.shapes.medium, color = MaterialTheme.colorScheme.surface,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+        shape = MaterialTheme.shapes.medium, color = Glass.surface(),
+        border = BorderStroke(1.dp, Glass.outline()), shadowElevation = 2.dp) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.secondaryContainer) {
+            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .8f)) {
                 Icon(painterResource(section.iconRes), null, Modifier.padding(10.dp).size(24.dp),
-                    tint = MaterialTheme.colorScheme.secondary)
+                    tint = MaterialTheme.colorScheme.onSecondaryContainer)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(section.titleRes), style = MaterialTheme.typography.titleMedium)
                 SupportingText(stringResource(section.hintRes))
+                if (value != null) Text(value, style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.primary)
             }
             Icon(painterResource(R.drawable.ic_expand), null, Modifier.size(20.dp).rotate(-90f),
                 tint = MaterialTheme.colorScheme.primary)

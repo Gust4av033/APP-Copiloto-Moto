@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.ChoiceUi
 import com.gust4av033.appcopilotomoto.TripCallPhase
+import com.gust4av033.appcopilotomoto.presentation.theme.Glass
 
 @Composable
 fun SessionStatus(active: Boolean, restoring: Boolean = false, callPhase: TripCallPhase = TripCallPhase.NONE) {
@@ -59,8 +60,9 @@ fun SessionStatus(active: Boolean, restoring: Boolean = false, callPhase: TripCa
 fun SectionCard(title: String, content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        colors = CardDefaults.cardColors(containerColor = Glass.surface()),
+        border = BorderStroke(1.dp, Glass.outline()),
+        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
     ) {
         Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
@@ -110,9 +112,9 @@ fun ChoiceGroup(options: List<ChoiceUi>, selectedId: String, enabled: Boolean, o
 @Composable
 fun ExpandableSectionCard(title: String, initiallyExpanded: Boolean = false, content: @Composable ColumnScope.() -> Unit) {
     var expanded by androidx.compose.runtime.saveable.rememberSaveable { androidx.compose.runtime.mutableStateOf(initiallyExpanded) }
-    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-        Surface(onClick = { expanded = !expanded }, color = MaterialTheme.colorScheme.surface,
+    Card(Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Glass.surface()),
+        border = BorderStroke(1.dp, Glass.outline())) {
+        Surface(onClick = { expanded = !expanded }, color = Glass.surface(),
             modifier = Modifier.fillMaxWidth()) {
             Row(Modifier.padding(20.dp), verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)) {

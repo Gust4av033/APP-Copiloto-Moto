@@ -13,6 +13,14 @@
     <string name="home_assistant_optional">La selección de APP como asistente es opcional para probar el botón del casco.</string>
     <string name="home_next_modules">Próximos módulos</string>
     <string name="home_next_hint">Esta es la base para ampliar el copiloto. Estos módulos todavía no están disponibles.</string>
+    <string name="home_button_short">El micrófono permanece cerrado entre órdenes. Pedí una orden desde el casco, APP o la notificación.</string>
+    <string name="settings_overlay_on">Burbuja activada</string>
+    <string name="settings_overlay_off">Burbuja desactivada</string>
+    <string name="settings_overlay_permission_pending">Burbuja pendiente de permiso</string>
+    <string name="settings_checking_apps">Comprobando aplicaciones</string>
+    <string name="settings_not_checked">Disponibilidad sin comprobar</string>
+    <string name="settings_waze_available">Waze disponible</string>
+    <string name="settings_waze_unavailable">Waze no disponible</string>
     <string name="module_upcoming">Próximamente</string>
     <string name="module_motorcycle">Mi Moto</string>
     <string name="module_motorcycle_detail">Registrar tu motocicleta, kilometraje y recordatorios de mantenimiento.</string>

@@ -230,7 +230,32 @@ fun LazyListScope.SettingsScreen(
     when (section) {
         SettingsSection.OVERVIEW -> {
             SettingsSection.entries.filter { it != SettingsSection.OVERVIEW }.forEach { category ->
-                item(key = category.name) { SettingsMenuRow(category) { onOpenSection(category) } }
+                item(key = category.name) {
+                    val value = when (category) {
+                        SettingsSection.ACTIVATION -> stringResource(when (state.inputId) {
+                            "BUTTON" -> R.string.mode_button_title
+                            "PHONE_WAKE" -> R.string.mode_phone_title
+                            else -> R.string.mode_voice_title
+                        })
+                        SettingsSection.AUDIO -> state.audioDevices.selectedLabel.ifBlank {
+                            state.audioDevices.automaticHeadset.ifBlank { stringResource(R.string.devices_auto_unresolved) }
+                        }
+                        SettingsSection.APPEARANCE -> stringResource(when {
+                            state.overlayEnabled && !state.overlayPermissionGranted -> R.string.settings_overlay_permission_pending
+                            state.overlayEnabled -> R.string.settings_overlay_on
+                            else -> R.string.settings_overlay_off
+                        })
+                        SettingsSection.NAVIGATION -> stringResource(when {
+                            state.appCatalogLoading -> R.string.settings_checking_apps
+                            state.appCatalogMessage.isBlank() && !state.navigationAvailable -> R.string.settings_not_checked
+                            state.navigationAvailable -> R.string.settings_waze_available
+                            else -> R.string.settings_waze_unavailable
+                        })
+                        SettingsSection.CALLS -> state.fixedContact
+                        else -> null
+                    }
+                    SettingsMenuRow(category, value) { onOpenSection(category) }
+                }
             }
         }
         SettingsSection.ACTIVATION -> {

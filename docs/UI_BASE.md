@@ -1,5 +1,48 @@
 # UI de APP Copiloto Moto · Fase 1
 
+## Rediseño de vidrio · 13 de octubre de 2026
+
+Base comprobada: `feature/fase-1-intent-router` en `1c826ff72b686e23760e089b3556b06669456467`. `main` permanece en `c8d80c7` y no contiene el núcleo actual. La entrega vive en `feature/ui-glass-redesign`, derivada de fase 1. Las reglas de evolución se guardan en el `AGENTS.md` raíz.
+
+La navegación principal conserva Inicio, Viaje y Ajustes. Comandos y Pruebas permanecen como rutas secundarias; Ajustes ya tenía siete subpantallas y conserva sus controles. Inicio prioriza el estado y la acción de viaje, resume el casco y deja los módulos futuros colapsados. Viaje deja la orden pendiente y el último resultado sobre audio y métricas desplegables. Ajustes muestra algunos valores observados en sus filas. Cambiar pantallas no inicia ni detiene el servicio.
+
+### Sistema visual aplicado
+
+| Elemento | Implementación |
+| --- | --- |
+| Fondo | `CopilotBackdrop`: azul noche `#0B1020` o claro `#E9EEFA`, con tres gradientes radiales morado, celeste y azul, estáticos. |
+| Material | `Glass.surface()`: tinte blanco al 79 % en claro y azul al 76 % en oscuro; panel principal al 92 %/88 %. Borde claro de 1 dp y sombra moderada donde importa. |
+| Acentos | Morado `#B69CFF`, celeste `#6DDCFF`, azul `#82AFFF` en tema oscuro; variantes de mayor contraste en claro. |
+| Forma y espacios | Radios Material 3 de 12/20/28 dp y espacios de 8/12/16/24 dp. Botones y filas mantienen al menos 48 dp de alto. |
+| Iconos | Vectores de trazo de 2 dp para navegación y categorías; etiquetas de texto acompañan cada acción. |
+| Estado | `MainActivity.AppUi` adapta `TripTestState` y lecturas pasivas a `CopilotUiState`. `JourneyHero`, tarjetas de pendientes y ajustes reciben ese estado. |
+
+El vidrio es una aproximación con transparencias y gradientes; no usa desenfoque real. Los controles y su texto no reciben alpha global. El fondo se dibuja dentro de APP sin hacer transparente la Activity ni añadir permisos.
+
+### Trazabilidad de capacidades
+
+| Capacidad | Fuente y disponibilidad | UI y ajuste | Verificación pendiente |
+| --- | --- | --- | --- |
+| Sesión, voz y botón | `TripTestState`, `TripVoiceService`; sujeto a permiso y casco | Inicio/Viaje, Activación, burbuja y notificación | S22+ y Y12 Pro: espera, escucha, cancelación y bloqueo |
+| Música y volumen | `MediaActionAdapter`, `MusicSearchAdapter`; reproductor elegible | Viaje, Audio y música, Comandos | Pedido, recuperación tras llamada y ruta audible |
+| Llamadas | `TripVoiceService`, `TripCallContactStore`; permisos necesarios | Viaje, Llamadas, estado de recuperación | Confirmación, llamada y regreso a música |
+| Navegación | `NavigationProvider`; Waze detectado en catálogo | Navegación con Waze, Comandos y acción pendiente | Solicitud, confirmación y Waze al frente |
+| Borrador WhatsApp | `WhatsAppChatAdapter`, `TripTestState.pendingDraftText` | Inicio/Viaje, Integraciones, Comandos y burbuja | Dictar, repetir, cancelar y abrir borrador; envío en WhatsApp |
+
+### Pausa al abrir
+
+El camino de apertura aún lee preferencias en `onCreate` y restaura métricas con `TripTestState.restore` antes de `setContent`. La enumeración de apps y las lecturas Bluetooth ya usaban `presentationWorker` desde UI ruta 01. Se encontró además `syncTripPresentation` en `onResume` y en el efecto de sesión: consultaba `RoleManager` y `Settings.Secure` en el hilo principal. Esas lecturas pasivas ahora se calculan en el executor de presentación y se publican en el hilo principal si la Activity sigue vigente. Esto reduce trabajo potencial antes del primer dibujo, pero no cuantifica la pausa: falta medir apertura fría, caliente y retorno desde Waze con el S22+.
+
+Para medir: registrar cinco aperturas frías (forzar cierre antes de cada una), cinco retornos a APP desde Waze durante una sesión, y anotar tiempo hasta ver Inicio, hasta responder Viaje y hasta completar las lecturas de casco/catálogo. Repetir con la versión base y esta rama, mismo tema, permisos, casco y conectividad. Anotar también audio y estado del servicio al regresar.
+
+### Validación de esta entrega
+
+El procesamiento de recursos y la compilación Kotlin pasaron en el entorno. `:app:assembleDebug` y `:app:testDebugUnitTest` completaron con 124 pruebas JVM, sin fallos ni errores, usando una interfaz temporal local de `openwakeword-android` fuera del repositorio. Esta sustitución permite detectar errores de compilación del rediseño, pero el APK resultante no valida detección de voz ni puede considerarse compilación real del producto. La dependencia `com.github.msnilsen:openwakeword-android:0.1.2` no está en caché y JitPack no es accesible desde este entorno. Repetir ambas tareas en Android Studio con la dependencia real. No hubo emulador o renderizador Compose para exportar capturas; los previews del código permanecen pendientes de inspección visual.
+
+### Revisión física
+
+En S22+ con Y12 Pro: probar activación por voz y botón, confirmar/cancelar una acción, volver de llamada, perder y reconectar Bluetooth, cambiar entre Inicio/Viaje/Ajustes, mantener Waze al frente, bloquear el teléfono y mostrar/minimizar/ocultar la burbuja. Comprobar música, recuperación audible y que la burbuja no abre el micrófono por sí sola. Revisar tema claro/oscuro, texto al 150 %, sol directo e insets. Las capturas de esas condiciones deben obtenerse del dispositivo o de un emulador; la compilación no las valida.
+
 Todo el trabajo de fase 1 se concentra en `feature/fase-1-intent-router`. Esta entrega integra las mejoras previas de `feature/ui-base-compose` con el núcleo vigente de llamadas, captura por botón y apertura de apps. La rama de UI queda como antecedente; las próximas mejoras continúan en fase 1.
 
 ## Pantallas

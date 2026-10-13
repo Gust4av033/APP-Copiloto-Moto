@@ -19,19 +19,19 @@ private val DayColors = lightColorScheme(
     primaryContainer = Color(0xFFEBDDFD), onPrimaryContainer = Color(0xFF32144F),
     secondary = Color(0xFF145BB7), secondaryContainer = Color(0xFFD9E9FF), onSecondaryContainer = Color(0xFF102C55),
     tertiary = Color(0xFF006C89), tertiaryContainer = Color(0xFFBAEFFF), onTertiaryContainer = Color(0xFF003548),
-    background = Color(0xFFF6F3FC), onBackground = Color(0xFF241D39),
-    surface = Color(0xFFFFFBFF), onSurface = Color(0xFF241D39),
+    background = Color(0xFFE9EEFA), onBackground = Color(0xFF20253D),
+    surface = Color(0xFFF9FBFF), onSurface = Color(0xFF20253D),
     surfaceVariant = Color(0xFFEAE4F4), onSurfaceVariant = Color(0xFF5D526F),
     outline = Color(0xFF7D7192), outlineVariant = Color(0xFFDFD7EF)
 )
 private val NightColors = darkColorScheme(
-    primary = Color(0xFFC6A5FF), onPrimary = Color(0xFF2E154B),
+    primary = Color(0xFFB69CFF), onPrimary = Color(0xFF251442),
     primaryContainer = Color(0xFF4B286D), onPrimaryContainer = Color(0xFFEBDDFD),
-    secondary = Color(0xFF91BAFF), secondaryContainer = Color(0xFF183864), onSecondaryContainer = Color(0xFFD9E9FF),
-    tertiary = Color(0xFF69DFFF), tertiaryContainer = Color(0xFF004C64), onTertiaryContainer = Color(0xFFBAEFFF),
-    background = Color(0xFF110D20), onBackground = Color(0xFFECE4F8),
-    surface = Color(0xFF1C1630), onSurface = Color(0xFFECE4F8),
-    surfaceVariant = Color(0xFF2A2340), onSurfaceVariant = Color(0xFFC6BDD8),
+    secondary = Color(0xFF82AFFF), secondaryContainer = Color(0xFF183864), onSecondaryContainer = Color(0xFFD9E9FF),
+    tertiary = Color(0xFF6DDCFF), tertiaryContainer = Color(0xFF004C64), onTertiaryContainer = Color(0xFFBAEFFF),
+    background = Color(0xFF0B1020), onBackground = Color(0xFFF4F6FF),
+    surface = Color(0xFF151D31), onSurface = Color(0xFFF4F6FF),
+    surfaceVariant = Color(0xFF24304B), onSurfaceVariant = Color(0xFFBDC5DA),
     outline = Color(0xFF9288A6), outlineVariant = Color(0xFF3E3455)
 )
 private val CopilotType = Typography(

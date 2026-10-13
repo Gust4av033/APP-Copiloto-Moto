@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,6 +32,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
@@ -48,6 +50,8 @@ import com.gust4av033.appcopilotomoto.presentation.screens.SettingsScreen
 import com.gust4av033.appcopilotomoto.presentation.screens.TestsScreen
 import com.gust4av033.appcopilotomoto.presentation.screens.TripScreen
 import com.gust4av033.appcopilotomoto.presentation.theme.CopilotTheme
+import com.gust4av033.appcopilotomoto.presentation.theme.CopilotBackdrop
+import com.gust4av033.appcopilotomoto.presentation.theme.Glass
 
 @Composable
 fun CopilotApp(
@@ -82,10 +86,12 @@ fun CopilotApp(
         BackHandler(enabled = selectedScreen != CopilotScreen.HOME, onBack = navigateBack)
     }
     CopilotTheme {
+        Box(Modifier.fillMaxSize()) {
+            CopilotBackdrop()
         Scaffold(
-            containerColor = MaterialTheme.colorScheme.background,
+            containerColor = Color.Transparent,
             topBar = {
-                if (settingsDetail) Surface(color = MaterialTheme.colorScheme.surface) {
+                if (settingsDetail) Surface(color = Glass.surface(strong = true)) {
                     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp),
                         verticalAlignment = Alignment.CenterVertically) {
                         TextButton(onClick = { settingsSectionName = SettingsSection.OVERVIEW.name }) {
@@ -97,7 +103,7 @@ fun CopilotApp(
             bottomBar = {
                 Column {
                     if (state.tripActive && selectedScreen != CopilotScreen.TRIP) {
-                        Surface(color = MaterialTheme.colorScheme.primaryContainer) {
+                        Surface(color = Glass.surface(strong = true)) {
                             Row(
                                 Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
@@ -114,7 +120,7 @@ fun CopilotApp(
                             }
                         }
                     }
-                    NavigationBar(containerColor = MaterialTheme.colorScheme.surface) {
+                    NavigationBar(containerColor = Glass.surface(strong = true)) {
                         CopilotScreen.entries.filter { it.inMainNavigation }.forEach { screen ->
                             NavigationBarItem(
                                 selected = mainSelection == screen,
@@ -181,6 +187,7 @@ fun CopilotApp(
                     }
                 }
             }
+        }
         }
     }
 }

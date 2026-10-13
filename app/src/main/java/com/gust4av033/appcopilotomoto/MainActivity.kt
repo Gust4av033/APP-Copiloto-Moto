@@ -56,6 +56,7 @@ class MainActivity : ComponentActivity() {
     // Las lecturas de presentación no esperan detrás de una medición de cinco segundos.
     private val presentationWorker = Executors.newSingleThreadExecutor()
     private var presentationGeneration = 0
+    private var presentationSyncGeneration = 0
     private var deviceRefreshInFlight = false
     private var catalogRefreshInFlight = false
     private var catalogLoadedAt = 0L
@@ -586,19 +587,30 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun syncTripPresentation() {
-        assistantSelected = isSelectedAssistant()
+        if (isDestroyed || presentationWorker.isShutdown) return
+        val generation = ++presentationSyncGeneration
+        val activityGeneration = presentationGeneration
+        val prefs = getSharedPreferences("ui_settings", MODE_PRIVATE)
         lastNavigationRequest = NavigationRequestStore.last(this)
-        tripButtonBinding = TripButtonBinding.parse(getSharedPreferences("ui_settings", MODE_PRIVATE)
-            .getString(TripButtonBinding.PREFERENCE, null))
-        mediaAccessGranted = TripMediaAccess.granted(this)
+        tripButtonBinding = TripButtonBinding.parse(prefs.getString(TripButtonBinding.PREFERENCE, null))
         manualActivationOnly = if (TripTestState.running) TripTestState.manualActivationOnly else
-            getSharedPreferences("ui_settings", MODE_PRIVATE).getBoolean(TripActivationPolicy.PREFERENCE, false)
+            prefs.getBoolean(TripActivationPolicy.PREFERENCE, false)
         overlayEnabled = TripOverlayPreferences.enabled(this)
-        overlayPermission = Settings.canDrawOverlays(this)
         tripAudioMode = if (TripTestState.running) TripTestState.audioMode else runCatching {
-            WakeAudioMode.valueOf(getSharedPreferences("ui_settings", MODE_PRIVATE)
-                .getString("trip_audio_mode", tripAudioMode.name).orEmpty())
+            WakeAudioMode.valueOf(prefs.getString("trip_audio_mode", tripAudioMode.name).orEmpty())
         }.getOrDefault(tripAudioMode)
+        // Secure Settings y RoleManager pueden hacer lecturas Binder: no retrasar la primera composición.
+        presentationWorker.execute {
+            val assistant = runCatching { isSelectedAssistant() }.getOrDefault(false)
+            val mediaGranted = runCatching { TripMediaAccess.granted(this) }.getOrDefault(false)
+            val canOverlay = Settings.canDrawOverlays(this)
+            mainHandler.post {
+                if (isDestroyed || activityGeneration != presentationGeneration || generation != presentationSyncGeneration) return@post
+                assistantSelected = assistant
+                mediaAccessGranted = mediaGranted
+                overlayPermission = canOverlay
+            }
+        }
     }
 
     private fun requestOverlayPermission() {
