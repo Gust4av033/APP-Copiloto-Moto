@@ -487,6 +487,21 @@
     <string name="trip_navigation_search_unconfirmed">El lugar elegido en Waze no está confirmado en APP.</string>
     <string name="trip_navigation_route_unknown">Estado de ruta no disponible.</string>
     <string name="trip_navigation_data_unavailable">ETA, distancia y próximo giro todavía no disponibles.</string>
+    <string name="waze_observation_access_label">APP · lectura experimental de Waze</string>
+    <string name="waze_observation_title">Muestra de Waze · experimental</string>
+    <string name="waze_observation_scope">Lee solo el texto de notificaciones de Waze durante un viaje de APP, con desarrollo activo. Conserva una muestra en memoria y la borra al detener el viaje. No anuncia ni confirma giros o ETA.</string>
+    <string name="waze_observation_toggle">Observar notificaciones de Waze</string>
+    <string name="waze_observation_permission">Permitir lectura de Waze</string>
+    <string name="waze_observation_granted">Permiso de lectura concedido a esta instalación.</string>
+    <string name="waze_observation_missing">Falta el permiso de lectura de Waze, separado del acceso multimedia.</string>
+    <string name="waze_observation_disabled">Lectura desactivada.</string>
+    <string name="waze_observation_start_trip">Inicia un viaje de APP y una ruta en Waze para recoger una muestra.</string>
+    <string name="waze_observation_disconnected">El lector aún no está conectado a Android.</string>
+    <string name="waze_observation_failed">No se pudo obtener la muestra. Revisa el permiso y reinicia el viaje.</string>
+    <string name="waze_observation_empty">Todavía no se ha observado una notificación de Waze en este viaje.</string>
+    <string name="waze_observation_received">Texto observado en una notificación de Waze:</string>
+    <string name="waze_observation_sample_scope">Muestra sin interpretar; puede ser antigua o contener solo un aviso de la app. No confirma una ruta ni un próximo giro.</string>
+    <string name="waze_observation_copy">Copiar muestra de Waze</string>
 </resources>
 
 

@@ -126,6 +126,8 @@ class MainActivity : ComponentActivity() {
     private var overlayMessage by mutableStateOf("")
     private var tripButtonBinding by mutableStateOf(TripButtonBinding.NONE)
     private var mediaAccessGranted by mutableStateOf(false)
+    private var wazeObservationEnabled by mutableStateOf(false)
+    private var wazeObservationGranted by mutableStateOf(false)
     private var manualActivationOnly by mutableStateOf(false)
     private var buttonProbeActive by mutableStateOf(false)
     private var buttonProbeLog by mutableStateOf<List<String>>(emptyList())
@@ -349,6 +351,9 @@ class MainActivity : ComponentActivity() {
             selectedMusicPlayer = selectedMusicPlayer,
             musicPlayersMessage = musicPlayersMessage,
             navigationAvailable = navigationAvailable,
+            wazeObservationEnabled = wazeObservationEnabled,
+            wazeObservationGranted = wazeObservationGranted,
+            wazeObservation = WazeNotificationObservation.snapshot,
             navigationContext = TripNavigationState.context,
             lastNavigationRequest = lastNavigationRequest?.label.orEmpty(),
             chatCapabilities = chatCapabilities,
@@ -401,6 +406,8 @@ class MainActivity : ComponentActivity() {
                     if (!audioBusy()) {
                         developerEnabled = false
                         settingsStore.setDeveloperEnabled(BuildConfig.DEBUG, false)
+                        WazeObservationAccess.setEnabled(this@MainActivity, false)
+                        wazeObservationEnabled = false
                         if (tripAudioMode == WakeAudioMode.PHONE_WAKE || manualActivationOnly) {
                             tripAudioMode = if (manualActivationOnly) WakeAudioMode.BUTTON else WakeAudioMode.BLUETOOTH
                             manualActivationOnly = false
@@ -515,6 +522,16 @@ class MainActivity : ComponentActivity() {
                         NavigationRequestStore.forget(this@MainActivity)
                         lastNavigationRequest = null
                     }
+                },
+                onWazeObservationChange = { enabled ->
+                    if (canRunDeveloperTools() && !audioBusy()) {
+                        WazeObservationAccess.setEnabled(this@MainActivity, enabled)
+                        wazeObservationEnabled = enabled
+                    }
+                },
+                onWazeObservationPermission = {
+                    if (canRunDeveloperTools() && wazeObservationEnabled && !audioBusy())
+                        startActivity(WazeObservationAccess.settingsIntent(this@MainActivity))
                 },
                 onOverlayEnabledChange = { enabled ->
                     TripOverlayPreferences.setEnabled(this@MainActivity, enabled)
@@ -702,6 +719,9 @@ class MainActivity : ComponentActivity() {
         val activityGeneration = presentationGeneration
         val prefs = getSharedPreferences("ui_settings", MODE_PRIVATE)
         lastNavigationRequest = NavigationRequestStore.last(this)
+        wazeObservationEnabled = WazeObservationAccess.enabled(this)
+        wazeObservationGranted = WazeObservationAccess.granted(this)
+        if (!WazeObservationAccess.allowed(this)) WazeNotificationObservation.clearSample()
         tripButtonBinding = TripButtonBinding.parse(prefs.getString(TripButtonBinding.PREFERENCE, null))
         manualActivationOnly = if (TripTestState.running) TripTestState.manualActivationOnly else
             prefs.getBoolean(TripActivationPolicy.PREFERENCE, false)

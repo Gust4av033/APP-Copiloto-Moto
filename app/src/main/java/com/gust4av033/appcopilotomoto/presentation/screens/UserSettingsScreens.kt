@@ -74,7 +74,12 @@ fun LazyListScope.SettingsScreen(
             item("audio_help") { BasicHelpLink(actions) }
         }
         SettingsSection.APPEARANCE -> AppearanceSettings(state, actions)
-        SettingsSection.NAVIGATION -> item("navigation") { NavigationCard(state, actions) }
+        SettingsSection.NAVIGATION -> {
+            item("navigation") { NavigationCard(state, actions) }
+            if (state.developerEnabled) item("waze_observation") {
+                com.gust4av033.appcopilotomoto.presentation.components.WazeObservationCard(state, actions)
+            }
+        }
         SettingsSection.INTEGRATIONS -> {
             item("integrations") { IntegrationsCard(state, actions, includeNavigation = false) }
             item("calls_entry") { SettingsMenuRow(SettingsSection.CALLS, null) { onOpenSection(SettingsSection.CALLS) } }

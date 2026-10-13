@@ -73,6 +73,26 @@ class SettingsNavigationUiTest {
         compose.onNodeWithTag("settings_content").performScrollToNode(hasText("ETA, distancia y próximo giro todavía no disponibles."))
         saveRender("phase2-trip-search-large-font")
     }
+    @Test fun wazeObservationIsHiddenFromOrdinaryNavigation() {
+        app(section=SettingsSection.NAVIGATION)
+        compose.onNodeWithText("Muestra de Waze · experimental").assertDoesNotExist()
+    }
+    @Test fun wazeObservationShowsBoundedSampleAndCopyIsExplicit() {
+        var copied: String? = null
+        app(state=CopilotUiState(developerAccess=DeveloperAccess(true,true), tripActive=true,
+            wazeObservationEnabled=true, wazeObservationGranted=true,
+            wazeObservation=WazeObservationSnapshot("session",true,
+                WazeNotificationSample("waze-key","navigation",1000,2000,mapOf("android.text" to "En 300 m")))),
+            section=SettingsSection.NAVIGATION,scale=1.5f,
+            actions=CopilotActions(onCopyDiagnostics={copied=it}))
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Copiar muestra de Waze"))
+        compose.onNodeWithText("En 300 m").assertExists()
+        assertNull(copied)
+        saveRender("phase2-waze-observation-large-font")
+        compose.onNodeWithText("Copiar muestra de Waze").performClick()
+        assertTrue(copied.orEmpty().contains("android.text: En 300 m"))
+        compose.onNodeWithText("Observar notificaciones de Waze").assertIsNotEnabled()
+    }
     @Test fun audioAtLargeFontStillOffersInstallationSpecificPermission() {
         app(section=SettingsSection.AUDIO,scale=2f)
         compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Acceso a controles multimedia"))

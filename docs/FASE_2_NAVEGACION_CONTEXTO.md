@@ -61,4 +61,8 @@ assembleFieldTest también terminó BUILD SUCCESSFUL. La copia de pruebas mantie
 
 La validación final se ejecutó en el clon original de Android Studio. Un intento previo de dirigir la salida a D desde C falló por raíces distintas; el siguiente intento en un clon de D se interrumpió por demora al escribir archivos generados. Ninguno se contabiliza como aprobado. No se sustituyeron dependencias ni se descartaron archivos locales. Release no fue revalidado en esta entrega.
 
-Estado: implementación y validación debug completadas; regresión física de Contexto 1 pendiente.
+## Aceptación e integración
+
+El 13 de octubre de 2026 el usuario confirmó que los pasos propuestos funcionan y autorizó proseguir. Las dos capturas del teléfono muestran sesión activa en modo botón, solicitud a Casa y tarjeta «Navegación de este viaje» con ruta desconocida. No se inventan resultados individuales ni mediciones. PR #15 integrado en main mediante 7a0c239, conservando ascendencia.
+
+Estado: Contexto 1 aceptado por el usuario e integrado. La siguiente entrega recoge evidencia de Waze: [Observación experimental](FASE_2_OBSERVACION_WAZE.md).

@@ -2,6 +2,8 @@
 
 ## Fase 2 · Contexto de navegación · 13 de octubre de 2026
 
+Contexto 1 fue aceptado por el usuario e integrado mediante PR #15 (main 7a0c239). La siguiente entrega añade una tarjeta de observación solo con desarrollo activo en Ajustes → Navegación: interruptor opt-in, permiso independiente y copia explícita de una muestra textual acotada. Mantiene las tarjetas glass y texto localizable; no agrega lecturas o anuncios de giros a Viaje/burbuja/notificación. Ver [fuente experimental y prueba](FASE_2_OBSERVACION_WAZE.md).
+
 La base consolidada está en main (506a604); el trabajo continúa en feature/fase-2-navigation-context. Viaje incorpora una tarjeta glass «Navegación de este viaje», observando el contexto de sesión compartido: favorito o búsqueda despachados a Waze, ruta desconocida y ausencia de ETA/distancia/giro. Una búsqueda no confirma el resultado elegido en Waze. No se inicia escucha desde la tarjeta ni se añaden controles o permisos. Burbuja y notificación mantienen su estado de sesión de APP; no muestran una ruta activa ni datos de Waze. Alcance y prueba: [Fase 2](FASE_2_NAVEGACION_CONTEXTO.md).
 
 ## Ajustes de usuario y desarrollo · 13 de octubre de 2026

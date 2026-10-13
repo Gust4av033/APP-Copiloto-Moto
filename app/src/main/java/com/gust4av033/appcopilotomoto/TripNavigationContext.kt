@@ -28,7 +28,10 @@ object TripNavigationState {
     var context by mutableStateOf(TripNavigationContext())
         private set
 
-    fun beginSession() { context = TripNavigationContext(sessionId = UUID.randomUUID().toString()) }
-    fun endSession() { context = TripNavigationContext() }
+    fun beginSession() {
+        context = TripNavigationContext(sessionId = UUID.randomUUID().toString())
+        WazeNotificationObservation.beginSession(context.sessionId)
+    }
+    fun endSession() { context = TripNavigationContext(); WazeNotificationObservation.endSession() }
     fun record(session: String?, dispatch: NavigationDispatch) { context = context.record(session, dispatch) }
 }
