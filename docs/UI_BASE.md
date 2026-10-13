@@ -1,5 +1,28 @@
 # UI de APP Copiloto Moto · Fase 1
 
+## Burbuja de agua 01 · 13 de octubre de 2026
+
+Sobre `feature/ui-glass-redesign` en `4e99900`, el acceso flotante pasa de una cápsula plana con texto a una esfera vectorial de agua de 64 dp, con sombra de contacto, reflejo superior, borde celeste/morado y pictograma de estado. `overlay_water_orb.xml` contiene el material estático; `OverlayGlassStyle` comparte el acabado del panel y los botones nativos. No se agregan dependencias de Android, capturas de pantalla, blur del mapa ni animación decorativa continua. Los iconos y el indicador solo cambian cuando cambia el estado observado.
+
+El panel tiene tinte de vidrio, soporte contrastado para el estado, botones de 52 dp con iconos y feedback de toque. × minimiza; tocar fuera también minimiza; Ocultar burbuja permanece fuera del scroll y conserva su significado. Mostrar, tocar para desplegar, arrastrar, minimizar y ocultar no piden una orden. Solo el botón Pedir una orden llama al callback existente y conserva su bloqueo por disponibilidad y llamada. El anclaje lateral y la preferencia opcional se conservan.
+
+### Evidencia visual
+
+![Previsualización del vector sobre fondo claro y oscuro](images/burbuja_agua_vector.png)
+
+La imagen se generó desde el VectorDrawable XML de producción mediante `tools/render_overlay_vector_preview.py` (CairoSVG). Es una previsualización del recurso y sus pictogramas, no una captura de Android ni de Waze; permite evaluar sombras, gradientes y reflejos en dos fondos. No demuestra todavía el layout del panel, ripple nativo, arrastre, texto ampliado ni superposición en un teléfono. El acabado es vidrio pintado sin desenfoque de las apps externas.
+
+### Comprobación en S22+ / Y12 Pro
+
+- Con viaje activo, mostrarla sobre Waze en claro y oscuro. Revisar tamaño, contraste, posición de reflejos y que no tape indicaciones.
+- Tocar la esfera: abre el panel y no abre micrófono. Arrastrar y soltar en cada borde, minimizar con × y tocando fuera, reabrir y ocultar. El audio y el viaje deben continuar.
+- En modo botón, comparar espera (botón, micrófono cerrado), escucha (micrófono), procesamiento (reloj), respuesta (altavoz), confirmación (?) y llamada (teléfono) con el estado anunciado por APP.
+- Pedir una orden: verificar señal, respuesta y recuperación de música. Durante preparación, llamada o falta de disponibilidad, el botón conserva su bloqueo.
+- Con texto al 150–200 % y en paisaje, comprobar que Ocultar sigue visible y que el resto de acciones se pueden desplazar.
+
+La validación final completó `:app:assembleDebug`, `:app:assembleFieldTest`, `:app:testDebugUnitTest` (124 pruebas, cero fallos, errores o saltadas) y `:app:lintDebug` (cero errores, 76 advertencias y 9 sugerencias). Se compiló con `com.github.msnilsen:openwakeword-android:0.1.2` real, sin sustituirla por una interfaz temporal. Los XML y `git diff --check` también pasaron. Esto verifica recursos, compilación y regresiones JVM; la comprobación física del audio, tacto, legibilidad y las capturas reales del panel sobre Waze siguen pendientes.
+
+
 ## Refinamiento de vidrio · versión 1.2 · 13 de octubre de 2026
 
 La rama `feature/ui-glass-redesign` continúa la entrega vigente sin tocar los flujos de voz, llamadas, música, navegación ni borradores. El material visual se centraliza en `presentation/theme/Glass.kt`: `GlassPanel` aplica tinte, borde con reflejo y elevación a Inicio, Viaje y Ajustes. Los paneles normales usan blanco al 64 % en claro y azul noche al 39 % en oscuro; el principal usa 76 % y 51 %. El fondo estático morado, celeste y azul se distingue a través del material. El reflejo del borde y la sombra dan profundidad sin reducir la opacidad de textos e iconos.
@@ -122,3 +145,4 @@ El diseño y la carga de presentación se revisaron sobre `722ba103`. Inicio y V
 ## UI ruta 02 · Ajustes y paleta
 
 Ajustes pasa a una lista de siete categorías con submenús, retorno fijo y conservación de desplazamiento. La paleta combina morado, celeste y azul intenso en ambos temas, icono y burbuja. Ver [UI_RUTA_02.md](UI_RUTA_02.md).
+

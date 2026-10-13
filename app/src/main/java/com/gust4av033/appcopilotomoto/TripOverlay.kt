@@ -2,16 +2,16 @@ package com.gust4av033.appcopilotomoto
 
 import android.annotation.SuppressLint
 import android.content.Context
-import android.content.res.Configuration
 import android.content.res.ColorStateList
-import com.gust4av033.appcopilotomoto.presentation.theme.CopilotPalette
-import android.graphics.Color
+import android.content.res.Configuration
 import android.graphics.PixelFormat
-import android.hardware.display.DisplayManager
-import android.view.Display
+import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
+import android.hardware.display.DisplayManager
 import android.os.Build
 import android.provider.Settings
+import android.text.TextUtils
+import android.view.Display
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
@@ -19,9 +19,12 @@ import android.view.ViewConfiguration
 import android.view.WindowInsets
 import android.view.WindowManager
 import android.widget.Button
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.gust4av033.appcopilotomoto.presentation.theme.CopilotPalette
 import kotlin.math.abs
 
 object TripOverlayPreferences {
@@ -54,6 +57,11 @@ class TripOverlay(
     private var view: LinearLayout? = null
     private var params: WindowManager.LayoutParams? = null
     private var badge: TextView? = null
+    private var orbHandle: FrameLayout? = null
+    private var orbIcon: ImageView? = null
+    private var orbIndicator: View? = null
+    private var lastOrbIcon = 0
+    private var lastOrbIndicator = 0
     private var status: TextView? = null
     private var request: Button? = null
     private var expanded = false
@@ -92,7 +100,7 @@ class TripOverlay(
                 } else false
             }
         }
-        val layout = WindowManager.LayoutParams(dp(56), WindowManager.LayoutParams.WRAP_CONTENT,
+        val layout = WindowManager.LayoutParams(dp(64), WindowManager.LayoutParams.WRAP_CONTENT,
             WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL or
                 WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH,
@@ -117,37 +125,65 @@ class TripOverlay(
     private fun buildContent() {
         val root = view ?: return
         root.removeAllViews()
-        val (background, foreground) = colors()
-        root.background = GradientDrawable().apply {
-            if (expanded) setColor(background)
-            else {
-                orientation = GradientDrawable.Orientation.TL_BR
-                colors = intArrayOf(CopilotPalette.HeroPurple, CopilotPalette.HeroBlue)
-            }
-            cornerRadius = dp(if (expanded) 20 else 28).toFloat()
-            setStroke(dp(1).coerceAtLeast(1),
-                if (!expanded || background == CopilotPalette.NightSurface) CopilotPalette.Sky else CopilotPalette.Purple)
+        val (_, contentColor) = colors()
+        root.background = if (expanded) OverlayGlassStyle.panel(context, night()) else null
+        root.setPadding(if (expanded) dp(16) else 0, if (expanded) dp(8) else 0,
+            if (expanded) dp(16) else 0, if (expanded) dp(12) else 0)
+        badge = null; orbHandle = null; orbIcon = null; orbIndicator = null
+        lastOrbIcon = 0; lastOrbIndicator = 0
+        val header = LinearLayout(context).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
         }
-        root.setPadding(if (expanded) dp(12) else 0, 0, if (expanded) dp(12) else 0, if (expanded) dp(8) else 0)
-        val header = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL }
-        root.addView(header, LinearLayout.LayoutParams(-1, dp(56)))
-        badge = TextView(context).apply {
-            gravity = Gravity.CENTER
-            textSize = if (expanded) 16f else 12f
-            setTextColor(if (expanded) foreground else CopilotPalette.HeroText)
-            minimumHeight = dp(56)
-            isClickable = true
-            setOnClickListener { expanded = !expanded; buildContent(); updateState(); position() }
-            drag(this)
-        }.also { header.addView(it, LinearLayout.LayoutParams(0, dp(56), 1f)) }
-        if (expanded) header.addView(Button(context).apply {
-            text = "×"
-            textSize = 22f
-            setTextColor(foreground)
-            backgroundTintList = ColorStateList.valueOf(background)
-            contentDescription = context.getString(R.string.overlay_minimize)
-            setOnClickListener { minimize() }
-        }, LinearLayout.LayoutParams(dp(48), dp(56)))
+        root.addView(header, LinearLayout.LayoutParams(-1, dp(if (expanded) 56 else 64)))
+        if (!expanded) {
+            orbHandle = FrameLayout(context).apply {
+                minimumHeight = dp(64)
+                minimumWidth = dp(64)
+                isClickable = true
+                isFocusable = true
+                background = context.getDrawable(R.drawable.overlay_water_orb)
+                foreground = OverlayGlassStyle.touchCircle()
+                setOnClickListener { expanded = true; buildContent(); updateState(); position() }
+                drag(this)
+            }.also { handle ->
+                orbIcon = ImageView(context).apply {
+                    importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+                    imageTintList = ColorStateList.valueOf(CopilotPalette.HeroText)
+                }.also { handle.addView(it, FrameLayout.LayoutParams(dp(22), dp(22), Gravity.CENTER).apply { topMargin = -dp(3) }) }
+                orbIndicator = View(context).apply { importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO }
+                    .also { handle.addView(it, FrameLayout.LayoutParams(dp(7), dp(7), Gravity.CENTER_HORIZONTAL or Gravity.BOTTOM)
+                        .apply { bottomMargin = dp(12) }) }
+                header.addView(handle, LinearLayout.LayoutParams(dp(64), dp(64)))
+            }
+        } else {
+            header.addView(ImageView(context).apply {
+                setImageResource(R.drawable.overlay_water_orb)
+                importantForAccessibility = View.IMPORTANT_FOR_ACCESSIBILITY_NO
+            }, LinearLayout.LayoutParams(dp(36), dp(36)).apply { marginEnd = dp(8) })
+            badge = TextView(context).apply {
+                gravity = Gravity.CENTER_VERTICAL
+                textSize = 16f
+                setTypeface(typeface, Typeface.BOLD)
+                setTextColor(contentColor)
+                minimumHeight = dp(48)
+                maxLines = 1
+                ellipsize = TextUtils.TruncateAt.END
+                isClickable = true
+                setOnClickListener { minimize() }
+                drag(this)
+            }.also { header.addView(it, LinearLayout.LayoutParams(0, dp(56), 1f)) }
+            header.addView(ImageView(context).apply {
+                setImageResource(R.drawable.ic_overlay_close)
+                imageTintList = ColorStateList.valueOf(contentColor)
+                contentDescription = context.getString(R.string.overlay_minimize)
+                isClickable = true
+                isFocusable = true
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                background = OverlayGlassStyle.touchCircle()
+                setOnClickListener { minimize() }
+            }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        }
         status = null
         request = null
         body = null
@@ -158,21 +194,25 @@ class TripOverlay(
             body = panel
             status = TextView(context).apply {
                 textSize = 14f
-                setTextColor(foreground)
-                setPadding(0, 0, 0, dp(8))
+                setTextColor(contentColor)
+                setPadding(dp(12), dp(10), dp(12), dp(10))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(14).toFloat()
+                    setColor(if (night()) 0xF21A2847.toInt() else 0xF2EEF2FF.toInt())
+                }
                 accessibilityLiveRegion = View.ACCESSIBILITY_LIVE_REGION_POLITE
             }.also { body?.addView(it) }
-            request = button(R.string.trip_manual_command) {
+            request = button(R.string.trip_manual_command, R.drawable.ic_mic, primary = true) {
                 expanded = false
                 buildContent()
                 updateState()
                 position()
                 onRequestCommand()
             }
-            button(R.string.overlay_open_app, onOpenApp)
+            button(R.string.overlay_open_app, R.drawable.ic_home, action = onOpenApp)
             // Fuera del área desplazable: ocultar siempre queda a mano con texto grande.
             body = root
-            button(R.string.overlay_hide) { onHide(); close() }
+            button(R.string.overlay_hide, R.drawable.ic_overlay_hide) { onHide(); close() }
         }
     }
 
@@ -184,15 +224,30 @@ class TripOverlay(
         position()
     }
 
-    private fun button(label: Int, action: () -> Unit): Button = Button(context).apply {
+    private fun night() = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
+
+    private fun button(label: Int, iconRes: Int, primary: Boolean = false, action: () -> Unit): Button = Button(context).apply {
         text = context.getString(label)
         isAllCaps = false
-        val (background, foreground) = colors()
-        backgroundTintList = ColorStateList.valueOf(background)
-        setTextColor(ColorStateList(arrayOf(intArrayOf(android.R.attr.state_enabled), intArrayOf()), intArrayOf(foreground, Color.GRAY)))
-        minHeight = dp(48)
+        textSize = 14f
+        gravity = Gravity.CENTER_VERTICAL
+        setTypeface(typeface, Typeface.BOLD)
+        setPadding(dp(14), dp(10), dp(14), dp(10))
+        compoundDrawablePadding = dp(10)
+        backgroundTintList = null
+        val textColors = OverlayGlassStyle.textColors(night(), primary)
+        setTextColor(textColors)
+        context.getDrawable(iconRes)?.mutate()?.let { icon ->
+            icon.setTintList(textColors)
+            icon.setBounds(0, 0, dp(22), dp(22))
+            setCompoundDrawablesRelative(icon, null, null, null)
+        }
+        background = OverlayGlassStyle.button(context, night(), primary)
+        minHeight = dp(52)
+        minWidth = 0
+        stateListAnimator = null
         setOnClickListener { action() }
-    }.also { body?.addView(it, LinearLayout.LayoutParams(-1, -2)) }
+    }.also { body?.addView(it, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) }) }
 
     private fun updateState() {
         val state = snapshot ?: return
@@ -208,21 +263,36 @@ class TripOverlay(
             state.phase == TripInteractionPhase.SWITCHING -> R.string.overlay_switching
             else -> R.string.overlay_preparing
         })
-        val symbol = when {
-            state.call != TripCallPhase.NONE -> "☎"
-            state.phase == TripInteractionPhase.CONFIRMING -> "?"
-            state.phase == TripInteractionPhase.LISTENING -> "●"
-            state.phase == TripInteractionPhase.WAITING -> "•"
-            state.phase == TripInteractionPhase.SWITCHING -> "↔"
-            else -> "…"
+        val icon = when {
+            state.call != TripCallPhase.NONE -> R.drawable.ic_phone
+            state.phase == TripInteractionPhase.CONFIRMING -> R.drawable.ic_overlay_confirm
+            state.phase == TripInteractionPhase.LISTENING -> R.drawable.ic_mic
+            state.phase == TripInteractionPhase.SPEAKING -> R.drawable.ic_overlay_speaking
+            state.phase == TripInteractionPhase.WAITING -> if (state.mode == WakeAudioMode.BUTTON || state.manualActivationOnly)
+                R.drawable.ic_button else R.drawable.ic_overlay_wave
+            else -> R.drawable.ic_overlay_pending
+        }
+        val indicator = when {
+            state.call != TripCallPhase.NONE -> 0xFF9EB8FF.toInt()
+            state.phase == TripInteractionPhase.CONFIRMING -> 0xFFFFD295.toInt()
+            state.phase == TripInteractionPhase.LISTENING -> CopilotPalette.Sky
+            else -> 0xFFD3BFFF.toInt()
+        }
+        if (lastOrbIcon != icon) { orbIcon?.setImageResource(icon); lastOrbIcon = icon }
+        if (lastOrbIndicator != indicator) {
+            orbIndicator?.background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL; setColor(indicator)
+                setStroke(dp(1).coerceAtLeast(1), 0xAA152448.toInt())
+            }
+            lastOrbIndicator = indicator
         }
         val description = context.getString(R.string.overlay_description, state.mode.modeNumber, label)
-        val title = if (expanded) context.getString(R.string.overlay_panel_title, state.mode.modeNumber) else "APP\n$symbol"
+        orbHandle?.let { if (it.contentDescription != description) it.contentDescription = description }
         badge?.let {
+            val title = context.getString(R.string.overlay_panel_title, state.mode.modeNumber)
             if (it.text.toString() != title) it.text = title
             if (it.contentDescription != description) it.contentDescription = description
         }
-        badge?.alpha = if (!expanded && state.ready) 0.75f else 1f
         status?.let { if (it.text.toString() != label) it.text = label }
         request?.isEnabled = state.ready && state.call == TripCallPhase.NONE
     }
@@ -241,8 +311,8 @@ class TripOverlay(
         val root = view ?: return
         val layout = params ?: return
         val (width, height) = availableSize()
-        layout.width = dp(if (expanded) 260 else 56).coerceAtMost((width - margin * 2).coerceAtLeast(dp(48)))
-        layout.height = dp(if (expanded) 320 else 56).coerceAtMost((height - margin * 2).coerceAtLeast(dp(56)))
+        layout.width = dp(if (expanded) 280 else 64).coerceAtMost((width - margin * 2).coerceAtLeast(dp(48)))
+        layout.height = dp(if (expanded) 344 else 64).coerceAtMost((height - margin * 2).coerceAtLeast(dp(56)))
         root.measure(View.MeasureSpec.makeMeasureSpec(layout.width, View.MeasureSpec.EXACTLY),
             View.MeasureSpec.makeMeasureSpec(layout.height, View.MeasureSpec.EXACTLY))
         val point = anchor.place(width, height, layout.width, root.measuredHeight, margin)
@@ -264,6 +334,8 @@ class TripOverlay(
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     draggingWindow = true
+                    handle.isPressed = true
+                    handle.drawableHotspotChanged(event.x, event.y)
                     downX = event.rawX; downY = event.rawY
                     oldX = layout.x; oldY = layout.y; dragging = false
                     true
@@ -271,6 +343,7 @@ class TripOverlay(
                 MotionEvent.ACTION_MOVE -> {
                     if (abs(event.rawX - downX) > slop || abs(event.rawY - downY) > slop) dragging = true
                     if (dragging) {
+                        handle.isPressed = false
                         val (width, height) = availableSize()
                         layout.x = (oldX + event.rawX.toInt() - downX.toInt()).coerceIn(0, (width - layout.width).coerceAtLeast(0))
                         layout.y = (oldY + event.rawY.toInt() - downY.toInt()).coerceIn(0, (height - (view?.measuredHeight ?: dp(56))).coerceAtLeast(0))
@@ -280,6 +353,7 @@ class TripOverlay(
                 }
                 MotionEvent.ACTION_UP -> {
                     draggingWindow = false
+                    handle.isPressed = false
                     if (dragging) {
                         val (width, height) = availableSize()
                         val maxY = (height - (view?.measuredHeight ?: dp(56)) - margin).coerceAtLeast(margin)
@@ -290,7 +364,7 @@ class TripOverlay(
                     } else handle.performClick()
                     true
                 }
-                MotionEvent.ACTION_CANCEL -> { draggingWindow = false; position(); true }
+                MotionEvent.ACTION_CANCEL -> { handle.isPressed = false; draggingWindow = false; position(); true }
                 else -> false
             }
         }
@@ -305,9 +379,12 @@ class TripOverlay(
     fun close() {
         view?.let { root -> if (root.isAttachedToWindow) runCatching { manager.removeViewImmediate(root) } }
         view = null; params = null; badge = null; status = null; request = null
+        orbHandle = null; orbIcon = null; orbIndicator = null
+        lastOrbIcon = 0; lastOrbIndicator = 0
         expanded = false
         draggingWindow = false
         body = null
     }
 }
+
 

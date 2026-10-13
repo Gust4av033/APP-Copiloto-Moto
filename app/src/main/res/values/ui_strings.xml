@@ -179,7 +179,7 @@
     <string name="trip_pending_app_hint">Durante la confirmación, después del tono: “uno” para abrir o “dos” para cancelar. Para abrir por voz, desbloqueá el teléfono. Con otra app al frente, habilitá Mostrar sobre otras apps. También podés usar estos botones o el aviso; el aviso vence 30 segundos después del anuncio (60 para borradores).</string>
     <string name="trip_open_app">Abrir</string>
     <string name="trip_cancel_app">Cancelar apertura</string>
-    <string name="ui_revision">Escucha 03 · Waze, borradores e inglés</string>
+    <string name="ui_revision">UI glass · Burbuja de agua 01</string>
     <string name="session_restoring">Restaurando audio</string>
     <string name="mode_voice_title">Modo 1 · Voz desde el casco</string>
     <string name="mode_button_title">Modo 2 · Botón</string>
@@ -396,4 +396,5 @@
     <string name="settings_back_to_list">Volver a Ajustes</string>
     <string name="settings_phrase_manual_inactive">En activación manual no se usa la frase de voz. Para ajustar la frase y sensibilidad, elegí un modo de voz y dejá desactivado “Solo activación manual”.</string>
 </resources>
+
 
