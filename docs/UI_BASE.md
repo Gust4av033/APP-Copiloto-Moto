@@ -1,5 +1,9 @@
 # UI de APP Copiloto Moto · Fase 1
 
+## Fase 2 · Contexto de navegación · 13 de octubre de 2026
+
+La base consolidada está en main (506a604); el trabajo continúa en feature/fase-2-navigation-context. Viaje incorpora una tarjeta glass «Navegación de este viaje», observando el contexto de sesión compartido: favorito o búsqueda despachados a Waze, ruta desconocida y ausencia de ETA/distancia/giro. Una búsqueda no confirma el resultado elegido en Waze. No se inicia escucha desde la tarjeta ni se añaden controles o permisos. Burbuja y notificación mantienen su estado de sesión de APP; no muestran una ruta activa ni datos de Waze. Alcance y prueba: [Fase 2](FASE_2_NAVEGACION_CONTEXTO.md).
+
 ## Ajustes de usuario y desarrollo · 13 de octubre de 2026
 
 La entrega activa de Ajustes está en `feature/settings-user-developer`, derivada de `release/fase-1-rc1` (`c2415f3`), que ya contiene la UI glass y la burbuja compacta. Consulta [estructura, límites y protocolo de prueba](AJUSTES_USUARIO_DESARROLLO.md). Los diagnósticos técnicos dejan de estar en el recorrido normal; se conserva el runtime de voz, música, navegación, llamadas y mensajería.

@@ -139,6 +139,7 @@ data class CopilotUiState(
     val selectedMusicPlayer: String? = null,
     val musicPlayersMessage: String = "",
     val navigationAvailable: Boolean = false,
+    val navigationContext: com.gust4av033.appcopilotomoto.TripNavigationContext = com.gust4av033.appcopilotomoto.TripNavigationContext(),
     val lastNavigationRequest: String = "",
     val chatCapabilities: List<ContactChatCapability> = emptyList(),
     val chatContactsGranted: Boolean = false,

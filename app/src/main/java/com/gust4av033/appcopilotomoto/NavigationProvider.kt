@@ -60,10 +60,18 @@ object NavigationRequestStore {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(LAST_WAZE, null)
             ?.let { saved -> NavigationDestination.entries.firstOrNull { it.name == saved } }
 
-    fun recordDispatched(context: Context, target: AppTarget) {
-        val destination = target.navigationDestination ?: return
+    fun recordDispatched(context: Context, target: AppTarget,
+                         sessionId: String? = TripNavigationState.context.sessionId) {
         if (target.launchIntent.`package` != "com.waze") return
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+        val destination = target.navigationDestination
+        val query = target.navigationSearchQuery
+        if (destination == null && query.isNullOrBlank()) return
+        // Do not let an old session replace the current trip or its repeat favorite.
+        if (sessionId != null && sessionId != TripNavigationState.context.sessionId) return
+        TripNavigationState.record(sessionId, NavigationDispatch("waze",
+            if (query != null) NavigationRequestKind.SEARCH else NavigationRequestKind.FAVORITE,
+            query ?: checkNotNull(destination).label, System.currentTimeMillis()))
+        if (destination != null) context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(LAST_WAZE, destination.name).apply()
     }
 

@@ -14,8 +14,8 @@ android {
         applicationId = "com.gust4av033.appcopilotomoto"
         minSdk = 26
         targetSdk = 36
-        versionCode = 3
-        versionName = "1.0.0-rc1"
+        versionCode = 4
+        versionName = "1.1.0-f2-context1"
     }
 
     buildTypes {
@@ -24,8 +24,8 @@ android {
             applicationIdSuffix = ".pruebas"
             versionNameSuffix = "-campo"
             matchingFallbacks += listOf("debug")
-            resValue("string", "app_name", "APP · Campo RC1")
-            resValue("string", "media_access_service_label", "APP · Campo RC1 · controles del reproductor")
+            resValue("string", "app_name", "APP · Campo F2")
+            resValue("string", "media_access_service_label", "APP · Campo F2 · controles del reproductor")
         }
     }
 

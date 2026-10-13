@@ -310,6 +310,7 @@ class TripVoiceService : Service() {
         mainHandler.removeCallbacks(overlayTick)
         mainHandler.post(overlayTick)
         TripTestState.running = true
+        TripNavigationState.beginSession()
         TripTestState.markRunning(this, true)
         TripTestState.reset(this)
         buttonCoordinator = TripButtonCoordinator(this, binding,
@@ -1194,15 +1195,18 @@ class TripVoiceService : Service() {
         val request = appRequests.current ?: return false
         if (request.token != token || SystemClock.elapsedRealtime() >= request.expiresAtMs) return false
         val activityOpener = TripTestState.openPendingAppFromVoice
+        val navigationSession = TripNavigationState.context.sessionId
+        val opensFromActivity = TripTestState.appVisible && activityOpener != null
         return runCatching {
-            if (TripTestState.appVisible && activityOpener != null) activityOpener(token)
+            if (opensFromActivity) checkNotNull(activityOpener)(token)
             else {
                 // SYSTEM_ALERT_WINDOW concedido es una excepción documentada de apertura en segundo plano.
                 startActivity(Intent(target.launchIntent).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                 true
             }
         }.getOrDefault(false).also { opened ->
-            if (opened) NavigationRequestStore.recordDispatched(this, target)
+            // The Activity path already records the dispatch after its successful startActivity.
+            if (opened && !opensFromActivity) NavigationRequestStore.recordDispatched(this, target, navigationSession)
         }
     }
 
@@ -1508,6 +1512,7 @@ class TripVoiceService : Service() {
         val resumeAfterRoute = pausedBySpeech || pausedForRoute
         val audioCaptureGeneration = TripTestState.audioCaptureGeneration
         TripTestState.running = false
+        TripNavigationState.endSession()
         TripTestState.markRunning(this, false)
         TripTestState.status = "$reason Restaurando audio del casco…"
         // El servicio conserva su ruta y su notificación hasta terminar close() y verificar
