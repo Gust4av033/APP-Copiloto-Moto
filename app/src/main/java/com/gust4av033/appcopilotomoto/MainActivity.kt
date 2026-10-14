@@ -114,6 +114,9 @@ class MainActivity : ComponentActivity() {
     private var selectedMusicPlayer by mutableStateOf<String?>(null)
     private var musicPlayersMessage by mutableStateOf("")
     private var navigationAvailable by mutableStateOf(false)
+    private var navigationProvider by mutableStateOf(NavigationApp.WAZE)
+    private var navigationHomeAddress by mutableStateOf("")
+    private var navigationWorkAddress by mutableStateOf("")
     private var lastNavigationRequest by mutableStateOf<NavigationDestination?>(null)
     private var chatCapabilities by mutableStateOf<List<ContactChatCapability>>(emptyList())
     private var chatContactsGranted by mutableStateOf(false)
@@ -353,6 +356,9 @@ class MainActivity : ComponentActivity() {
             selectedMusicPlayer = selectedMusicPlayer,
             musicPlayersMessage = musicPlayersMessage,
             navigationAvailable = navigationAvailable,
+            navigationProvider = navigationProvider,
+            navigationHomeAddress = navigationHomeAddress,
+            navigationWorkAddress = navigationWorkAddress,
             wazeObservationEnabled = wazeObservationEnabled,
             wazeObservationGranted = wazeObservationGranted,
             wazeObservation = WazeNotificationObservation.snapshot,
@@ -528,9 +534,27 @@ class MainActivity : ComponentActivity() {
                 onOpenButtonProbe = { selectedScreen = if (developerEnabled) CopilotScreen.TESTS else CopilotScreen.DIAGNOSTICS },
                 onForgetNavigationRequest = {
                     if (!audioBusy()) {
-                        NavigationRequestStore.forget(this@MainActivity)
+                        NavigationRequestStore.forget(this@MainActivity, navigationProvider)
                         lastNavigationRequest = null
                     }
+                },
+                onNavigationProviderChange = { id ->
+                    if (!audioBusy() && !appCatalogLoading) {
+                        val selected = NavigationApp.fromId(id)
+                        NavigationPreferences.select(this@MainActivity, selected)
+                        navigationProvider = selected
+                        lastNavigationRequest = NavigationRequestStore.last(this@MainActivity, selected)
+                        navigationAvailable = false
+                        refreshAppCatalog(force = true)
+                    }
+                },
+                onNavigationAddressSave = { destination, address ->
+                    if (!audioBusy()) runCatching {
+                        NavigationPreferences.saveAddress(this@MainActivity, destination, address)
+                    }.onSuccess {
+                        if (destination == NavigationDestination.HOME) navigationHomeAddress = NavigationPreferences.address(this@MainActivity, destination)
+                        else navigationWorkAddress = NavigationPreferences.address(this@MainActivity, destination)
+                    }.onFailure { configurationNotice = it.message.orEmpty() }
                 },
                 onWazeObservationChange = { enabled ->
                     if (canRunDeveloperTools() && !audioBusy()) {
@@ -736,7 +760,10 @@ class MainActivity : ComponentActivity() {
         val generation = ++presentationSyncGeneration
         val activityGeneration = presentationGeneration
         val prefs = getSharedPreferences("ui_settings", MODE_PRIVATE)
-        lastNavigationRequest = NavigationRequestStore.last(this)
+        navigationProvider = NavigationPreferences.selected(this)
+        navigationHomeAddress = NavigationPreferences.address(this, NavigationDestination.HOME)
+        navigationWorkAddress = NavigationPreferences.address(this, NavigationDestination.WORK)
+        lastNavigationRequest = NavigationRequestStore.last(this, navigationProvider)
         wazeObservationEnabled = WazeObservationAccess.enabled(this)
         wazeObservationGranted = WazeObservationAccess.granted(this)
         wazeScreenEnabled = WazeScreenAccess.enabled(this)
@@ -1175,9 +1202,9 @@ class MainActivity : ComponentActivity() {
                                 ) },
                                 onFailure = { it.message ?: "No se encontró la aplicación." }
                             )
-                            TestIntent.SEARCH_PLACE -> "Búsqueda interpretada; se confirma en el viaje. No se abrió Waze."
+                            TestIntent.SEARCH_PLACE -> "Búsqueda interpretada; se confirma en el viaje. No se abrió ningún navegador."
                             TestIntent.NEXT_TURN -> actions.nextTurnAnswer()
-                            TestIntent.NAVIGATE -> "Destino interpretado; la ruta y su confirmación se prueban durante el viaje. No se abrió Waze."
+                            TestIntent.NAVIGATE -> "Destino interpretado; la ruta y su confirmación se prueban durante el viaje. No se abrió ningún navegador."
                             TestIntent.OPEN_CONTACT_CHAT -> "Escuché: ‘$heard’. Los chats con confirmación por voz se prueban en la sesión de viaje."
                             TestIntent.DRAFT_CONTACT_MESSAGE -> "Borrador interpretado; dictado y confirmación se prueban en el viaje. No se abrió ni envió un mensaje."
                             TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.CONFIRM_CALL -> "Escuché: ‘$heard’. Las llamadas por nombre se prueban en la sesión de viaje."

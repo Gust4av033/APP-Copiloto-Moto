@@ -19,8 +19,12 @@ fun WazeObservationCard(state: CopilotUiState, actions: CopilotActions) {
             onClick = actions.onWazeScreenPermission)
         SupportingText(stringResource(R.string.waze_screen_command))
         SupportingText(stringResource(if (state.wazeScreen.texts.isEmpty()) R.string.waze_screen_empty else R.string.waze_screen_sample))
-        ActionButton(stringResource(R.string.waze_screen_copy), enabled = state.wazeScreen.texts.isNotEmpty(),
-            onClick = { actions.onCopyDiagnostics(state.wazeScreen.report()) })
+        ActionButton(stringResource(R.string.waze_screen_copy), onClick = {
+            actions.onCopyDiagnostics(buildString {
+                appendLine("Lectura activada=${state.wazeScreenEnabled}; permiso=${state.wazeScreenGranted}; desarrollo=${state.developerToolsAvailable}; viaje=${state.tripActive}")
+                append(state.wazeScreen.report())
+            })
+        })
     }
     SectionCard(stringResource(R.string.waze_observation_title)) {
         SupportingText(stringResource(R.string.waze_observation_scope))

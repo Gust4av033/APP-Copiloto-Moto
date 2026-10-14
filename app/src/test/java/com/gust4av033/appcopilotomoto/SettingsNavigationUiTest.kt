@@ -68,14 +68,14 @@ class SettingsNavigationUiTest {
             screen=CopilotScreen.TRIP, scale=1.5f)
         compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Navegación de este viaje"))
         compose.onNodeWithText("Búsqueda enviada a Waze: gasolinera").assertExists()
-        compose.onNodeWithText("El lugar elegido en Waze no está confirmado en APP.").assertExists()
+        compose.onNodeWithText("El lugar elegido en el navegador no está confirmado en APP.").assertExists()
         compose.onNodeWithText("Estado de ruta no disponible.").assertExists()
         compose.onNodeWithTag("settings_content").performScrollToNode(hasText("ETA, distancia y próximo giro todavía no disponibles."))
         saveRender("phase2-trip-search-large-font")
     }
     @Test fun wazeObservationIsHiddenFromOrdinaryNavigation() {
         app(section=SettingsSection.NAVIGATION)
-        compose.onNodeWithText("Muestra de Waze · experimental").assertDoesNotExist()
+        compose.onNodeWithText("Notificación de Waze · experimental").assertDoesNotExist()
     }
     @Test fun screenConsentEmitsOnlyItsExplicitPreferenceCallback() {
         var enabled:Boolean?=null
@@ -86,6 +86,34 @@ class SettingsNavigationUiTest {
         compose.onNodeWithText("Observar pantalla de Waze").performClick()
         assertEquals(true,enabled)
         assertEquals(0,microphoneRequests)
+    }
+    @Test fun emptyScreenReportCanBeCopiedToDiagnoseMissingWazeText() {
+        var copied: String? = null
+        app(state=CopilotUiState(developerAccess=DeveloperAccess(true,true), tripActive=true,
+            wazeScreenEnabled=true, wazeScreenGranted=true,
+            wazeScreen=WazeScreenSnapshot(sessionId="session",connected=true)),
+            section=SettingsSection.NAVIGATION,
+            actions=CopilotActions(onCopyDiagnostics={copied=it}))
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Copiar estado de pantalla de Waze"))
+        compose.onNodeWithText("Copiar estado de pantalla de Waze").assertIsEnabled().performClick()
+        assertTrue(copied.orEmpty().contains("Lectura activada=true; permiso=true"))
+        assertTrue(copied.orEmpty().contains("Sin textos accesibles de Waze"))
+    }
+    @Test fun mapsAddressesAreExplicitAndDoNotStartATrip() {
+        var selected: String? = null
+        var saved: Pair<NavigationDestination, String>? = null
+        var trips = 0
+        app(state=CopilotUiState(navigationProvider=NavigationApp.GOOGLE_MAPS),
+            section=SettingsSection.NAVIGATION, scale=1.5f,
+            actions=CopilotActions(onNavigationProviderChange={selected=it},
+                onNavigationAddressSave={destination,address->saved=destination to address},
+                onToggleTrip={trips++}))
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Dirección de Casa para Google Maps"))
+        compose.onNodeWithText("Dirección de Casa para Google Maps").assertExists()
+        saveRender("phase2-maps-settings-large-font")
+        assertNull(selected)
+        assertNull(saved)
+        assertEquals(0,trips)
     }
     @Test fun screenTurnIsShownAsALastObservationInStormGlass() {
         app(state=CopilotUiState(tripActive=true,wazeScreen=WazeScreenSnapshot("s",true,false,1000,
@@ -104,11 +132,11 @@ class SettingsNavigationUiTest {
                 WazeNotificationSample("waze-key","navigation",1000,2000,mapOf("android.text" to "En 300 m")))),
             section=SettingsSection.NAVIGATION,scale=1.5f,
             actions=CopilotActions(onCopyDiagnostics={copied=it}))
-        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Copiar muestra de Waze"))
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Copiar notificación de Waze"))
         compose.onNodeWithText("En 300 m").assertExists()
         assertNull(copied)
         saveRender("phase2-waze-observation-large-font")
-        compose.onNodeWithText("Copiar muestra de Waze").performClick()
+        compose.onNodeWithText("Copiar notificación de Waze").performClick()
         assertTrue(copied.orEmpty().contains("android.text: En 300 m"))
         compose.onNodeWithText("Observar notificaciones de Waze").assertIsNotEnabled()
     }

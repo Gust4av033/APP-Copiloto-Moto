@@ -44,6 +44,12 @@ El panel principal y la preparación del equipo se organizan en tres tarjetas:
 - **Mi ruta:** última solicitud real de navegación, con sus límites de confirmación,
   y acceso a Viaje. No inventa ETA, kilómetros ni estado de ruta activa.
 
+En la ampliación de Fase 2 para Google Maps, Mi ruta y Viaje nombran el proveedor
+del último despacho real. Ajustes → Navegación usa las mismas tarjetas y selección
+azul para elegir Waze o Maps; los campos de direcciones de Maps solo se muestran
+cuando ese proveedor está seleccionado. Una lectura experimental de Waze no se
+presenta como indicación de Maps. Alcance y prueba en [Google Maps](FASE_2_GOOGLE_MAPS.md).
+
 Se puede deslizar horizontalmente o pulsar pestañas etiquetadas de al menos 48 dp.
 Con fuente de 130 % o mayor, las pestañas pasan a una lista vertical para conservar las palabras completas.
 La página elegida se conserva con el estado guardable de Compose; la altura se adapta

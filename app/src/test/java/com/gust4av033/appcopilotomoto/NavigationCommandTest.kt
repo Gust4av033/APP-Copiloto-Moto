@@ -13,6 +13,11 @@ class NavigationCommandTest {
         }
         assertEquals(NavigationRequest.WORK, MinimalIntentRouter.route("Vamos al trabajo, por favor").navigationRequest)
         assertEquals(TestIntent.OPEN_APP, MinimalIntentRouter.route("abre Waze").intent)
+        assertEquals(NavigationApp.WAZE,
+            MinimalIntentRouter.route("Llévame a casa en Waze").navigationProvider)
+        val maps = MinimalIntentRouter.route("Vamos a la chamba en Google Maps")
+        assertEquals(TestIntent.NAVIGATE, maps.intent)
+        assertEquals(NavigationApp.GOOGLE_MAPS, maps.navigationProvider)
     }
 
     @Test fun lastDestinationUsesLocalRequestAndNeverInventsAFallback() {

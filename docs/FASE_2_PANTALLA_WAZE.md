@@ -32,6 +32,10 @@ Con desarrollo activo, Ajustes → Navegación incorpora opt-in, acceso a Accesi
 4. Cancelar una consulta, probar silencio desde notificación, detener/reiniciar, revocar permiso, bloquear y poner otra app al frente. No debe reutilizar una indicación vieja como actual ni terminar el viaje por ausencia de lectura.
 5. Regresar a Ajustes → Navegación sin detener el viaje y copiar la lectura de pantalla. Incluye posiciones y texto acotados para adaptar los nodos reales si Waze no proporciona una maniobra reconocida. Al regresar a APP, la ventana deja de ser Waze: la muestra permanece solo para diagnóstico, la consulta pierde disponibilidad.
 
+El informe de pantalla ahora se puede copiar aunque no haya textos accesibles. Incluye el estado del interruptor, permiso, desarrollo y viaje, para distinguir falta de acceso de una pantalla de Waze sin nodos útiles. Se distingue por el encabezado «Fuente: pantalla de com.waze» y el botón «Copiar estado de pantalla de Waze». El botón de la tarjeta siguiente copia la notificación.
+
+Evidencia del usuario: Samsung SM-S906U, Android 16, informe de notificación fechado 2026-10-13T23:26:20Z. El lector estaba conectado, sin fallo de lectura y con sesión activa; la muestra era reciente y contenía `android.title: Waze` y `android.text: En ejecución. Toca para abrir.` El usuario oyó que el giro no estaba disponible y volvió a copiar la misma muestra. Esta evidencia solo confirma el contenido de la notificación y no explica por sí sola la ausencia del giro: la consulta usa el lector de pantalla, con permiso separado. Falta recoger el informe que empieza por «Fuente: pantalla de com.waze».
+
 La lectura de Accesibilidad depende de la interfaz de Waze y no sustituye su API. Mantener esta entrega en borrador hasta recoger la muestra del teléfono y completar la comparación/recuperación. Los ejemplos de JVM son sintéticos.
 
 ## Validación

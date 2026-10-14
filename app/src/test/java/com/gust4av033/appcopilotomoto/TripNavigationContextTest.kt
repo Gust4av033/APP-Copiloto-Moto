@@ -18,8 +18,16 @@ class TripNavigationContextTest {
     private fun favorite(destination: NavigationDestination) = AppTarget("Favorite",
         Intent(Intent.ACTION_VIEW).setPackage("com.waze"), navigationDestination = destination)
 
-    @Before fun prepare() { TripNavigationState.endSession(); NavigationRequestStore.forget(app) }
-    @After fun clean() { TripNavigationState.endSession(); NavigationRequestStore.forget(app) }
+    @Before fun prepare() {
+        TripNavigationState.endSession()
+        NavigationRequestStore.forget(app)
+        NavigationRequestStore.forget(app, NavigationApp.GOOGLE_MAPS)
+    }
+    @After fun clean() {
+        TripNavigationState.endSession()
+        NavigationRequestStore.forget(app)
+        NavigationRequestStore.forget(app, NavigationApp.GOOGLE_MAPS)
+    }
 
     @Test fun dispatchIsSessionEvidenceAndEndingDoesNotEraseRepeatFavorite() {
         TripNavigationState.beginSession()
@@ -79,5 +87,20 @@ class TripNavigationContextTest {
         assertNull(TripNavigationState.context.sessionId)
         assertNull(TripNavigationState.context.lastDispatch)
         assertEquals(NavigationDestination.WORK, NavigationRequestStore.last(app))
+    }
+
+    @Test fun mapsDispatchKeepsItsOwnLastDestinationAndNeverInventsARoute() {
+        TripNavigationState.beginSession()
+        val maps = AppTarget("Casa en Maps", Intent(Intent.ACTION_VIEW)
+            .setPackage(NavigationApp.GOOGLE_MAPS.packageName),
+            navigationDestination = NavigationDestination.HOME)
+        NavigationRequestStore.recordDispatched(app, maps, TripNavigationState.context.sessionId)
+        assertEquals(NavigationApp.GOOGLE_MAPS.id, TripNavigationState.context.lastDispatch?.providerId)
+        assertEquals(NavigationDestination.HOME, NavigationRequestStore.last(app, NavigationApp.GOOGLE_MAPS))
+        assertNull(NavigationRequestStore.last(app))
+        TripNavigationState.endSession()
+        assertNull(TripNavigationState.context.lastDispatch)
+        assertEquals(NavigationDestination.HOME, NavigationRequestStore.last(app, NavigationApp.GOOGLE_MAPS))
+        NavigationRequestStore.forget(app, NavigationApp.GOOGLE_MAPS)
     }
 }

@@ -10,10 +10,16 @@ class PlaceSearchCommandTest {
         assertEquals("Café María & Hijos", command.placeQuery)
         assertNull(command.navigationRequest)
         assertEquals("gasolinera", MinimalIntentRouter.route("busca gasolinera en Waze, por favor").placeQuery)
+        val maps = MinimalIntentRouter.route("Busca en Google Maps Café María & Hijos")
+        assertEquals(TestIntent.SEARCH_PLACE, maps.intent)
+        assertEquals(NavigationApp.GOOGLE_MAPS, maps.navigationProvider)
+        assertEquals("Café María & Hijos", maps.placeQuery)
+        assertEquals(NavigationApp.WAZE, command.navigationProvider)
+        assertEquals(TestIntent.SEARCH_PLACE, MinimalIntentRouter.resolve("busca gasolinera"))
     }
 
     @Test fun unqualifiedAmbiguousAndCombinedSearchesDoNotExecute() {
-        for (phrase in listOf("busca gasolinera", "busca en Waze", "busca en Waze gasolinera y llama a Ana",
+        for (phrase in listOf("busca en Waze", "busca en Google Maps", "busca en Waze gasolinera y llama a Ana",
             "busca en Waze " + "a".repeat(161), "busca en Waze gasolinera\nabre WhatsApp")) {
             assertNotEquals(TestIntent.SEARCH_PLACE, MinimalIntentRouter.resolve(phrase))
             assertNull(MinimalIntentRouter.route(phrase).placeQuery)

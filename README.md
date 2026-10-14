@@ -1,5 +1,7 @@
 # APP Copiloto Moto
 
+Avance experimental de Fase 2: [Google Maps como segundo proveedor](docs/FASE_2_GOOGLE_MAPS.md), sobre la [lectura de pantalla de Waze](docs/FASE_2_PANTALLA_WAZE.md). `main` conserva el contexto de navegación aceptado; los avances posteriores siguen en ramas de prueba. La validación física del proveedor nuevo está pendiente.
+
 Entrega de Ajustes: [organización de usuario, ayuda y acceso de desarrollador](docs/AJUSTES_USUARIO_DESARROLLO.md). Rama `feature/settings-user-developer`, derivada de RC1 con la UI glass integrada.
 
 Baseline integrada actual: **Fase 1 RC1**, versión `1.0.0-rc1`, en `release/fase-1-rc1`. Reúne toda la UI glass y la esfera de agua de `1d58c29`, con panel compacto y adaptación a texto/pantalla ([detalle de UI](docs/UI_BASE.md)) y el núcleo de Escucha 03 con reconocimiento automático español/inglés según capacidades del motor, aclaraciones habladas y preparación/cancelación común. [Estado y alcance](docs/FASE_1_RC1.md) · [Regresión repetible](docs/REGRESION_FASE_1_RC1.md). Es candidata a estable: la validación de los cambios nuevos en S22+/Y12 se registra por separado de las pruebas automatizadas.
@@ -50,7 +52,7 @@ La arquitectura prevista conserva límites entre `presentation`, `application`, 
 
 ### Sincronizar cambios de GitHub
 
-En Android Studio: **Git > Pull** sobre `feature/fase-1-intent-router` o `git pull --ff-only origin feature/fase-1-intent-router` desde la terminal del proyecto. Para subir cambios propios: **Commit** y luego **Push** (o `git add . && git commit -m "..." && git push`).
+En Android Studio, usar **Git > Fetch** y elegir `main` para la base integrada o la rama de Fase 2 que se vaya a probar. Después ejecutar **Git > Pull** y **Sync Project with Gradle Files**. En terminal: `git fetch origin`, `git switch main`, `git pull --ff-only origin main`. Conservar o respaldar cambios locales antes de cambiar de rama. Para subir cambios propios: **Commit** y luego **Push**.
 
 
 ## Estabilización del núcleo y botón configurable

@@ -14,8 +14,14 @@ enum class NavigationRequest {
 }
 
 object NavigationCommandParser {
+    fun explicitProvider(normalized: String): NavigationApp? = when {
+        normalized.endsWith(" en waze") -> NavigationApp.WAZE
+        normalized.endsWith(" en google maps") -> NavigationApp.GOOGLE_MAPS
+        else -> null
+    }
+
     fun parse(normalized: String): NavigationRequest? {
-        val text = normalized.removeSuffix(" en waze").trim()
+        val text = normalized.removeSuffix(" en waze").removeSuffix(" en google maps").trim()
         return when (text) {
             "vamos a casa", "vamos a la casa", "vamos para casa", "vamos para la casa",
             "ir a casa", "llevame a casa", "navega a casa", "navegar a casa",

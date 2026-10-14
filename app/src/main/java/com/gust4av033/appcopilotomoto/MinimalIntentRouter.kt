@@ -17,7 +17,8 @@ data class RoutedCommand(
     val messageText: String? = null,
     val navigationRequest: NavigationRequest? = null,
     val placeQuery: String? = null,
-    val musicTitleInEnglish: Boolean = false
+    val musicTitleInEnglish: Boolean = false,
+    val navigationProvider: NavigationApp? = null
 )
 
 /** Las órdenes claras pasan por reglas locales; una frase desconocida no ejecuta nada. */
@@ -110,7 +111,8 @@ object MinimalIntentRouter {
     fun route(transcript: String): RoutedCommand {
         val normalized = commandText(transcript)
         val englishTitle = EnglishSongRequest.matches(normalized)
-        val placeQuery = PlaceSearchParser.parse(transcript)
+        val placeSearch = PlaceSearchParser.parseRequest(transcript)
+        val placeQuery = placeSearch?.query
         val navigation = NavigationCommandParser.parse(normalized)
         val mode = TripModeCommands.parse(normalized)
         val volume = requestedVolume(transcript)
@@ -156,7 +158,10 @@ object MinimalIntentRouter {
             if (intent == TestIntent.DRAFT_CONTACT_MESSAGE) draft?.text else null,
             if (intent == TestIntent.NAVIGATE) navigation else null,
             if (intent == TestIntent.SEARCH_PLACE) placeQuery else null,
-            intent == TestIntent.MEDIA_SEARCH && englishTitle)
+            intent == TestIntent.MEDIA_SEARCH && englishTitle,
+            if (intent == TestIntent.SEARCH_PLACE) placeSearch?.provider
+                else if (intent == TestIntent.NAVIGATE) NavigationCommandParser.explicitProvider(normalized)
+                else null)
     }
 
     fun resolve(transcript: String): TestIntent = route(transcript).intent

@@ -36,7 +36,8 @@ fun LazyListScope.SettingsScreen(
                     SettingsSection.ACTIVATION -> stringResource(if (state.inputId == "PHONE_WAKE") R.string.mode_phone_title else if (state.buttonMode) R.string.mode_button_title else R.string.mode_voice_title)
                     SettingsSection.AUDIO -> state.audioDevices.selectedLabel.ifBlank { state.audioDevices.automaticHeadset }
                     SettingsSection.APPEARANCE -> stringResource(if (state.overlayEnabled) R.string.settings_overlay_on else R.string.settings_overlay_off)
-                    SettingsSection.NAVIGATION -> stringResource(if (state.navigationAvailable) R.string.settings_waze_available else R.string.settings_waze_unavailable)
+                    SettingsSection.NAVIGATION -> stringResource(if (state.navigationAvailable) R.string.navigation_ready else R.string.navigation_missing,
+                        state.navigationProvider.label)
                     SettingsSection.ABOUT -> state.installedVersion
                     else -> null
                 }

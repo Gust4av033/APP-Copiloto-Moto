@@ -7,7 +7,11 @@ import android.media.AudioManager
 /** Ejecuta las acciones deterministas; la sesión decide cuándo restaurar audio o pedir confirmación. */
 class ActionExecutor(private val context: Context, private val media: MediaActionAdapter) {
     private val apps = AppLaunchAdapter(context)
-    private val navigation: NavigationProvider = WazeNavigationProvider(context)
+    private fun navigation(app: NavigationApp): NavigationProvider = when (app) {
+        NavigationApp.WAZE -> WazeNavigationProvider(context)
+        NavigationApp.GOOGLE_MAPS -> GoogleMapsNavigationProvider(context)
+    }
+    private val selectedNavigation: NavigationProvider get() = navigation(NavigationPreferences.selected(context))
     private val music = MusicSearchAdapter(context)
     private val chats: List<ContactChatAdapter> = ChatApp.entries.map { WhatsAppChatAdapter(context, it) }
 
@@ -50,20 +54,26 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
         adapter.prepare(contact).getOrThrow()
     }
 
-    fun navigationAvailable(): Boolean = navigation.available()
-    fun nextTurnAnswer(): String = navigation.nextTurnAnswer()
+    fun navigationAvailable(): Boolean = selectedNavigation.available()
+    fun nextTurnAnswer(): String {
+        val current = TripNavigationState.context.lastDispatch?.providerId
+            ?.let(NavigationApp::fromId) ?: NavigationPreferences.selected(context)
+        return navigation(current).nextTurnAnswer()
+    }
 
     fun preparePlaceSearch(command: RoutedCommand): Result<AppTarget> = runCatching {
         check(command.intent == TestIntent.SEARCH_PLACE) { "La orden no pide buscar un lugar." }
-        navigation.search(checkNotNull(command.placeQuery)).getOrThrow()
+        navigation(command.navigationProvider ?: NavigationPreferences.selected(context))
+            .search(checkNotNull(command.placeQuery)).getOrThrow()
     }
 
     fun prepareNavigation(command: RoutedCommand): Result<AppTarget> = runCatching {
         check(command.intent == TestIntent.NAVIGATE) { "La orden no pide navegación." }
         val request = checkNotNull(command.navigationRequest)
-        val destination = request.resolve(NavigationRequestStore.last(context))
-            ?: error("Todavía no hay un destino solicitado desde APP. Pedí ir a Casa o Trabajo primero. El historial de Waze no se lee.")
-        navigation.prepare(destination).getOrThrow()
+        val app = command.navigationProvider ?: NavigationPreferences.selected(context)
+        val destination = request.resolve(NavigationRequestStore.last(context, app))
+            ?: error("Todavía no hay un destino solicitado desde APP en ${app.label}. Pedí ir a Casa o Trabajo primero; APP no lee el historial externo.")
+        navigation(app).prepare(destination).getOrThrow()
     }
 
     fun availableApps(): Result<List<LaunchableApp>> = apps.installedApps()

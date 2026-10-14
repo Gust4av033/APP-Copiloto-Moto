@@ -48,6 +48,7 @@ data class WazeScreenSnapshot(val sessionId: String? = null, val connected: Bool
     fun report() = buildString {
         appendLine("Fuente: pantalla de com.waze, experimental. No confirma ruta ni ETA.")
         appendLine("Conectado=$connected; visible=$visible; observadoElapsed=$observedAtMs; sesión=${sessionId != null}")
+        if (texts.isEmpty()) appendLine("Sin textos accesibles de Waze en la muestra actual.")
         texts.forEach { appendLine("y=${it.top}..${it.bottom}: ${it.text}") }
         appendLine("Interpretación: $turn")
     }
