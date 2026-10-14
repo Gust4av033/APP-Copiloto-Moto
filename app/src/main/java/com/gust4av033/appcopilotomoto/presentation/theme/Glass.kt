@@ -27,7 +27,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
@@ -86,11 +85,13 @@ object Glass {
         StormGlass.NightTint.copy(alpha = if (strong) StormGlass.NightStrongAlpha else StormGlass.NightAlpha)
     else StormGlass.DayTint.copy(alpha = if (strong) StormGlass.DayStrongAlpha else StormGlass.DayAlpha)
 
-    const val heroGlowAlpha = .12f
-    const val nightReflectionAlpha = .035f
+    const val heroGlowAlpha = .10f
+    const val nightReflectionAlpha = .07f
     const val dayReflectionAlpha = .12f
-    const val innerRimAlpha = .025f
+    const val innerRimAlpha = 0f
     const val nightLowerReflectionAlpha = .025f
+    const val reflectionFalloff = .30f
+    const val iconTintAlpha = .18f
 
     @Composable fun outline(): Color = if (LocalGlassDark.current)
         Color(CopilotPalette.Lightning).copy(alpha = .18f) else Color.White.copy(alpha = .62f)
@@ -100,6 +101,8 @@ object Glass {
         Color(CopilotPalette.Lightning).copy(alpha = .14f)
     ) else listOf(Color.White.copy(alpha = .85f), Color.White.copy(alpha = .22f),
         Color(0xFF5786BA).copy(alpha = .18f)))
+
+    @Composable fun iconTint(): Color = MaterialTheme.colorScheme.primary.copy(alpha = iconTintAlpha)
 
     @Composable fun accent(): Color = MaterialTheme.colorScheme.tertiary
 }
@@ -196,13 +199,13 @@ fun GlassPanel(modifier: Modifier = Modifier, strong: Boolean = false,
                 StormGlass.NightStrongAlpha else StormGlass.NightAlpha) else StormGlass.DayTint.copy(alpha = if (strong)
                 StormGlass.DayStrongAlpha else StormGlass.DayAlpha))
             // Edge light, rather than a white oval reflected across the labels.
-            drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark)
-                Glass.nightReflectionAlpha else Glass.dayReflectionAlpha), Color.Transparent,
-                Color(CopilotPalette.Electric).copy(alpha = Glass.nightLowerReflectionAlpha))))
+            drawRect(Brush.verticalGradient(
+                0f to Color.White.copy(alpha = if (dark) Glass.nightReflectionAlpha else Glass.dayReflectionAlpha),
+                Glass.reflectionFalloff to Color.Transparent,
+                1f to Color(CopilotPalette.Electric).copy(alpha = Glass.nightLowerReflectionAlpha)))
             drawContent()
         }
         .border(BorderStroke(Glass.rimWidth, rim), shape)
-        .border(BorderStroke(Glass.innerRimWidth, Color.White.copy(alpha = Glass.innerRimAlpha)), shape)
         .then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick))
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
         Box(decorated) { content() }

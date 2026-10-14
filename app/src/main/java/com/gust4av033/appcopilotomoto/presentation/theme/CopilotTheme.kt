@@ -38,7 +38,14 @@ internal val NightColors = darkColorScheme(
     surfaceVariant = Color(0xFF14244D), onSurfaceVariant = Color(0xFFC3D3F2),
     outline = Color(0xFF6C7FA8), outlineVariant = Color(0xFF2A3B66)
 )
-private val AppFont = FontFamily(Font(R.font.manrope))
+// The source variable font defaults to ExtraLight (200). Explicit instances avoid
+// thin body text and synthesized headings on Android resource-font loaders.
+private val AppFont = FontFamily(
+    Font(R.font.manrope_regular, FontWeight.Normal),
+    Font(R.font.manrope_medium, FontWeight.Medium),
+    Font(R.font.manrope_semibold, FontWeight.SemiBold),
+    Font(R.font.manrope_bold, FontWeight.Bold)
+)
 private val CopilotType = Typography(
     displayLarge = TextStyle(fontFamily = AppFont, fontSize = 57.sp),
     displayMedium = TextStyle(fontFamily = AppFont, fontSize = 45.sp),

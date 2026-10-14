@@ -1,5 +1,9 @@
 # UI de APP Copiloto Moto · Fase 1
 
+## Vidrio y formas refinados · versión 3
+
+La revisión actual en `feature/ui-storm-refined` conserva Fase 2 y el azul tormenta; reduce reflejos y marcos, corrige los pesos reales de Manrope y simplifica el icono. [Alcance y validación](UI_TORMENTA_REFINADA_V3.md).
+
 ## Vidrio azul tormenta · 13 de octubre de 2026
 
 La entrega `feature/ui-storm-glass` parte de Fase 2 / observación de Waze (`f106724`), manteniendo Ajustes protegidos y los avances funcionales. Refina superficies y botones azules y organiza Inicio en un carrusel de Copiloto/Mi equipo/Mi ruta con datos reales. [Paleta, alcance y pruebas](UI_AZUL_TORMENTA.md).

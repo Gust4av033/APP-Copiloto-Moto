@@ -43,7 +43,10 @@ class SettingsContrastTest {
             val tint=if (night) StormGlass.NightTint else StormGlass.DayTint
             val alphas=if (night) listOf(StormGlass.NightAlpha,StormGlass.NightStrongAlpha) else listOf(StormGlass.DayAlpha,StormGlass.DayStrongAlpha)
             for (alpha in alphas) {
-                val glass=Color.White.copy(alpha=if (night) .08f else .18f).compositeOver(tint.copy(alpha=alpha).compositeOver(backdrop))
+                val reflection = if (night) Glass.nightReflectionAlpha else Glass.dayReflectionAlpha
+                val glass=Color.White.copy(alpha=Glass.innerRimAlpha).compositeOver(
+                    Color(0xFF2F6BFF).copy(alpha=Glass.nightLowerReflectionAlpha).compositeOver(
+                        Color.White.copy(alpha=reflection).compositeOver(tint.copy(alpha=alpha).compositeOver(backdrop))))
                 assertTrue(ratio(c.onSurface,glass)>=4.5)
                 assertTrue(ratio(c.onSurfaceVariant,glass)>=4.5)
                 val button=c.secondaryContainer.copy(alpha=.66f).compositeOver(glass)

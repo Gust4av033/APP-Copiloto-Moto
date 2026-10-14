@@ -21,15 +21,9 @@ internal object OverlayGlassStyle {
         }
         val reflection = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
             CopilotPalette.OverlayReflection).apply { cornerRadius = dp(context, 23) }
-        val innerRim = GradientDrawable().apply {
-            cornerRadius = dp(context, 22)
-            setColor(Color.TRANSPARENT)
-            setStroke(dp(context, 1).toInt().coerceAtLeast(1), if (night) 0x2079DDFF else 0x3689A4D8)
-        }
         val inset = dp(context, 2).toInt()
-        return LayerDrawable(arrayOf(base, reflection, innerRim)).apply {
+        return LayerDrawable(arrayOf(base, reflection)).apply {
             setLayerInset(1, inset, inset, inset, inset)
-            setLayerInset(2, inset, inset, inset, inset)
         }
     }
 

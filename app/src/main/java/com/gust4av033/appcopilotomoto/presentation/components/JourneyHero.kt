@@ -50,16 +50,13 @@ fun JourneyHero(state: CopilotUiState, tripScreen: Boolean, onPrimary: () -> Uni
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
             Text(stringResource(if (state.tripActive) R.string.journey_active_hint else R.string.journey_ready_hint),
                 style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            androidx.compose.material3.Surface(shape = MaterialTheme.shapes.small,
-                color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .7f),
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
-                Row(Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    androidx.compose.material3.Icon(androidx.compose.ui.res.painterResource(if (state.buttonMode) R.drawable.ic_button else R.drawable.ic_mic), null, Modifier.size(20.dp),
-                        tint = MaterialTheme.colorScheme.onSecondaryContainer)
-                    Text(stringResource(mode), style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSecondaryContainer)
-                }
+            Row(verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                androidx.compose.material3.Icon(painterResource(if (state.buttonMode)
+                    R.drawable.ic_button else R.drawable.ic_mic), null, Modifier.size(20.dp),
+                    tint = MaterialTheme.colorScheme.primary)
+                Text(stringResource(mode), style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             val progress = when {
                 state.sessionProblem -> R.string.settings_session_problem
