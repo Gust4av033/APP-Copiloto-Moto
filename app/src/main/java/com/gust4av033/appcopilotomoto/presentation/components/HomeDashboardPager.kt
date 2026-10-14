@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
@@ -72,11 +73,21 @@ fun HomeDashboardPager(state: CopilotUiState, actions: CopilotActions, onNavigat
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.home_panel_hint), style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-            Text(stringResource(R.string.home_panel_count, pager.currentPage + 1, labels.size),
-                style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            GlassIconButton(R.drawable.ic_arrow_back,
+                stringResource(labels[(pager.currentPage - 1).coerceAtLeast(0)]),
+                enabled = pager.currentPage > 0) {
+                scope.launch { pager.animateScrollToPage(pager.currentPage - 1) }
+            }
+            Spacer(Modifier.weight(1f))
+            PageIndicator(pager.currentPage, labels.size)
+            Spacer(Modifier.weight(1f))
+            GlassIconButton(R.drawable.ic_arrow_forward,
+                stringResource(labels[(pager.currentPage + 1).coerceAtMost(labels.lastIndex)]),
+                enabled = pager.currentPage < labels.lastIndex) {
+                scope.launch { pager.animateScrollToPage(pager.currentPage + 1) }
+            }
         }
     }
 }

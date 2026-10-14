@@ -28,7 +28,7 @@ fun PendingAppCard(state: CopilotUiState, actions: CopilotActions) {
             enabled = state.tripActive && token != null,
             onClick = { token?.let(actions.onOpenPendingApp) })
         ActionButton(stringResource(if (state.pendingDraftText != null) R.string.draft_discard else R.string.trip_cancel_app),
-            enabled = state.tripActive && token != null,
+            enabled = state.tripActive && token != null, destructive = true,
             onClick = { token?.let(actions.onCancelPendingApp) })
     }
 }

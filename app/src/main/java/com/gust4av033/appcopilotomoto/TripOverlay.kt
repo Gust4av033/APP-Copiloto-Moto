@@ -94,7 +94,7 @@ class TripOverlay(
     private fun attach() {
         val root = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            elevation = dp(6).toFloat()
+            elevation = 0f
             setOnTouchListener { _, event ->
                 if (event.actionMasked == MotionEvent.ACTION_OUTSIDE && expanded) {
                     minimize()
@@ -271,7 +271,7 @@ class TripOverlay(
         minHeight = dp(if (compact) 48 else 52)
         minWidth = 0
         stateListAnimator = null
-        elevation = dp(if (primary) 3 else 1).toFloat()
+        elevation = 0f
         setOnClickListener { action() }
     }
 

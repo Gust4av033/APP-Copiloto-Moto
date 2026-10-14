@@ -1,5 +1,7 @@
 # Vidrio azul tormenta e Inicio deslizable
 
+La versión visual vigente es [tormenta medianoche v2](UI_TORMENTA_MEDIANOCHE_V2.md). El material y las pruebas siguientes documentan la entrega anterior.
+
 ## Pantalla encendida con burbuja · Fase 2 Screen 2
 
 Por solicitud del usuario, la ventana visible de la burbuja lleva FLAG_KEEP_SCREEN_ON: minimizada o con panel abierto evita el apagado por inactividad sobre Waze/otras apps. Ocultar/desactivar la burbuja, revocar superposición o detener el viaje retira la ventana y libera esa protección. Mientras APP esté al frente, el mismo comportamiento se conserva si la burbuja está habilitada y no oculta; sin burbuja se respeta la preferencia de pantalla de APP. No se fuerza encendido/desbloqueo ni se impide el botón físico de bloqueo. No se añaden permisos o cambios de audio. Se conserva material, dimensiones y acciones.

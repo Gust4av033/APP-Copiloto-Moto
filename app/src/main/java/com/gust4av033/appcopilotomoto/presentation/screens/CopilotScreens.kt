@@ -57,7 +57,8 @@ fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onO
     if (state.standaloneListening) item("standalone_command") {
         SectionCard(stringResource(R.string.settings_short_command)) {
             SupportingText(stringResource(R.string.settings_short_command_hint))
-            ActionButton(stringResource(R.string.listen_cancel), iconRes = R.drawable.ic_stop, onClick = actions.onCancelStandaloneCommand)
+            ActionButton(stringResource(R.string.listen_cancel), destructive = true,
+                iconRes = R.drawable.ic_stop, onClick = actions.onCancelStandaloneCommand)
         }
     }
     if (!state.tripActive && state.lastTestCommand != null) item("standalone_result") {

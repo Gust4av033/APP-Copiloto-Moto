@@ -12,8 +12,11 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gust4av033.appcopilotomoto.R
 
 internal val DayColors = lightColorScheme(
     primary = Color(0xFF075BA8), onPrimary = Color.White,
@@ -26,27 +29,36 @@ internal val DayColors = lightColorScheme(
     outline = Color(0xFF597992), outlineVariant = Color(0xFFA5C3DD)
 )
 internal val NightColors = darkColorScheme(
-    primary = Color(0xFF97CBFA), onPrimary = Color(0xFF082D50),
-    primaryContainer = Color(0xFF153F66), onPrimaryContainer = Color(0xFFE0F1FF),
-    secondary = Color(0xFF92C9FA), secondaryContainer = Color(0xFF163E63), onSecondaryContainer = Color(0xFFE0F1FF),
+    primary = Color(0xFF8DB4FF), onPrimary = Color(0xFF06142F),
+    primaryContainer = Color(CopilotPalette.Storm), onPrimaryContainer = Color(0xFFDDE8FF),
+    secondary = Color(0xFF5C9BFF), secondaryContainer = Color(0xFF0F2E73), onSecondaryContainer = Color(0xFFEAF1FF),
     tertiary = Color(0xFF6DDCFF), tertiaryContainer = Color(0xFF004C64), onTertiaryContainer = Color(0xFFBAEFFF),
-    background = StormGlass.NightBackdrop, onBackground = Color(0xFFEAF5FF),
-    surface = Color(0xFF0D2740), onSurface = Color(0xFFEAF5FF),
-    surfaceVariant = Color(0xFF183952), onSurfaceVariant = Color(0xFFBCD4E8),
-    outline = Color(0xFF78A6C8), outlineVariant = Color(0xFF305777)
+    background = StormGlass.NightBackdrop, onBackground = Color(0xFFEAF1FF),
+    surface = Color(CopilotPalette.Abyss), onSurface = Color(0xFFEAF1FF),
+    surfaceVariant = Color(0xFF14244D), onSurfaceVariant = Color(0xFFC3D3F2),
+    outline = Color(0xFF6C7FA8), outlineVariant = Color(0xFF2A3B66)
 )
+private val AppFont = FontFamily(Font(R.font.manrope))
 private val CopilotType = Typography(
-    headlineLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.4).sp),
-    headlineMedium = TextStyle(fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 34.sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 23.sp, lineHeight = 29.sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 24.sp),
-    titleSmall = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 21.sp),
-    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 24.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 21.sp),
-    labelLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp)
+    displayLarge = TextStyle(fontFamily = AppFont, fontSize = 57.sp),
+    displayMedium = TextStyle(fontFamily = AppFont, fontSize = 45.sp),
+    displaySmall = TextStyle(fontFamily = AppFont, fontSize = 36.sp),
+    headlineLarge = TextStyle(fontFamily = AppFont, fontWeight = FontWeight.Bold, fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.4).sp),
+    headlineMedium = TextStyle(fontFamily = AppFont, fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 34.sp),
+    headlineSmall = TextStyle(fontFamily = AppFont, fontSize = 24.sp),
+    titleLarge = TextStyle(fontFamily = AppFont, fontWeight = FontWeight.SemiBold, fontSize = 23.sp, lineHeight = 29.sp),
+    titleMedium = TextStyle(fontFamily = AppFont, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 24.sp),
+    titleSmall = TextStyle(fontFamily = AppFont, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 21.sp),
+    bodyLarge = TextStyle(fontFamily = AppFont, fontSize = 16.sp, lineHeight = 24.sp),
+    bodyMedium = TextStyle(fontFamily = AppFont, fontSize = 14.sp, lineHeight = 21.sp),
+    bodySmall = TextStyle(fontFamily = AppFont, fontSize = 12.sp),
+    labelLarge = TextStyle(fontFamily = AppFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
+    labelMedium = TextStyle(fontFamily = AppFont, fontSize = 12.sp),
+    labelSmall = TextStyle(fontFamily = AppFont, fontSize = 11.sp)
 )
 private val CopilotShapes = Shapes(
-    small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(20.dp), large = RoundedCornerShape(28.dp)
+    small = RoundedCornerShape(Glass.controlRadius), medium = RoundedCornerShape(Glass.cardRadius),
+    large = RoundedCornerShape(Glass.heroRadius)
 )
 
 @Composable

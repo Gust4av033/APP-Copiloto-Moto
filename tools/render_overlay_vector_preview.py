@@ -58,25 +58,25 @@ def convert(parent, resource, tint=None):
 def text(x,y,value,size=15,fill='#E9E8F7'):
     e=ET.SubElement(root,'text',{'x':str(x),'y':str(y),'font-family':'sans-serif','font-size':str(size),'fill':fill});e.text=value
 
-ET.SubElement(root,'rect',{'width':'360','height':'330','fill':'#0B1020'})
-ET.SubElement(root,'rect',{'x':'360','width':'360','height':'330','fill':'#E9EEFA'})
+ET.SubElement(root,'rect',{'width':'360','height':'330','fill':'#040A1C'})
+ET.SubElement(root,'rect',{'x':'360','width':'360','height':'330','fill':'#DDEBFA'})
 text(28,36,'BURBUJA DE AGUA',18);text(388,36,'FONDO CLARO',18,'#243050')
 resource_dir=Path('app/src/main/res/drawable')
-for x, label, icon, dot in [(68,'Espera manual','ic_button','#D3BFFF'),(232,'Escuchando','ic_mic','#79DDFF'),
-                            (428,'Espera manual','ic_button','#D3BFFF'),(592,'Escuchando','ic_mic','#79DDFF')]:
+for x, label, icon, dot in [(68,'Espera manual','ic_button','#2F6BFF'),(232,'Escuchando','ic_mic','#79DDFF'),
+                            (428,'Espera manual','ic_button','#2F6BFF'),(592,'Escuchando','ic_mic','#79DDFF')]:
     container=ET.SubElement(root,'g',{'transform':f'translate({x-8},72) scale(1.85)'})
     convert(container,ET.parse(resource_dir/'overlay_water_orb.xml').getroot())
     glyph=ET.SubElement(container,'g',{'transform':'translate(23.625 20.25) scale(1.03125)'})
-    convert(glyph,ET.parse(resource_dir/(icon+'.xml')).getroot(),'#F4EEFF')
-    ET.SubElement(container,'circle',{'cx':'36','cy':'54.5625','r':'3.9375','fill':dot,'stroke':'#152448','stroke-width':'1'})
+    convert(glyph,ET.parse(resource_dir/(icon+'.xml')).getroot(),'#EAF1FF')
+    ET.SubElement(container,'circle',{'cx':'36','cy':'54.5625','r':'3.9375','fill':dot,'stroke':'#0A1633','stroke-width':'1'})
     text(x-12,235,label,14,'#BDC5DA' if x<360 else '#485A7A')
-text(28,288,'Recurso vectorial de APP · morado / celeste / azul',13)
+text(28,288,'Recurso vectorial de APP · tormenta medianoche',13)
 text(28,312,'Previsualización del material. No es una captura de Android.',12)
 # El pie permanece sobre fondo oscuro en todo el ancho.
 for node in list(root)[-2:]:
     root.remove(node)
-ET.SubElement(root,'rect',{'x':'0','y':'266','width':'720','height':'64','fill':'#10182A'})
-text(28,288,'Recurso vectorial de APP · morado / celeste / azul',13)
+ET.SubElement(root,'rect',{'x':'0','y':'266','width':'720','height':'64','fill':'#0A1633'})
+text(28,288,'Recurso vectorial de APP · tormenta medianoche',13)
 text(28,312,'Previsualización del material. No es una captura de Android.',12)
 output=Path('docs/images');output.mkdir(parents=True,exist_ok=True)
 svg=ET.tostring(root,encoding='unicode')

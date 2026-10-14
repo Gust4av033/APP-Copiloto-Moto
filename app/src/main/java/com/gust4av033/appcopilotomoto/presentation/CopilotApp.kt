@@ -45,6 +45,10 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.shape.RoundedCornerShape
+import com.gust4av033.appcopilotomoto.presentation.components.GlassIconButton
+import com.gust4av033.appcopilotomoto.presentation.theme.GlassPanel
+import com.gust4av033.appcopilotomoto.presentation.theme.GlassMode
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.TripCallPhase
 import com.gust4av033.appcopilotomoto.MinimalIntentRouter
@@ -111,19 +115,18 @@ fun CopilotApp(
             confirmButton = { TextButton(onClick = actions.onConfirmDeveloper, enabled = !state.busy) { Text(stringResource(R.string.settings_developer_confirm)) } },
             dismissButton = { TextButton(onClick = actions.onCancelDeveloper) { Text(stringResource(R.string.settings_developer_cancel)) } }
         )
-        Box(Modifier.fillMaxSize()) {
-            CopilotBackdrop()
+        CopilotBackdrop {
         Scaffold(
             containerColor = Color.Transparent,
             contentColor = MaterialTheme.colorScheme.onBackground,
             topBar = {
-                if (settingsDetail) Surface(color = Glass.surface(strong = true),
-                    contentColor = MaterialTheme.colorScheme.onSurface) {
+                if (settingsDetail) GlassPanel(modifier = Modifier.fillMaxWidth(), mode = GlassMode.LITE,
+                    shape = RoundedCornerShape(bottomStart = Glass.cardRadius, bottomEnd = Glass.cardRadius)) {
                     Row(Modifier.fillMaxWidth().statusBarsPadding().padding(horizontal = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        TextButton(onClick = settingsBack) {
-                            Text(stringResource(R.string.back_to_screen, stringResource(settingsParent.titleRes)))
-                        }
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val label = stringResource(R.string.back_to_screen, stringResource(settingsParent.titleRes))
+                        GlassIconButton(R.drawable.ic_arrow_back, label, onClick = settingsBack)
+                        Text(label, style = MaterialTheme.typography.titleSmall)
                     }
                 }
             },
@@ -148,7 +151,9 @@ fun CopilotApp(
                             }
                         }
                     }
-                    NavigationBar(containerColor = Glass.surface(strong = true),
+                    GlassPanel(modifier = Modifier.fillMaxWidth(), mode = GlassMode.LITE,
+                        shape = RoundedCornerShape(topStart = Glass.cardRadius, topEnd = Glass.cardRadius)) {
+                    NavigationBar(containerColor = Color.Transparent,
                         contentColor = MaterialTheme.colorScheme.onSurface) {
                         CopilotScreen.entries.filter { it.inMainNavigation }.forEach { screen ->
                             NavigationBarItem(
@@ -159,11 +164,12 @@ fun CopilotApp(
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = MaterialTheme.colorScheme.onSecondaryContainer,
                                     selectedTextColor = MaterialTheme.colorScheme.onSurface,
-                                    indicatorColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .78f),
+                                    indicatorColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = .82f),
                                     unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
                                     unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant)
                             )
                         }
+                    }
                     }
                 }
             }
@@ -180,10 +186,13 @@ fun CopilotApp(
                     item(key = "header") {
                         Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             if (!visibleScreen.inMainNavigation) {
-                                TextButton(onClick = navigateBack) {
-                                    Text(stringResource(R.string.back_to_screen, stringResource(
-                                        if (secondaryParent == CopilotScreen.SETTINGS && settingsSection != SettingsSection.OVERVIEW)
-                                            settingsSection.titleRes else secondaryParent.titleRes)))
+                                val label = stringResource(R.string.back_to_screen, stringResource(
+                                    if (secondaryParent == CopilotScreen.SETTINGS && settingsSection != SettingsSection.OVERVIEW)
+                                        settingsSection.titleRes else secondaryParent.titleRes))
+                                Row(verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    GlassIconButton(R.drawable.ic_arrow_back, label, onClick = navigateBack)
+                                    Text(label, style = MaterialTheme.typography.titleSmall)
                                 }
                             }
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

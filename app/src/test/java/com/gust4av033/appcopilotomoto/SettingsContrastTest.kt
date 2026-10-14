@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.luminance
 import com.gust4av033.appcopilotomoto.presentation.theme.DayColors
 import com.gust4av033.appcopilotomoto.presentation.theme.NightColors
 import com.gust4av033.appcopilotomoto.presentation.theme.StormGlass
+import com.gust4av033.appcopilotomoto.presentation.theme.Glass
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -29,6 +30,10 @@ class SettingsContrastTest {
     @Test fun intenseBlueActionsKeepWhiteLabelsReadable() {
         assertTrue(ratio(Color.White, StormGlass.DayAction)>=4.5)
         assertTrue(ratio(Color.White, StormGlass.NightAction)>=4.5)
+        assertTrue(ratio(Color.White, Glass.primaryTop)>=4.5)
+        assertTrue(ratio(Color.White, Glass.primaryBottom)>=4.5)
+        assertTrue(ratio(Color.White, Glass.destructiveTop)>=4.5)
+        assertTrue(ratio(Color.White, Glass.destructiveBottom)>=4.5)
     }
     @Test fun labelsRemainReadableOverMaximumCombinedGlowsAndReflections() {
         for (night in listOf(false,true)) {
