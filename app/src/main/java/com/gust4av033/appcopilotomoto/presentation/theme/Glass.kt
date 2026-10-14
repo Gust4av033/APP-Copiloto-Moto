@@ -66,7 +66,6 @@ object Glass {
     val cardRadius = 20.dp
     val controlRadius = 16.dp
     val rimWidth = 1.dp
-    val innerRimWidth = 1.dp
     val iconTileSize = 44.dp
     val iconSize = 24.dp
     val iconButtonSize = 48.dp
@@ -88,7 +87,6 @@ object Glass {
     const val heroGlowAlpha = .10f
     const val nightReflectionAlpha = .07f
     const val dayReflectionAlpha = .12f
-    const val innerRimAlpha = 0f
     const val nightLowerReflectionAlpha = .025f
     const val reflectionFalloff = .30f
     const val iconTintAlpha = .18f

@@ -6,7 +6,7 @@
 - Consulta la documentación de UI vigente. Conserva el sistema de diseño y
   reutiliza componentes y recursos. No cambies dependencias por decoración.
 - La dirección visual actual es vidrio tormenta medianoche, siguiendo
-  docs/UI_TORMENTA_MEDIANOCHE_V2.md. Mantén texto nítido, iconos coherentes y contraste.
+  docs/UI_TORMENTA_REFINADA_V3.md. Mantén texto nítido, iconos coherentes y contraste.
   Representa la profundidad sin efectos que degraden la fluidez o el audio.
 - Revisa colores semánticos de contenido, inputs y botones. Los controles
   principales necesitan identificación clara y selección/estado visible.
@@ -30,7 +30,7 @@
 
 ## Acabado visual de vidrio
 
-- Dirección: vidrio oscuro sobre fondo azul profundo con luz difusa (base #061426, azul
+- Dirección: vidrio oscuro sobre fondo azul profundo con luz difusa (base #050C1D, azul
   eléctrico #2F6BFF, luz #79DDFF). Un solo elemento protagonista por pantalla;
   lo demás, vidrio sobrio.
 - El vidrio es: fondo propio con luces azules suaves, versión
