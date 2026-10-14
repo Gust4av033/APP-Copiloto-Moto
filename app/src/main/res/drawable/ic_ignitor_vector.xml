@@ -1,65 +1,21 @@
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <!-- Original vector interpretation of the blue motorcycle reference; no photo pixels. -->
-    <path android:fillColor="#07192F" android:strokeColor="#79DDFF"
-        android:strokeWidth="1.5" android:pathData="M54,18a36,36 0,1 0,0 72a36,36 0,1 0,0 -72" />
-    <path android:fillColor="#00000000" android:strokeColor="#2F6BFF"
-        android:strokeWidth="0.8" android:pathData="M54,21a33,33 0,1 0,0 66a33,33 0,1 0,0 -66" />
-
-    <!-- Tires, rims and visible spokes. -->
-    <path android:fillColor="#101923" android:strokeColor="#71869B" android:strokeWidth="1.5"
-        android:pathData="M34,57a13,13 0,1 0,0 26a13,13 0,1 0,0 -26 M76,57a13,13 0,1 0,0 26a13,13 0,1 0,0 -26" />
-    <path android:fillColor="#07192F" android:strokeColor="#79DDFF" android:strokeWidth="0.9"
-        android:pathData="M34,62a8,8 0,1 0,0 16a8,8 0,1 0,0 -16 M76,62a8,8 0,1 0,0 16a8,8 0,1 0,0 -16" />
-    <path android:fillColor="#00000000" android:strokeColor="#B1BDD0" android:strokeWidth="0.9"
-        android:pathData="M34,62L34,78 M26,70L42,70 M28,64L40,76 M28,76L40,64 M76,62L76,78 M68,70L84,70 M70,64L82,76 M70,76L82,64" />
-    <path android:fillColor="#D7E1E9" android:pathData="M34,67a3,3 0,1 0,0 6a3,3 0,1 0,0 -6 M76,67a3,3 0,1 0,0 6a3,3 0,1 0,0 -6" />
-
-    <!-- Frame, rear fairing and long black saddle. -->
-    <path android:fillColor="#00000000" android:strokeColor="#2C3645" android:strokeWidth="2.8"
+    <!-- Compact original blue road-bike mark. Geometry stays in the adaptive safe zone. -->
+    <path android:pathData="M54,21a33,33 0,1 0,0 66a33,33 0,1 0,0 -66">
+        <aapt:attr name="android:fillColor"><gradient android:startX="24" android:startY="21" android:endX="85" android:endY="87" android:type="linear">
+            <item android:offset="0" android:color="#173A6D"/><item android:offset="1" android:color="#071428"/>
+        </gradient></aapt:attr>
+    </path>
+    <!-- Two clear wheel shapes replace spokes and engine details at launcher scale. -->
+    <path android:fillColor="#00000000" android:strokeColor="#DDEEFF" android:strokeWidth="3.4"
+        android:pathData="M35,55a10,10 0,1 0,0 20a10,10 0,1 0,0 -20 M74,55a10,10 0,1 0,0 20a10,10 0,1 0,0 -20"/>
+    <path android:fillColor="#00000000" android:strokeColor="#8EB9E8" android:strokeWidth="3"
         android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M34,70L47,51L60,67L76,70 M47,51L51,68L35,70 M58,55L76,70" />
-    <path android:fillColor="#066BB9" android:strokeColor="#79DDFF" android:strokeWidth="0.8"
-        android:pathData="M21,44C27,41 34,40 43,43L51,47L49,54L40,51L29,49L24,48Z" />
-    <path android:fillColor="#24A8E8"
-        android:pathData="M23,44C30,42 36,42 43,44L47,47L39,47L29,46Z" />
-    <path android:fillColor="#141A24" android:strokeColor="#657384" android:strokeWidth="0.7"
-        android:pathData="M24,40C31,37 39,39 47,42L56,43L55,47L45,47L38,45L26,44Z" />
-    <path android:fillColor="#8C9AA9" android:strokeColor="#CBD6DD" android:strokeWidth="0.7"
-        android:pathData="M42,48L55,47L59,55L53,61L43,56Z" />
-
-    <!-- Rear red spring and low exhaust are signature features of the reference. -->
-    <path android:fillColor="#00000000" android:strokeColor="#E84B50" android:strokeWidth="2.2"
-        android:strokeLineCap="round" android:pathData="M43,54L40,65 M41,57L45,58 M40,60L44,61 M39,63L43,64" />
-    <path android:fillColor="#1C2530" android:strokeColor="#798594" android:strokeWidth="0.9"
-        android:pathData="M22,70L45,72L54,69L58,73L44,77L24,75Z" />
-
-    <!-- Silver single-cylinder engine and compact blue fuel tank. -->
-    <path android:fillColor="#D3DEE4" android:strokeColor="#667989" android:strokeWidth="1"
-        android:pathData="M50,57L60,55L65,61L63,70L54,72L49,67Z" />
-    <path android:fillColor="#A5B8C1" android:strokeColor="#526B7A" android:strokeWidth="0.8"
-        android:pathData="M56,61a5,5 0,1 0,0 10a5,5 0,1 0,0 -10" />
-    <path android:fillColor="#00000000" android:strokeColor="#E9F1F4" android:strokeWidth="0.8"
-        android:pathData="M51,58L60,58 M51,60L62,60 M52,73L65,73" />
-    <path android:fillColor="#0878D0" android:strokeColor="#79DDFF" android:strokeWidth="0.9"
-        android:pathData="M49,44C52,38 61,36 68,41L75,47L68,53L56,51L50,49Z" />
-    <path android:fillColor="#21B3F2"
-        android:pathData="M51,43C57,39 63,39 68,43L70,46L58,44L52,47Z" />
-    <path android:fillColor="#155599" android:pathData="M56,49L68,50L71,48L67,54L59,53Z" />
-
-    <!-- Upright fork, headlight cowling and mirrors. -->
-    <path android:fillColor="#00000000" android:strokeColor="#A9B9C5" android:strokeWidth="2"
-        android:strokeLineCap="round" android:pathData="M76,46L75,69 M80,47L78,67" />
-    <path android:fillColor="#0574C4" android:strokeColor="#79DDFF" android:strokeWidth="0.9"
-        android:pathData="M72,36L81,35L88,41L87,47L79,48L72,44L70,39Z" />
-    <path android:fillColor="#2EBFF0" android:pathData="M73,37L81,37L86,40L79,41Z" />
-    <path android:fillColor="#DAF1F4" android:strokeColor="#79DDFF" android:strokeWidth="0.6"
-        android:pathData="M82,39L87,41L86,46L82,46L79,42Z" />
-    <path android:fillColor="#00000000" android:strokeColor="#1E2935" android:strokeWidth="1.8"
-        android:strokeLineCap="round" android:pathData="M72,38L70,31L77,29 M70,31L65,30 M74,31L75,25" />
-    <path android:fillColor="#151E2A" android:strokeColor="#708394" android:strokeWidth="0.7"
-        android:pathData="M72,23L77,23L79,27L75,29L72,27Z M62,27L67,26L69,30L65,31L62,29Z" />
-    <path android:fillColor="#1478C6" android:strokeColor="#79DDFF" android:strokeWidth="0.7"
-        android:pathData="M69,61L82,60L85,63L83,66L71,65Z" />
+        android:pathData="M35,65L47,47L59,65L35,65 M47,47L62,47 M62,47L74,65 M62,47L64,38L70,38"/>
+    <path android:fillColor="#2F6BFF" android:pathData="M45,46C48,40 57,38 63,42L66,47L60,53L49,51Z M25,45L43,43L49,48L43,52L30,49Z"/>
+    <path android:fillColor="#79DDFF" android:pathData="M48,45C52,41 58,41 62,44L56,46L49,48Z M65,39L73,40L77,47L69,48L64,44Z"/>
+    <path android:fillColor="#EAF1FF" android:strokeColor="#EAF1FF" android:strokeWidth="2.6"
+        android:strokeLineCap="round" android:pathData="M29,42L44,42 M64,38L62,33L67,31"/>
 </vector>

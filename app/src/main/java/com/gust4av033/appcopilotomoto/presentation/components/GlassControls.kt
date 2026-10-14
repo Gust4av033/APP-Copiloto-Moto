@@ -27,8 +27,8 @@ import com.gust4av033.appcopilotomoto.presentation.theme.Glass
 @Composable
 fun IconTile(iconRes: Int, modifier: Modifier = Modifier) {
     Box(modifier.size(Glass.iconTileSize).clip(RoundedCornerShape(Glass.controlRadius))
-        .background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primaryContainer,
-            MaterialTheme.colorScheme.secondaryContainer)))
+        .background(Brush.verticalGradient(listOf(MaterialTheme.colorScheme.primaryContainer.copy(alpha = .40f),
+            MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .24f))))
         .border(Glass.rimWidth, Glass.rim(), RoundedCornerShape(Glass.controlRadius)),
         contentAlignment = Alignment.Center) {
         Icon(painterResource(iconRes), null, Modifier.size(Glass.iconSize),

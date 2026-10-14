@@ -4,6 +4,7 @@ import android.graphics.Bitmap
 import android.graphics.Canvas as AndroidCanvas
 import android.graphics.Paint
 import android.graphics.RadialGradient as AndroidRadialGradient
+import android.graphics.LinearGradient as AndroidLinearGradient
 import android.graphics.Shader
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -43,17 +44,17 @@ import kotlin.math.roundToInt
 
 /** Backdrop, tint and contrast tokens for both themes. */
 internal object StormGlass {
-    val DayBackdrop = Color(0xFFD9E7F4)
-    val NightBackdrop = Color(0xFF061426)
+    val DayBackdrop = Color(0xFFDCE9F7)
+    val NightBackdrop = Color(CopilotPalette.Midnight)
     val DayTint = Color(0xFFE0F0FF)
     val NightTint = Color(CopilotPalette.Abyss)
     const val DayAlpha = .72f
     const val DayStrongAlpha = .78f
-    const val NightAlpha = .50f
-    const val NightStrongAlpha = .46f
+    const val NightAlpha = .66f
+    const val NightStrongAlpha = .58f
     val DayGlows = listOf(Color(0xFF79B5E2), Color(0xFFA2DFFF), Color(0xFF82A9D4))
-    val NightGlows = listOf(Color(0xFF15578E), Color(0xFF1975AB), Color(0xFF20496E))
-    const val GlowAlpha = .42f
+    val NightGlows = listOf(Color(0xFF1644C3), Color(0xFF126589), Color(0xFF183B8C))
+    const val GlowAlpha = .48f
     val DayAction = Color(0xFF075BA8)
     val NightAction = Color(CopilotPalette.ActionBottom)
 }
@@ -66,7 +67,7 @@ object Glass {
     val cardRadius = 20.dp
     val controlRadius = 16.dp
     val rimWidth = 1.dp
-    val innerRimWidth = 2.dp
+    val innerRimWidth = 1.dp
     val iconTileSize = 44.dp
     val iconSize = 24.dp
     val iconButtonSize = 48.dp
@@ -85,11 +86,20 @@ object Glass {
         StormGlass.NightTint.copy(alpha = if (strong) StormGlass.NightStrongAlpha else StormGlass.NightAlpha)
     else StormGlass.DayTint.copy(alpha = if (strong) StormGlass.DayStrongAlpha else StormGlass.DayAlpha)
 
-    @Composable fun outline(): Color = if (LocalGlassDark.current)
-        Color(0xFF79DDFF).copy(alpha = .45f) else Color.White.copy(alpha = .90f)
+    const val heroGlowAlpha = .12f
+    const val nightReflectionAlpha = .035f
+    const val dayReflectionAlpha = .12f
+    const val innerRimAlpha = .025f
+    const val nightLowerReflectionAlpha = .025f
 
-    @Composable fun rim(): Brush = Brush.linearGradient(listOf(Color.White.copy(alpha = .75f),
-        Color.White.copy(alpha = .08f), Color(CopilotPalette.Lightning).copy(alpha = .45f)))
+    @Composable fun outline(): Color = if (LocalGlassDark.current)
+        Color(CopilotPalette.Lightning).copy(alpha = .18f) else Color.White.copy(alpha = .62f)
+
+    @Composable fun rim(): Brush = Brush.linearGradient(if (LocalGlassDark.current) listOf(
+        Color(0xFFB1D8FF).copy(alpha = .28f), Color(0xFFB1D8FF).copy(alpha = .055f),
+        Color(CopilotPalette.Lightning).copy(alpha = .14f)
+    ) else listOf(Color.White.copy(alpha = .85f), Color.White.copy(alpha = .22f),
+        Color(0xFF5786BA).copy(alpha = .18f)))
 
     @Composable fun accent(): Color = MaterialTheme.colorScheme.tertiary
 }
@@ -135,9 +145,9 @@ private fun paintScene(canvas: AndroidCanvas, w: Float, h: Float, dark: Boolean)
     canvas.drawColor((if (dark) StormGlass.NightBackdrop else StormGlass.DayBackdrop).toArgb())
     val colors = if (dark) StormGlass.NightGlows else StormGlass.DayGlows
     val glows = listOf(
-        Triple(Offset(w * .05f, h * .08f), w, colors[0]),
-        Triple(Offset(w * 1.04f, h * .43f), w * .92f, colors[1]),
-        Triple(Offset(w * .10f, h * .95f), w * .9f, colors[2])
+        Triple(Offset(w * .82f, h * .12f), w * 1.22f, colors[0]),
+        Triple(Offset(w * -.20f, h * .48f), w * .96f, colors[1]),
+        Triple(Offset(w * .92f, h * .97f), w * 1.14f, colors[2])
     )
     glows.forEach { (center, radius, color) ->
         p.shader = AndroidRadialGradient(center.x, center.y, radius,
@@ -145,6 +155,12 @@ private fun paintScene(canvas: AndroidCanvas, w: Float, h: Float, dark: Boolean)
                 color.copy(alpha = 0f).toArgb()), null, Shader.TileMode.CLAMP)
         canvas.drawRect(0f, 0f, w, h, p)
     }
+    // A quiet vertical light falloff gives the scene depth without a decorative shape.
+    p.shader = AndroidLinearGradient(0f, 0f, 0f, h, intArrayOf(
+        Color.Transparent.toArgb(), (if (dark) Color(CopilotPalette.Midnight).copy(alpha = .36f)
+            else Color.White.copy(alpha = .16f)).toArgb(), Color.Transparent.toArgb()
+    ), floatArrayOf(0f, .64f, 1f), Shader.TileMode.CLAMP)
+    canvas.drawRect(0f, 0f, w, h, p)
     p.shader = null
 }
 
@@ -160,7 +176,7 @@ fun GlassPanel(modifier: Modifier = Modifier, strong: Boolean = false,
     val decorated = modifier
         .then(if (strong) Modifier.drawWithContent {
             val center = Offset(size.width * .5f, size.height * .5f)
-            drawCircle(Brush.radialGradient(listOf(Color(0xFF2F6BFF).copy(alpha = .30f), Color.Transparent),
+            drawCircle(Brush.radialGradient(listOf(Color(CopilotPalette.Electric).copy(alpha = Glass.heroGlowAlpha), Color.Transparent),
                 center = center, radius = size.width * .8f), size.width * .8f, center)
             drawContent()
         } else Modifier)
@@ -176,18 +192,17 @@ fun GlassPanel(modifier: Modifier = Modifier, strong: Boolean = false,
                 drawImage(backdrop.bitmap, srcOffset = IntOffset(sourceX, sourceY), srcSize = IntSize(sourceW, sourceH),
                     dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.Medium)
             }
-            drawRect(if (dark) Color(0xFF040A1C).copy(alpha = if (strong) .46f else .50f)
-                else Color(0xFFE0F0FF).copy(alpha = if (strong) .78f else .72f))
-            drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark) .16f else .22f),
-                Color.Transparent, Color(0xFF2F6BFF).copy(alpha = .06f))))
-            drawOval(Brush.radialGradient(listOf(Color.White.copy(alpha = .20f), Color.Transparent),
-                center = Offset(size.width * .25f, 0f), radius = size.width * .85f),
-                topLeft = Offset(-size.width * .25f, -size.height * .34f),
-                size = Size(size.width * 1.1f, size.height * .65f))
+            drawRect(if (dark) StormGlass.NightTint.copy(alpha = if (strong)
+                StormGlass.NightStrongAlpha else StormGlass.NightAlpha) else StormGlass.DayTint.copy(alpha = if (strong)
+                StormGlass.DayStrongAlpha else StormGlass.DayAlpha))
+            // Edge light, rather than a white oval reflected across the labels.
+            drawRect(Brush.verticalGradient(listOf(Color.White.copy(alpha = if (dark)
+                Glass.nightReflectionAlpha else Glass.dayReflectionAlpha), Color.Transparent,
+                Color(CopilotPalette.Electric).copy(alpha = Glass.nightLowerReflectionAlpha))))
             drawContent()
         }
         .border(BorderStroke(Glass.rimWidth, rim), shape)
-        .border(BorderStroke(Glass.innerRimWidth, Color.White.copy(alpha = .10f)), shape)
+        .border(BorderStroke(Glass.innerRimWidth, Color.White.copy(alpha = Glass.innerRimAlpha)), shape)
         .then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick))
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
         Box(decorated) { content() }

@@ -17,7 +17,7 @@ internal object OverlayGlassStyle {
         val base = GradientDrawable(GradientDrawable.Orientation.TL_BR,
             if (night) CopilotPalette.OverlayNight else CopilotPalette.OverlayDay).apply {
             cornerRadius = dp(context, 24)
-            setStroke(dp(context, 1).toInt().coerceAtLeast(1), if (night) 0xA379DDFF.toInt() else 0xCFFFFFFF.toInt())
+            setStroke(dp(context, 1).toInt().coerceAtLeast(1), if (night) 0x4079DDFF else 0xA6FFFFFF.toInt())
         }
         val reflection = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
             CopilotPalette.OverlayReflection).apply { cornerRadius = dp(context, 23) }
@@ -38,7 +38,7 @@ internal object OverlayGlassStyle {
             if (primary) CopilotPalette.OverlayPrimary
             else if (night) CopilotPalette.OverlaySecondaryNight else CopilotPalette.OverlaySecondaryDay).apply {
             cornerRadius = dp(context, 16)
-            setStroke(dp(context, 1).toInt().coerceAtLeast(1), if (primary) 0xAA79DDFF.toInt() else 0x4579DDFF)
+            setStroke(dp(context, 1).toInt().coerceAtLeast(1), if (primary) 0x8079DDFF.toInt() else 0x4579DDFF)
         }
         val disabled = GradientDrawable().apply {
             cornerRadius = dp(context, 16)

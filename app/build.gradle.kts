@@ -14,8 +14,8 @@ android {
         applicationId = "com.gust4av033.appcopilotomoto"
         minSdk = 26
         targetSdk = 36
-        versionCode = 11
-        versionName = "1.1.0-f2-maps2"
+        versionCode = 12
+        versionName = "1.1.0-f2-glass3"
     }
 
     buildTypes {

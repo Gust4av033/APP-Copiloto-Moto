@@ -2,6 +2,7 @@ package com.gust4av033.appcopilotomoto.presentation
 
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Arrangement
@@ -151,8 +152,8 @@ fun CopilotApp(
                             }
                         }
                     }
-                    GlassPanel(modifier = Modifier.fillMaxWidth(), mode = GlassMode.LITE,
-                        shape = RoundedCornerShape(topStart = Glass.cardRadius, topEnd = Glass.cardRadius)) {
+                    GlassPanel(modifier = Modifier.padding(horizontal = 12.dp).fillMaxWidth(), mode = GlassMode.LITE,
+                        shape = MaterialTheme.shapes.large) {
                     NavigationBar(containerColor = Color.Transparent,
                         contentColor = MaterialTheme.colorScheme.onSurface) {
                         CopilotScreen.entries.filter { it.inMainNavigation }.forEach { screen ->
@@ -180,7 +181,7 @@ fun CopilotApp(
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding).wrapContentSize(Alignment.TopCenter).widthIn(max = 680.dp).fillMaxWidth().testTag("settings_content"),
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
-                    verticalArrangement = Arrangement.spacedBy(18.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     item(key = "header") {
@@ -196,8 +197,7 @@ fun CopilotApp(
                                 }
                             }
                             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                                Icon(painterResource(R.drawable.ic_motorcycle), null, Modifier.size(24.dp),
-                                    tint = MaterialTheme.colorScheme.primary)
+                                Image(painterResource(R.drawable.ic_ignitor_vector), null, Modifier.size(32.dp))
                                 Text(stringResource(R.string.ui_brand), Modifier.padding(start = 8.dp),
                                     style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                             }
