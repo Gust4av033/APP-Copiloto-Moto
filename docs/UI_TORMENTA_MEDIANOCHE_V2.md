@@ -1,6 +1,6 @@
 # Vidrio real · tormenta medianoche, versión 2
 
-Base: `feature/fase-2-google-maps-provider` (`b949cd6`). Versión Android `1.1.0-f2-glass2b`, código 10. Esta entrega cambia la presentación sin modificar el flujo de voz, navegación ni permisos. Los textos visibles de producto se conservan.
+Base original de esta entrega: `feature/fase-2-google-maps-provider` (`b949cd6`). La base funcional vigente es `feature/fase-2-integrada` ([PR #21](https://github.com/Gust4av033/APP-Copiloto-Moto/pull/21)). Versión Android `1.1.0-f2-glass2b`, código 10. Esta entrega cambia la presentación sin modificar el flujo de voz, navegación ni permisos. Los textos visibles de producto se conservan.
 
 ## Material y diagnóstico
 

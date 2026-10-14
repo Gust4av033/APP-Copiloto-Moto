@@ -1,12 +1,8 @@
 # APP Copiloto Moto
 
-Rama visual experimental `feature/ui-midnight-glass-v2`, sobre Fase 2 con Google Maps: [vidrio tormenta medianoche v2, capturas y pruebas](docs/UI_TORMENTA_MEDIANOCHE_V2.md). Incluye versión Android `1.1.0-f2-glass2b` (código 10), fuente Manrope e icono vectorial original inspirado en la Hero Ignitor azul, sin fotografía incrustada. La prueba física del scroll, burbuja y audio sigue pendiente.
+La rama por defecto `main` conserva la base estable de Fase 1 RC1 y el contexto de navegación aceptado de Fase 2. La única base funcional de trabajo de Fase 2 es `feature/fase-2-integrada`, propuesta en el [PR #21](https://github.com/Gust4av033/APP-Copiloto-Moto/pull/21), todavía en borrador. Reúne observación y lectura experimental de Waze, Google Maps seleccionable y [Glass UI v2](docs/UI_TORMENTA_MEDIANOCHE_V2.md). La validación física en S22+ y casco sigue pendiente antes de integrar a `main`. [Auditoría de ramas](docs/AUDITORIA_RAMAS_FASE_2_2026-10-14.md).
 
-Avance experimental de Fase 2: [Google Maps como segundo proveedor](docs/FASE_2_GOOGLE_MAPS.md), sobre la [lectura de pantalla de Waze](docs/FASE_2_PANTALLA_WAZE.md). `main` conserva el contexto de navegación aceptado; los avances posteriores siguen en ramas de prueba. La validación física del proveedor nuevo está pendiente.
-
-Entrega de Ajustes: [organización de usuario, ayuda y acceso de desarrollador](docs/AJUSTES_USUARIO_DESARROLLO.md). Rama `feature/settings-user-developer`, derivada de RC1 con la UI glass integrada.
-
-Baseline integrada actual: **Fase 1 RC1**, versión `1.0.0-rc1`, en `release/fase-1-rc1`. Reúne toda la UI glass y la esfera de agua de `1d58c29`, con panel compacto y adaptación a texto/pantalla ([detalle de UI](docs/UI_BASE.md)) y el núcleo de Escucha 03 con reconocimiento automático español/inglés según capacidades del motor, aclaraciones habladas y preparación/cancelación común. [Estado y alcance](docs/FASE_1_RC1.md) · [Regresión repetible](docs/REGRESION_FASE_1_RC1.md). Es candidata a estable: la validación de los cambios nuevos en S22+/Y12 se registra por separado de las pruebas automatizadas.
+La documentación de [Ajustes de usuario y desarrollador](docs/AJUSTES_USUARIO_DESARROLLO.md) y [Fase 1 RC1](docs/FASE_1_RC1.md) se conserva como historial de la base integrada; la [regresión repetible](docs/REGRESION_FASE_1_RC1.md) separa las pruebas automatizadas de las físicas.
 
 Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta rama inicia la fase 1 sobre el prototipo de fase 0: reúne las órdenes en un Action Executor, amplía las frases de música y volumen, y descubre los accesos instalados para abrir aplicaciones por voz. **Comandos** reúne la guía, una comprobación de frases sin ejecución y los accesos de apps disponibles con búsqueda. Inicio y Viaje muestran las aperturas pendientes y los estados de llamada/recuperación. El viaje y el audio Bluetooth siguen en validación con hardware real.
 
@@ -49,7 +45,7 @@ La arquitectura prevista conserva límites entre `presentation`, `application`, 
 - `docs/FASE_0.md`: objetivo, validación y orden de implementación.
 - `docs/FASE_1.md`: primera entrega del núcleo de comandos y su prueba en el S22+.
 - `docs/referencias/`: documentos originales del proyecto. La especificación V4, los requisitos y la arquitectura son la línea base. El registro de modificaciones aprobadas complementa los documentos base según su regla de precedencia. Las indicaciones iniciales se conservan como antecedente.
-- `main` es la base estable. Todo el trabajo de fase 1, incluida la UI, se concentra en `feature/fase-1-intent-router`; probar en el teléfono antes de integrar mediante PR.
+- `main` es la base estable. El trabajo vigente de Fase 2 se concentra en `feature/fase-2-integrada`; validar en el teléfono antes de integrarlo mediante el PR #21.
 - No incluir claves, tokens, firmados, `local.properties`, grabaciones personales ni datos de viajes en Git.
 
 ### Sincronizar cambios de GitHub
