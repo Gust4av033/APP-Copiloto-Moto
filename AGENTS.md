@@ -27,3 +27,30 @@
   cuando sea posible. Declara por separado las pruebas físicas pendientes.
 - Actualiza la trazabilidad de capacidad, UI y prueba en los documentos existentes.
   Conserva cambios locales y usa la baseline vigente, sin asumir ramas históricas.
+
+El vidrio se construye con capas, sin blur sobre contenido ni dependencias:
+tinte translúcido en gradiente vertical, borde de 1dp con gradiente, brillo
+especular en el borde superior y resplandor solo en el control principal.
+Todos esos valores viven en theme/Glass.kt; las pantallas no llevan colores,
+alphas ni radios sueltos.
+Un solo acento brillante por pantalla (la acción o el estado principal). Lo
+demás es vidrio sobrio. Si un elemento no informa ni da identidad, se quita.
+Botones con tres jerarquías: primario, secundario y destructivo. Detener o
+cancelar nunca se ve igual que la acción principal.
+Atrás, siguiente y cerrar son GlassIconButton de al menos 48dp con flecha.
+No uses TextButton para navegar. Los carruseles y pasos llevan indicador de
+página.
+Alineación: los iconos van centrados con Box(contentAlignment = Center), con
+un IconTile único para todas las filas y tarjetas. Espaciados en múltiplos
+de 4dp. Elementos del mismo nivel comparten radio, alto de icono y padding.
+Tipografía: el tema define una FontFamily explícita para que la app se vea
+igual en cualquier teléfono. Pesos y tamaños salen de la escala del tema.
+Movimiento solo como respuesta a una acción (presionar, cambiar de estado),
+corto y respetando las animaciones del sistema. Nada continuo que distraiga
+en Viaje.
+Si cambias un color o token compartido, revisa también la burbuja nativa
+(OverlayGlassStyle.kt, TripOverlay.kt).
+Antes de cerrar: compilar, correr SettingsContrastTest y los tests de UI, y
+revisar capturas en oscuro, claro y fuente al 200%. La deuda visual que veas
+fuera del alcance de la tarea se anota en los documentos de trazabilidad; no
+se rediseña en la misma entrega.
