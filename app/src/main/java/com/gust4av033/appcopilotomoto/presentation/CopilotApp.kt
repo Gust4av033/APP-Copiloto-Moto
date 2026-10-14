@@ -77,15 +77,17 @@ fun CopilotApp(
     val settingsSection = runCatching { SettingsSection.valueOf(settingsSectionName) }.getOrDefault(SettingsSection.OVERVIEW).visibleFor(state)
     val settingsDetail = visibleScreen == CopilotScreen.SETTINGS && settingsSection != SettingsSection.OVERVIEW
     var settingsParentName by rememberSaveable { mutableStateOf(SettingsSection.OVERVIEW.name) }
+    var settingsGrandparentName by rememberSaveable { mutableStateOf(SettingsSection.OVERVIEW.name) }
     val settingsParent = runCatching { SettingsSection.valueOf(settingsParentName) }.getOrDefault(SettingsSection.OVERVIEW).visibleFor(state)
     val settingsBack: () -> Unit = {
         settingsSectionName = settingsParent.name
-        settingsParentName = SettingsSection.OVERVIEW.name
+        settingsParentName = settingsGrandparentName
+        settingsGrandparentName = SettingsSection.OVERVIEW.name
     }
     val openSettingsSection: (SettingsSection) -> Unit = { next ->
-        settingsParentName = if (settingsSection == SettingsSection.INTEGRATIONS && (next == SettingsSection.CALLS || next == SettingsSection.AUDIO))
-            settingsSection.name else if (settingsSection == SettingsSection.ABOUT && next == SettingsSection.DEVELOPER)
-            SettingsSection.ABOUT.name else SettingsSection.OVERVIEW.name
+        settingsGrandparentName = if (settingsSection == SettingsSection.OVERVIEW) SettingsSection.OVERVIEW.name
+            else settingsParentName
+        settingsParentName = settingsSection.name
         settingsSectionName = next.visibleFor(state).name
     }
     var secondaryParentName by rememberSaveable { mutableStateOf(CopilotScreen.SETTINGS.name) }
@@ -97,6 +99,8 @@ fun CopilotApp(
         // Acceder desde una pestaña principal abre la lista; volver desde Pruebas conserva su origen.
         if (screen == CopilotScreen.SETTINGS && visibleScreen.inMainNavigation) {
             settingsSectionName = SettingsSection.OVERVIEW.name
+            settingsParentName = SettingsSection.OVERVIEW.name
+            settingsGrandparentName = SettingsSection.OVERVIEW.name
         }
         onScreenChange(screen.visibleFor(state))
     }

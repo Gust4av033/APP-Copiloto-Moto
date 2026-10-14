@@ -41,6 +41,26 @@ La nueva [Navigation Connect API](https://developers.google.com/maps/documentati
 
 La muestra puede contener destinos o calles de Waze: revisar el texto antes de compartir el informe. No se necesitan datos de otras notificaciones.
 
+## Actualización para los flavors (14 de octubre de 2026)
+
+En `full` se conserva el experimento de pantalla y notificaciones limitado a
+debug y opt-in. En `playstore` el manifiesto no incluye el servicio de
+accesibilidad: `WazeScreenAccess.granted/allowed` devuelve falso y la tarjeta
+de pantalla no se muestra. El listener de Waze sí puede funcionar con permiso
+propio y sesión activa, sin exigir modo desarrollador. Ajustes → Navegación
+expone un interruptor, el acceso con una declaración previa y una forma de
+reactivarlo. La preferencia de `playstore` tiene clave propia: una desactivación
+antigua de `full` no bloquea el listener, pero el opt-out hecho en `playstore`
+sí permanece.
+
+La notificación de ejecución que se observó en el Samsung no contenía giro.
+Esta fuente sigue siendo experimental: no confirma ruta, próximo giro ni ETA,
+y la app no lee notificaciones de Google Maps. La política de privacidad se
+actualizó para decirlo expresamente. La validación física del listener en
+`playstore`, el audio del casco y la ausencia del servicio de accesibilidad
+en Android real siguen pendientes; el manifiesto fusionado y las pruebas JVM
+solo prueban la configuración del paquete y las condiciones del código.
+
 ## Estado
 
 testDebugUnitTest, assembleDebug, assembleFieldTest y lintDebug terminaron BUILD SUCCESSFUL. 213 casos: 212 aprobados, uno omitido, cero fallos y errores. Lint: cero errores, 110 advertencias y nueve sugerencias. Las seis pruebas nuevas de origen verifican filtrado, límites, tiempo, permiso propio, gates, aislamiento, retirada y revocación. Dos pruebas nuevas de Compose comprueban el ocultamiento sin desarrollo y la copia explícita de una muestra.

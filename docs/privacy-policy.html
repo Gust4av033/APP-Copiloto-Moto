@@ -185,7 +185,7 @@
 
     <div class="summary-banner">
       <p style="margin-bottom: 0;">
-        <strong>Compromiso de Privacidad 100% Local:</strong> <strong>APP Copiloto Moto</strong> procesa tus comandos de voz, notificaciones de navegación y búsqueda de contactos exclusivamente en la memoria local de tu teléfono Android. No tenemos servidores propios, no creamos cuentas de usuario, no vendemos información personal ni enviamos tus datos a terceros.
+        <strong>Procesamiento en el dispositivo:</strong> <strong>APP Copiloto Moto</strong> procesa las órdenes de voz y la búsqueda de contactos en el teléfono. No tenemos servidores propios, no creamos cuentas, no vendemos información personal ni transmitimos mensajes personales. La apertura de otras aplicaciones queda sujeta a las políticas de esas aplicaciones.
       </p>
     </div>
 
@@ -217,8 +217,8 @@
           </tr>
           <tr>
             <td><strong>Acceso a Notificaciones</strong><br /><code>BIND_NOTIFICATION_LISTENER_SERVICE</code></td>
-            <td>Leer las notificaciones de giro y ruta generadas por aplicaciones de navegación (Google Maps y Waze) y el estado del reproductor de música para anunciarlos por voz en el casco.</td>
-            <td>El texto de la notificación de navegación se lee únicamente en memoria RAM volátil mientras el modo viaje está activo y se descarta de inmediato tras ser sintetizado a voz (TTS).</td>
+            <td>Android concede acceso a las notificaciones del dispositivo. APP filtra las de Waze para intentar identificar indicaciones y consulta el estado multimedia para controlar el audio del casco. La integración con Google Maps abre destinos; APP no lee sus notificaciones.</td>
+            <td>Las muestras de Waze se mantienen temporalmente en memoria durante el viaje y se descartan al detenerlo. Una notificación puede no contener una indicación de giro; APP no confirma por ello una ruta activa.</td>
           </tr>
           <tr>
             <td><strong>Lectura de Contactos</strong><br /><code>READ_CONTACTS</code></td>
@@ -261,7 +261,7 @@
       <ul>
         <li><strong>No Off-Device Data Collection or Sharing:</strong> <code>com.gust4av033.appcopilotomoto</code> operates completely offline/on-device. No personal data, audio recordings, contacts, or notification contents are collected, stored on external servers, or shared with third parties.</li>
         <li><strong>Microphone &amp; Foreground Service (<code>RECORD_AUDIO</code>, <code>FOREGROUND_SERVICE_MICROPHONE</code>):</strong> Used strictly during user-initiated active motorcycle trips to process voice commands via Bluetooth headset buttons and on-device wake-word detection.</li>
-        <li><strong>Notification Listener (<code>BIND_NOTIFICATION_LISTENER_SERVICE</code>):</strong> Used exclusively in volatile memory to read turn-by-turn navigation alerts from Waze/Google Maps and active media playback metadata so they can be read aloud via Text-to-Speech to the rider's helmet headset.</li>
+        <li><strong>Notification Listener (<code>BIND_NOTIFICATION_LISTENER_SERVICE</code>):</strong> Android grants access to device notifications. APP filters Waze notifications for possible navigation cues and uses media state for headset controls. It does not inspect Google Maps notifications or treat a Waze notification as proof of an active route.</li>
         <li><strong>Contacts (<code>READ_CONTACTS</code>):</strong> Matched locally in memory to populate the system phone dialer (<code>Intent.ACTION_DIAL</code>) upon voice request. Contact data never leaves the device.</li>
       </ul>
     </section>

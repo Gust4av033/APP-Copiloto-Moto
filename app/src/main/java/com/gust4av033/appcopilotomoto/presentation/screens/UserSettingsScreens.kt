@@ -33,12 +33,10 @@ fun LazyListScope.SettingsScreen(
         SettingsSection.OVERVIEW -> {
             SettingsSection.userSections.forEach { category -> item(category.name) {
                 val summary = when (category) {
-                    SettingsSection.ACTIVATION -> stringResource(if (state.inputId == "PHONE_WAKE") R.string.mode_phone_title else if (state.buttonMode) R.string.mode_button_title else R.string.mode_voice_title)
-                    SettingsSection.AUDIO -> state.audioDevices.selectedLabel.ifBlank { state.audioDevices.automaticHeadset }
-                    SettingsSection.APPEARANCE -> stringResource(if (state.overlayEnabled) R.string.settings_overlay_on else R.string.settings_overlay_off)
-                    SettingsSection.NAVIGATION -> stringResource(if (state.navigationAvailable) R.string.navigation_ready else R.string.navigation_missing,
+                    SettingsSection.HEADSET -> if (state.audioDevices.headsets.isNotEmpty() && !state.audioDevices.selectionMissing)
+                        stringResource(R.string.settings_headset_ready) else stringResource(R.string.settings_headset_missing)
+                    SettingsSection.DESTINATIONS -> stringResource(if (state.navigationAvailable) R.string.navigation_ready else R.string.navigation_missing,
                         state.navigationProvider.label)
-                    SettingsSection.ABOUT -> state.installedVersion
                     else -> null
                 }
                 SettingsMenuRow(category, summary?.takeIf { it.isNotBlank() }) { onOpenSection(category) }
@@ -46,6 +44,22 @@ fun LazyListScope.SettingsScreen(
             if (state.developerEnabled) item("developer_entry") {
                 SettingsMenuRow(SettingsSection.DEVELOPER, null) { onOpenSection(SettingsSection.DEVELOPER) }
             }
+        }
+        SettingsSection.HEADSET -> {
+            item("activation_entry") { SettingsMenuRow(SettingsSection.ACTIVATION, null) { onOpenSection(SettingsSection.ACTIVATION) } }
+            item("audio_entry") { SettingsMenuRow(SettingsSection.AUDIO, null) { onOpenSection(SettingsSection.AUDIO) } }
+            item("appearance_entry") { SettingsMenuRow(SettingsSection.APPEARANCE, null) { onOpenSection(SettingsSection.APPEARANCE) } }
+        }
+        SettingsSection.DESTINATIONS -> {
+            item("navigation_entry") { SettingsMenuRow(SettingsSection.NAVIGATION, null) { onOpenSection(SettingsSection.NAVIGATION) } }
+            item("integrations_entry") { SettingsMenuRow(SettingsSection.INTEGRATIONS, null) { onOpenSection(SettingsSection.INTEGRATIONS) } }
+        }
+        SettingsSection.VOICE_PRIVACY -> {
+            item("calls_entry") { SettingsMenuRow(SettingsSection.CALLS, null) { onOpenSection(SettingsSection.CALLS) } }
+            item("privacy_entry") { SettingsMenuRow(SettingsSection.PRIVACY, null) { onOpenSection(SettingsSection.PRIVACY) } }
+            item("about_entry") { SettingsMenuRow(SettingsSection.ABOUT, null) { onOpenSection(SettingsSection.ABOUT) } }
+            item("privacy_link") { ActionButton(stringResource(R.string.privacy_policy_button), iconRes = R.drawable.ic_shield,
+                onClick = actions.onOpenPrivacyPolicy) }
         }
         SettingsSection.ACTIVATION -> {
             item("activation_mode") { SectionCard(stringResource(R.string.settings_input)) {
@@ -77,6 +91,19 @@ fun LazyListScope.SettingsScreen(
         SettingsSection.APPEARANCE -> AppearanceSettings(state, actions)
         SettingsSection.NAVIGATION -> {
             item("navigation") { NavigationCard(state, actions) }
+            if (com.gust4av033.appcopilotomoto.BuildConfig.IS_PLAYSTORE_BUILD) item("waze_notification_access") {
+                SectionCard(stringResource(R.string.navigation_waze_notices)) {
+                    ToggleSettingRow(stringResource(R.string.navigation_waze_notices_toggle), state.wazeObservationEnabled,
+                        enabled = !state.busy, onCheckedChange = actions.onWazeObservationChange)
+                    SupportingText(stringResource(when {
+                        !state.wazeObservationEnabled -> R.string.navigation_waze_notices_disabled
+                        state.wazeObservationGranted -> R.string.navigation_waze_notices_ready
+                        else -> R.string.navigation_waze_notices_permission
+                    }))
+                    ActionButton(stringResource(R.string.navigation_waze_notices_button), iconRes = R.drawable.ic_trip,
+                        enabled = !state.busy && state.wazeObservationEnabled, onClick = actions.onWazeObservationPermission)
+                }
+            }
             if (state.developerEnabled) item("waze_observation") {
                 com.gust4av033.appcopilotomoto.presentation.components.WazeObservationCard(state, actions)
             }
@@ -102,6 +129,8 @@ fun LazyListScope.SettingsScreen(
                 SupportingText(stringResource(R.string.settings_privacy_scope))
                 SupportingText(stringResource(R.string.settings_privacy_future))
             } }
+            item("privacy_policy") { ActionButton(stringResource(R.string.privacy_policy_button), iconRes = R.drawable.ic_shield,
+                onClick = actions.onOpenPrivacyPolicy) }
         }
         SettingsSection.ABOUT -> {
             item("about_version") { SectionCard(stringResource(R.string.settings_category_about)) {
@@ -192,7 +221,8 @@ private fun PermissionsCard(state: CopilotUiState, actions: CopilotActions) {
             R.string.settings_permission_bluetooth to state.bluetoothGranted,
             R.string.settings_permission_notifications to state.notificationsGranted,
             R.string.settings_permission_contacts to state.chatContactsGranted,
-            R.string.settings_permission_calls to state.callsGranted).forEach { (label, granted) ->
+            *(if (com.gust4av033.appcopilotomoto.BuildConfig.ALLOW_DIRECT_CALL)
+                arrayOf(R.string.settings_permission_calls to state.callsGranted) else emptyArray())).forEach { (label, granted) ->
             Text(stringResource(label), style = MaterialTheme.typography.titleSmall)
             SupportingText(stringResource(if (granted) R.string.settings_permission_ready else R.string.settings_permission_missing))
         }
@@ -277,7 +307,9 @@ private fun LazyListScope.CallsSettings(state: CopilotUiState, actions: CopilotA
 
             item(key = "SettingsScreen_9") {
                 SectionCard(stringResource(R.string.settings_calls)) {
-                    SupportingText(stringResource(R.string.settings_calls_hint))
+                    SupportingText(if (com.gust4av033.appcopilotomoto.BuildConfig.ALLOW_DIRECT_CALL)
+                        stringResource(R.string.settings_calls_hint)
+                        else stringResource(R.string.settings_calls_playstore_hint))
                     ActionButton(stringResource(R.string.calls_enable), enabled = !state.busy,
                         iconRes = R.drawable.ic_phone, onClick = actions.onEnableNamedCalls)
                     SupportingText(stringResource(R.string.calls_fixed_hint))

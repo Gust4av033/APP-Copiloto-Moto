@@ -19,8 +19,10 @@ class TripCallPrompt(private val context: Context) {
 
     fun isAnnouncing(): Boolean = announcing
 
-    fun announce(name: String, onFinished: (Boolean) -> Unit) = speak(
-        "Llamar a $name. Después del tono, di confirmar llamada o cancelar.", onFinished)
+    fun announce(name: String, direct: Boolean = true, onFinished: (Boolean) -> Unit) = speak(
+        if (direct) "Llamar a $name. Después del tono, di confirmar llamada o cancelar."
+        else "Abrir marcador para $name. Deberás iniciar la llamada en Teléfono. Después del tono, di confirmar llamada o cancelar.",
+        onFinished)
 
     fun announceApp(name: String, draft: String? = null, onFinished: (Boolean) -> Unit) = speak(
         VoiceInteractionTiming.appAnnouncement(name, draft), onFinished)

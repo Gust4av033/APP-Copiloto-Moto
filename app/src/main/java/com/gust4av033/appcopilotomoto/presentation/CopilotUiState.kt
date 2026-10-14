@@ -75,6 +75,8 @@ data class ProbeUi(
 data class CopilotUiState(
     val developerAccess: com.gust4av033.appcopilotomoto.DeveloperAccess = com.gust4av033.appcopilotomoto.DeveloperAccess(),
     val developerConfirmationRequested: Boolean = false,
+    val developerDiagnosticsUnlocked: Boolean = com.gust4av033.appcopilotomoto.BuildConfig.SHOW_DIAGNOSTICS_BY_DEFAULT,
+    val accessibilityWazeAvailable: Boolean = com.gust4av033.appcopilotomoto.BuildConfig.ALLOW_ACCESSIBILITY_WAZE,
     val installedVersion: String = "",
     val microphoneGranted: Boolean = false,
     val bluetoothGranted: Boolean = false,
@@ -164,7 +166,7 @@ data class CopilotUiState(
     val fixedContact: String? = null,
     val probe: ProbeUi? = null
 ) {
-    val developerEnabled: Boolean get() = developerAccess.canViewDiagnostics
+    val developerEnabled: Boolean get() = developerAccess.canViewDiagnostics && developerDiagnosticsUnlocked
     val developerToolsAvailable: Boolean get() = developerAccess.canRunExperiments
     val buttonMode: Boolean get() = inputId == "BUTTON" || manualActivationOnly
     val canStartTrip: Boolean get() = !busy && !audioDevices.selectionMissing
@@ -228,7 +230,8 @@ data class CopilotActions(
     val onShowOverlay: () -> Unit = {},
     val onEnableNamedCalls: () -> Unit = {},
     val onChooseContact: () -> Unit = {},
-    val onClearContact: () -> Unit = {}
+    val onClearContact: () -> Unit = {},
+    val onOpenPrivacyPolicy: () -> Unit = {}
 )
 
 

@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -18,9 +19,52 @@ android {
         versionName = "1.1.0-f2-glass3"
     }
 
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("full") {
+            dimension = "distribution"
+            buildConfigField("boolean", "IS_PLAYSTORE_BUILD", "false")
+            buildConfigField("boolean", "ALLOW_ACCESSIBILITY_WAZE", "true")
+            buildConfigField("boolean", "ALLOW_DIRECT_CALL", "true")
+        }
+        create("playstore") {
+            dimension = "distribution"
+            buildConfigField("boolean", "IS_PLAYSTORE_BUILD", "true")
+            buildConfigField("boolean", "ALLOW_ACCESSIBILITY_WAZE", "false")
+            buildConfigField("boolean", "ALLOW_DIRECT_CALL", "false")
+        }
+    }
+
+    val signingProperties = Properties().apply {
+        val file = rootProject.file("keystore.properties")
+        if (file.exists()) file.inputStream().use(::load)
+    }
+    fun signingValue(property: String, environment: String): String? =
+        signingProperties.getProperty(property)?.takeIf(String::isNotBlank)
+            ?: System.getenv(environment)?.takeIf(String::isNotBlank)
+    val signingFile = signingValue("storeFile", "APP_SIGNING_STORE_FILE")
+    signingConfigs {
+        if (signingFile != null) create("release") {
+            storeFile = rootProject.file(signingFile)
+            storePassword = signingValue("storePassword", "APP_SIGNING_STORE_PASSWORD")
+            keyAlias = signingValue("keyAlias", "APP_SIGNING_KEY_ALIAS")
+            keyPassword = signingValue("keyPassword", "APP_SIGNING_KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
+        getByName("debug") {
+            buildConfigField("boolean", "SHOW_DIAGNOSTICS_BY_DEFAULT", "true")
+        }
+        getByName("release") {
+            buildConfigField("boolean", "SHOW_DIAGNOSTICS_BY_DEFAULT", "false")
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (signingFile != null) signingConfig = signingConfigs.getByName("release")
+        }
         create("fieldTest") {
             initWith(getByName("debug"))
+            buildConfigField("boolean", "SHOW_DIAGNOSTICS_BY_DEFAULT", "true")
             applicationIdSuffix = ".pruebas"
             versionNameSuffix = "-campo"
             matchingFallbacks += listOf("debug")

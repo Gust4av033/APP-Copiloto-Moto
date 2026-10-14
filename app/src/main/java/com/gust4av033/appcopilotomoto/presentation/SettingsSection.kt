@@ -5,6 +5,9 @@ import com.gust4av033.appcopilotomoto.R
 /** Rutas de presentación: abrir una categoría no modifica preferencias ni audio. */
 enum class SettingsSection(val titleRes: Int, val hintRes: Int, val iconRes: Int) {
     OVERVIEW(R.string.nav_settings, R.string.settings_subtitle, R.drawable.ic_settings),
+    HEADSET(R.string.settings_group_headset, R.string.settings_group_headset_hint, R.drawable.ic_audio),
+    DESTINATIONS(R.string.settings_group_destinations, R.string.settings_group_destinations_hint, R.drawable.ic_trip),
+    VOICE_PRIVACY(R.string.settings_group_voice_privacy, R.string.settings_group_voice_privacy_hint, R.drawable.ic_shield),
     ACTIVATION(R.string.settings_category_activation, R.string.settings_category_activation_hint, R.drawable.ic_mic),
     AUDIO(R.string.settings_category_audio, R.string.settings_category_audio_hint, R.drawable.ic_audio),
     APPEARANCE(R.string.settings_category_appearance, R.string.settings_category_appearance_hint, R.drawable.ic_display),
@@ -20,7 +23,7 @@ enum class SettingsSection(val titleRes: Int, val hintRes: Int, val iconRes: Int
         if (state.developerEnabled) DEVELOPER else ABOUT else this
 
     companion object {
-        val userSections = listOf(ACTIVATION, AUDIO, APPEARANCE, NAVIGATION, INTEGRATIONS, PRIVACY, ABOUT)
+        val userSections = listOf(HEADSET, DESTINATIONS, VOICE_PRIVACY)
     }
 }
 

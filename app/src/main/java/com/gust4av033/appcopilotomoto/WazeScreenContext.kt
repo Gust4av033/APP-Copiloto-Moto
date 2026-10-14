@@ -60,12 +60,12 @@ internal object WazeScreenAccess {
         context.getSharedPreferences("waze_screen", Context.MODE_PRIVATE).edit().putBoolean("enabled", enabled).apply()
         WazeScreenState.clear()
     }
-    fun granted(context: Context) = Settings.Secure.getString(context.contentResolver,
+    fun granted(context: Context) = BuildConfig.ALLOW_ACCESSIBILITY_WAZE && Settings.Secure.getString(context.contentResolver,
         Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES).orEmpty().split(':').any {
             ComponentName.unflattenFromString(it) == ComponentName(context, WazeScreenService::class.java)
         }
     fun settingsIntent() = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-    fun allowed(context: Context) = BuildConfig.DEBUG && UserSettingsStore(context).developerEnabled(BuildConfig.DEBUG) &&
+    fun allowed(context: Context) = BuildConfig.ALLOW_ACCESSIBILITY_WAZE && BuildConfig.DEBUG && UserSettingsStore(context).developerEnabled(BuildConfig.DEBUG) &&
         enabled(context) && granted(context) && TripNavigationState.context.sessionId != null &&
         !context.getSystemService(KeyguardManager::class.java).isKeyguardLocked
     fun answer(context: Context) = if (allowed(context)) WazeScreenState.snapshot.answer(SystemClock.elapsedRealtime())

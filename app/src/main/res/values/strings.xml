@@ -1,5 +1,33 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="settings_group_headset">Casco y Botón Bluetooth</string>
+    <string name="settings_group_headset_hint">Conexión, activación y audio</string>
+    <string name="settings_group_destinations">Navegación y Destinos</string>
+    <string name="settings_group_destinations_hint">Waze, Google Maps y lugares guardados</string>
+    <string name="settings_group_voice_privacy">Voz, Permisos y Privacidad</string>
+    <string name="settings_group_voice_privacy_hint">Llamadas, contactos y acceso del sistema</string>
+    <string name="settings_headset_ready">Casco conectado y listo</string>
+    <string name="diagnostics_enabled">Modo diagnóstico activado</string>
+    <string name="diagnostics_disabled">Modo diagnóstico desactivado</string>
+    <string name="privacy_policy_button">Política de Privacidad</string>
+    <string name="privacy_policy_open_failed">No se pudo abrir la Política de Privacidad.</string>
+    <string name="navigation_waze_notices">Avisos de Waze</string>
+    <string name="navigation_waze_notices_toggle">Observar avisos de Waze durante el viaje</string>
+    <string name="navigation_waze_notices_disabled">Lectura desactivada en APP. Podés activarla aquí cuando quieras.</string>
+    <string name="navigation_waze_notices_ready">Acceso a avisos disponible. Las indicaciones dependen de lo que Waze publique.</string>
+    <string name="navigation_waze_notices_permission">Permití el acceso a notificaciones para que APP pueda intentar leer indicaciones de Waze durante el viaje.</string>
+    <string name="navigation_waze_notices_button">Configurar acceso a notificaciones</string>
+    <string name="settings_calls_playstore_hint">Habilitá contactos antes del viaje para decir “llama a [nombre]”. APP abrirá el marcador; vos iniciarás la llamada.</string>
+    <string name="disclosure_notifications_title">Acceso a notificaciones</string>
+    <string name="disclosure_notifications_body">Android concede acceso a las notificaciones del dispositivo. APP observa en memoria las de Waze para intentar identificar indicaciones y usa el estado multimedia para controlar el audio del casco. No guarda ni transmite mensajes personales. Podés retirar el acceso en Ajustes.</string>
+    <string name="disclosure_overlay_title">Burbuja sobre otras aplicaciones</string>
+    <string name="disclosure_overlay_body">APP dibuja una burbuja de control rápido sobre el mapa durante el viaje. No lee la pantalla ni modifica otras aplicaciones. Podés ocultarla o retirar el permiso en Ajustes.</string>
+    <string name="disclosure_microphone_title">Micrófono y reconocimiento local</string>
+    <string name="disclosure_microphone_body">APP usa el micrófono durante la sesión para detectar la palabra de activación y reconocer órdenes en el dispositivo. El reconocimiento requiere el servicio local de Android; el audio no se guarda ni se envía a servidores de APP.</string>
+    <string name="disclosure_contacts_title">Acceso a contactos</string>
+    <string name="disclosure_contacts_body">APP lee nombres y números para encontrar localmente el contacto que pedís por voz y preparar el marcador o un chat. La comparación se hace en el dispositivo; APP no sube tu agenda.</string>
+    <string name="disclosure_continue">Continuar a permisos</string>
+    <string name="disclosure_cancel">Ahora no</string>
     <string name="app_name">APP Copiloto Moto</string>
     <string name="welcome_title">APP Copiloto Moto</string>
     <string name="welcome_subtitle">Proyecto preparado para iniciar Fase 0</string>

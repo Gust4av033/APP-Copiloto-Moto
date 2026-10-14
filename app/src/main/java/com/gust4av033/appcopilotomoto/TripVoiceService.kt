@@ -48,6 +48,7 @@ class TripVoiceService : Service() {
         private const val NOTIFICATION_ID = 103
         private const val APP_CHANNEL_ID = "trip_app_selection_v1"
         private const val APP_NOTIFICATION_ID = 104
+        private const val DIAL_NOTIFICATION_ID = 105
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -85,6 +86,7 @@ class TripVoiceService : Service() {
             TripTestState.callPhase = if (value) TripCallPhase.CALL
                 else TripCallPhase.NONE
         }
+    private var pendingDialContact: TripCallContact? = null
     private var armed = false
         set(value) {
             field = value
@@ -847,10 +849,13 @@ class TripVoiceService : Service() {
             }
             if (intent == TestIntent.CALL_SELECTED) {
                 val contact = TripCallContactStore.load(this)
-                if (contact == null || checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+                if (contact == null || (BuildConfig.ALLOW_DIRECT_CALL &&
+                        checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED)) {
                     TripTestState.failures++
                     TripTestState.save(this)
-                    TripTestState.status = "Para llamar, elegí un contacto y concedé el permiso de teléfono desde APP antes del viaje."
+                    TripTestState.status = if (BuildConfig.ALLOW_DIRECT_CALL)
+                        "Para llamar, elegí un contacto y concedé el permiso de teléfono desde APP antes del viaje."
+                        else "Para abrir el marcador, elegí un contacto en APP antes del viaje."
                     updateNotification("Llamada sin configurar")
                     schedule(if (effectiveAudioMode == WakeAudioMode.BUTTON) 100L else 3_500L) {
                         if (active && detector === provider && cycle == generation) startDetector(provider)
@@ -860,11 +865,13 @@ class TripVoiceService : Service() {
             }
             if (intent == TestIntent.CALL_NAMED) {
                 val name = command.contactName ?: return@listenOnce
-                if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED ||
+                if ((BuildConfig.ALLOW_DIRECT_CALL && checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) ||
                     checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
                     TripTestState.failures++
                     TripTestState.save(this)
-                    TripTestState.status = "Habilitá llamadas por nombre desde APP: requiere contactos y teléfono."
+                    TripTestState.status = if (BuildConfig.ALLOW_DIRECT_CALL)
+                        "Habilitá llamadas por nombre desde APP: requiere contactos y teléfono."
+                        else "Habilitá contactos desde APP para abrir el marcador por nombre."
                     updateNotification("Llamada por nombre sin permisos")
                     schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && cycle == generation) startDetector(provider) }
                 } else {
@@ -1266,7 +1273,7 @@ class TripVoiceService : Service() {
         TripTestState.interactionPhase = TripInteractionPhase.SPEAKING
         TripTestState.status = "Anunciando destinatario: ${contact.display}…"
         updateNotification("Anunciando a ${contact.name}")
-        runCatching { callPrompt.announce(contact.name) { announced ->
+        runCatching { callPrompt.announce(contact.name, direct = BuildConfig.ALLOW_DIRECT_CALL) { announced ->
             if (!active || detector !== provider || generation != cycle) return@announce
             if (!announced) {
                 callConfirmation.cancel()
@@ -1324,6 +1331,26 @@ class TripVoiceService : Service() {
 
     @Suppress("DEPRECATION")
     private fun finishAndPlaceCall(provider: WakeWordProvider, contact: TripCallContact) {
+        if (!BuildConfig.ALLOW_DIRECT_CALL) {
+            buttonCoordinator?.close()
+            armed = false
+            val callCycle = ++generation
+            resumeAfterButtonRoute = capture.cancel(resumePlayback = false) || resumeAfterButtonRoute
+            detector = null
+            TripTestState.status = "Preparando el marcador para ${contact.display}…"
+            worker.execute {
+                val released = runCatching { provider.close() }
+                mainHandler.post {
+                    if (!active || generation != callCycle) return@post
+                    pendingDialContact = if (released.isSuccess) contact else null
+                    if (released.isFailure) TripTestState.lastCommandResult =
+                        "No se pudo liberar el micrófono; marcador sin abrir."
+                    // stopSession finishes SCO restoration before dispatching the dialer.
+                    stopSession("Viaje en pausa para abrir el marcador; iniciá la llamada en Teléfono.", expected = true)
+                }
+            }
+            return
+        }
         if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
             TripTestState.status = "Habilitá el permiso de estado del teléfono en Ajustes → llamadas; no se marcó."
             TripTestState.lastCommandResult = TripTestState.status
@@ -1339,7 +1366,7 @@ class TripVoiceService : Service() {
         resumeAfterButtonRoute = capture.cancel(resumePlayback = false) || resumeAfterButtonRoute
         detector = null
         TripTestState.status = "Viaje en espera; preparando llamada a ${contact.display}…"
-        updateNotification("Viaje en espera durante la llamada")
+        updateNotification("Viaje en espera; solicitud de llamada")
         worker.execute {
             val released = runCatching { provider.close() }
             mainHandler.post {
@@ -1349,19 +1376,23 @@ class TripVoiceService : Service() {
                     val listener = object : PhoneStateListener() {
                         override fun onCallStateChanged(state: Int, phoneNumber: String?) {
                             if (!active || !callPending || generation != callCycle) return
-                            if (state != TelephonyManager.CALL_STATE_IDLE) callWasActive = true
+                            if (state != TelephonyManager.CALL_STATE_IDLE) {
+                                callWasActive = true
+                                TripTestState.status = "Android informa llamada en curso; viaje en espera."
+                            }
                             else if (callWasActive) resumeAfterCall(callCycle)
                         }
                     }
                     phoneListener = listener
                     getSystemService(TelephonyManager::class.java).listen(listener, PhoneStateListener.LISTEN_CALL_STATE)
-                    getSystemService(TelecomManager::class.java)
+                    if (TripTestState.appVisible) startActivity(CallDispatch.intent(contact.number, direct = true))
+                    else getSystemService(TelecomManager::class.java)
                         .placeCall(Uri.fromParts("tel", contact.number, null), Bundle.EMPTY)
                 }
                 if (placed.isSuccess) {
                     TripTestState.record(this, PipelineEvent.ACTION_DISPATCHED)
                     TripTestState.actions++
-                    TripTestState.status = "Viaje en espera durante la llamada a ${contact.display}."
+                    TripTestState.status = "Solicitud de llamada despachada a ${contact.display}; esperando estado del teléfono."
                     schedule(30_000L) {
                         if (active && callPending && generation == callCycle && !callWasActive) {
                             val idle = runCatching {
@@ -1568,10 +1599,42 @@ class TripVoiceService : Service() {
             !routeReady -> "$reason La salida de música aún no volvió a la ruta normal; revisá Audio del casco."
             else -> reason
         }
+        pendingDialContact?.let { contact ->
+            pendingDialContact = null
+            if (routeReady && closeError == null) {
+                showDialPrompt(contact)
+                runCatching { startActivity(CallDispatch.intent(contact.number, direct = false)) }
+                    .onSuccess {
+                        TripTestState.record(this, PipelineEvent.ACTION_DISPATCHED)
+                        TripTestState.actions++
+                        TripTestState.lastCommandResult = "Solicitud despachada: abrir marcador para ${contact.display}; llamada sin confirmar. También podés abrirlo desde la notificación."
+                    }.onFailure {
+                        TripTestState.failures++
+                        TripTestState.lastCommandResult = "No se pudo abrir el marcador: ${it.message}."
+                    }
+            } else TripTestState.lastCommandResult = "Audio sin restaurar; marcador sin abrir."
+        }
+        TripTestState.save(this)
         closing = false
         TripTestState.restoringAudio = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    private fun showDialPrompt(contact: TripCallContact) {
+        val launch = PendingIntent.getActivity(this, 7,
+            CallDispatch.intent(contact.number, direct = false),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val notice = Notification.Builder(this, APP_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_menu_call)
+            .setContentTitle("Abrir marcador para ${contact.display}")
+            .setContentText("Tocá para iniciar la llamada en Teléfono; APP aún no llamó.")
+            .setContentIntent(launch)
+            .setAutoCancel(true)
+            .setTimeoutAfter(300_000L)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .build()
+        runCatching { getSystemService(NotificationManager::class.java).notify(DIAL_NOTIFICATION_ID, notice) }
     }
 
     private fun createChannel() {

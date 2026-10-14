@@ -53,14 +53,24 @@ class SettingsNavigationUiTest {
             CopilotApp(state,screen,{},actions,section)
         } }
     }
-    @Test fun ordinarySettingsShowSevenCategoriesAndNoDeveloperEntry() {
+    @Test fun ordinarySettingsShowThreeGroupsAndNoDeveloperEntry() {
         app()
-        compose.onNodeWithText("Voz y activación").assertExists()
+        compose.onNodeWithText("Casco y Botón Bluetooth").assertExists()
         saveRender("settings-day")
-        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Acerca de APP"))
-        compose.onNodeWithText("Acerca de APP").assertExists()
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Voz, Permisos y Privacidad"))
+        compose.onNodeWithText("Voz, Permisos y Privacidad").assertExists()
         compose.onNodeWithText("Herramientas de desarrollador").assertDoesNotExist()
         compose.onNodeWithText("Medición de micrófono").assertDoesNotExist()
+    }
+    @Test fun nestedSettingsReturnThroughTheirGroup() {
+        app()
+        compose.onNodeWithText("Navegación y Destinos").performClick()
+        compose.onNodeWithText("Integraciones").performClick()
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Llamadas"))
+        compose.onNodeWithText("Llamadas").performClick()
+        compose.onNodeWithContentDescription("Volver a Integraciones").performClick()
+        compose.onNodeWithContentDescription("Volver a Navegación y Destinos").performClick()
+        compose.onNodeWithText("Navegación y Destinos").assertExists()
     }
     @Test fun tripShowsSearchDispatchWithoutClaimingAnActiveRoute() {
         app(state=CopilotUiState(tripActive=true, navigationContext=TripNavigationContext("session",
@@ -77,7 +87,19 @@ class SettingsNavigationUiTest {
         app(section=SettingsSection.NAVIGATION)
         compose.onNodeWithText("Notificación de Waze · experimental").assertDoesNotExist()
     }
+    @Test fun playstoreCanReenableWazeNoticesWithoutOpeningTheMicrophone() {
+        assumeTrue(BuildConfig.IS_PLAYSTORE_BUILD)
+        var enabled: Boolean? = null
+        var microphoneRequests = 0
+        app(state=CopilotUiState(wazeObservationEnabled=false), section=SettingsSection.NAVIGATION,
+            actions=CopilotActions(onWazeObservationChange={enabled=it}, onManualTripCommand={microphoneRequests++}))
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Observar avisos de Waze durante el viaje"))
+        compose.onNodeWithText("Observar avisos de Waze durante el viaje").performClick()
+        assertEquals(true, enabled)
+        assertEquals(0, microphoneRequests)
+    }
     @Test fun screenConsentEmitsOnlyItsExplicitPreferenceCallback() {
+        assumeTrue(BuildConfig.ALLOW_ACCESSIBILITY_WAZE)
         var enabled:Boolean?=null
         var microphoneRequests=0
         app(state=CopilotUiState(developerAccess=DeveloperAccess(true,true)),section=SettingsSection.NAVIGATION,
@@ -88,6 +110,7 @@ class SettingsNavigationUiTest {
         assertEquals(0,microphoneRequests)
     }
     @Test fun emptyScreenReportCanBeCopiedToDiagnoseMissingWazeText() {
+        assumeTrue(BuildConfig.ALLOW_ACCESSIBILITY_WAZE)
         var copied: String? = null
         app(state=CopilotUiState(developerAccess=DeveloperAccess(true,true), tripActive=true,
             wazeScreenEnabled=true, wazeScreenGranted=true,
@@ -181,12 +204,14 @@ class SettingsNavigationUiTest {
         val density=RuntimeEnvironment.getApplication().resources.displayMetrics.density
         assertTrue(content.width/density<=680.1f)
         assertTrue(content.left>root.left)
-        val row=compose.onNode(hasText("Voz y activación") and hasClickAction()).fetchSemanticsNode().boundsInRoot
+        val row=compose.onNode(hasText("Casco y Botón Bluetooth") and hasClickAction()).fetchSemanticsNode().boundsInRoot
         assertTrue(row.height/density>=48f)
     }
     @Test fun narrowNightLayoutStillNavigatesWithLargeText() {
         RuntimeEnvironment.setQualifiers("w320dp-h800dp-night")
         app(scale=1.5f)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Voz, Permisos y Privacidad"))
+        compose.onNodeWithText("Voz, Permisos y Privacidad").performClick()
         compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Privacidad y permisos"))
         compose.onNodeWithText("Privacidad y permisos").performClick()
         saveRender("permissions-night")

@@ -46,9 +46,11 @@ data class WazeObservationSnapshot(
 
 internal object WazeObservationAccess {
     private const val PREFS = "waze_observation"
-    fun enabled(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean("enabled", false)
+    private fun key() = if (BuildConfig.IS_PLAYSTORE_BUILD) "enabled_playstore" else "enabled"
+    fun enabled(context: Context) = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .getBoolean(key(), BuildConfig.IS_PLAYSTORE_BUILD)
     fun setEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("enabled", enabled).apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(key(), enabled).apply()
         WazeNotificationObservation.clearSample()
     }
     private fun component(context: Context) = ComponentName(context, WazeNavigationObservationService::class.java)
@@ -58,7 +60,8 @@ internal object WazeObservationAccess {
         Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
             .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, component(context).flattenToString())
         else Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-    fun allowed(context: Context) = BuildConfig.DEBUG && UserSettingsStore(context).developerEnabled(BuildConfig.DEBUG) &&
+    fun allowed(context: Context) = (BuildConfig.IS_PLAYSTORE_BUILD ||
+        (BuildConfig.DEBUG && UserSettingsStore(context).developerEnabled(BuildConfig.DEBUG))) &&
         enabled(context) && granted(context) && TripNavigationState.context.sessionId != null
 }
 
@@ -97,7 +100,7 @@ object WazeNotificationObservation {
     internal fun readFailed() { snapshot = snapshot.copy(sample = null, readFailed = true) }
 }
 
-/** Separate permission from media controls. Passive inspection is restricted to developer opt-in. */
+/** Separate permission from media controls; playstore uses this source without Accessibility. */
 class WazeNavigationObservationService : NotificationListenerService() {
     override fun onListenerConnected() {
         WazeNotificationObservation.listener = this

@@ -9,7 +9,7 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 @Composable
 fun WazeObservationCard(state: CopilotUiState, actions: CopilotActions) {
     if (!state.developerEnabled) return
-    SectionCard(stringResource(R.string.waze_screen_title)) {
+    if (state.accessibilityWazeAvailable) SectionCard(stringResource(R.string.waze_screen_title)) {
         SupportingText(stringResource(R.string.waze_screen_description))
         ToggleSettingRow(stringResource(R.string.waze_screen_toggle), state.wazeScreenEnabled,
             enabled = state.developerToolsAvailable && !state.busy, onCheckedChange = actions.onWazeScreenChange)

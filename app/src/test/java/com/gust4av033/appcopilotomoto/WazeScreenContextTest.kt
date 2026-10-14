@@ -63,7 +63,7 @@ class WazeScreenContextTest {
         assertFalse(WazeScreenAccess.allowed(app))
         Settings.Secure.putString(app.contentResolver,Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
             ComponentName(app,WazeScreenService::class.java).flattenToString())
-        assertEquals(BuildConfig.DEBUG,WazeScreenAccess.allowed(app))
+        assertEquals(BuildConfig.DEBUG && BuildConfig.ALLOW_ACCESSIBILITY_WAZE,WazeScreenAccess.allowed(app))
         val keyguard=org.robolectric.Shadows.shadowOf(app.getSystemService(android.app.KeyguardManager::class.java))
         keyguard.setKeyguardLocked(true)
         assertFalse(WazeScreenAccess.allowed(app))

@@ -44,6 +44,8 @@ import com.gust4av033.appcopilotomoto.presentation.TripMetricsUi
 import com.gust4av033.appcopilotomoto.presentation.VoiceRouteUi
 import com.gust4av033.appcopilotomoto.presentation.CommandUi
 import com.gust4av033.appcopilotomoto.presentation.toCommandUi
+import com.gust4av033.appcopilotomoto.presentation.components.DisclosureKind
+import com.gust4av033.appcopilotomoto.presentation.components.ProminentDisclosureDialog
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
@@ -54,6 +56,13 @@ class MainActivity : ComponentActivity() {
     private val settingsStore by lazy { UserSettingsStore(this) }
     private val developerChallenge = DeveloperAccessChallenge()
     private var developerEnabled by mutableStateOf(false)
+    private var developerDiagnosticsUnlocked by mutableStateOf(BuildConfig.SHOW_DIAGNOSTICS_BY_DEFAULT)
+    private var pendingDisclosure by mutableStateOf<DisclosureKind?>(null)
+    private var pendingDisclosureAction: (() -> Unit)? = null
+    private fun disclose(kind: DisclosureKind, action: () -> Unit) {
+        pendingDisclosureAction = action
+        pendingDisclosure = kind
+    }
     private var developerConfirmationRequested by mutableStateOf(false)
     private var standaloneCommand by mutableStateOf(false)
     private var configurationNotice by mutableStateOf("")
@@ -192,10 +201,12 @@ class MainActivity : ComponentActivity() {
     private val namedCallPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
-        tripCallMessage = if (listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+        tripCallMessage = if ((listOf(Manifest.permission.READ_CONTACTS) + if (BuildConfig.ALLOW_DIRECT_CALL)
+                listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE) else emptyList())
                 .all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }) {
             "Listo: podés decir ‘llama a [nombre]’ durante la sesión."
-        } else "Faltan permisos de contactos o llamadas; podés seguir usando música y volumen."
+        } else if (BuildConfig.ALLOW_DIRECT_CALL) "Faltan permisos de contactos o llamadas; podés seguir usando música y volumen."
+        else "Falta el permiso de contactos para abrir el marcador por nombre."
     }
 
     private val contactPicker = registerForActivityResult(
@@ -221,7 +232,7 @@ class MainActivity : ComponentActivity() {
         } else {
             tripCallContact = selected
             tripCallMessage = "Contacto de prueba: ${selected.display}."
-            if (listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+            if (BuildConfig.ALLOW_DIRECT_CALL && listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
                     .any { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }) {
                 callPermissionRequest.launch(arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE))
             }
@@ -252,6 +263,7 @@ class MainActivity : ComponentActivity() {
         TripTestState.restore(this)
         HeadsetSelection.restore(this)
         developerEnabled = settingsStore.developerEnabled(BuildConfig.DEBUG)
+        developerDiagnosticsUnlocked = settingsStore.developerDiagnosticsUnlocked()
         installedVersion = runCatching { packageManager.getPackageInfo(packageName, 0).versionName.orEmpty() }.getOrDefault("")
         manualActivationOnly = getSharedPreferences("ui_settings", MODE_PRIVATE)
             .getBoolean(TripActivationPolicy.PREFERENCE, false)
@@ -290,8 +302,22 @@ class MainActivity : ComponentActivity() {
     /** Único puente entre el runtime de fase 1 y las pantallas Compose. */
     @Composable
     private fun AppUi() {
+        pendingDisclosure?.let { kind ->
+            ProminentDisclosureDialog(kind, onContinue = {
+                val action = pendingDisclosureAction
+                pendingDisclosureAction = null
+                pendingDisclosure = null
+                action?.invoke()
+            }, onDismiss = {
+                if (kind == DisclosureKind.MICROPHONE) pendingAction = null
+                pendingDisclosureAction = null
+                pendingDisclosure = null
+            })
+        }
         val state = CopilotUiState(
             developerAccess = DeveloperAccess(developerEnabled, BuildConfig.DEBUG),
+            developerDiagnosticsUnlocked = developerDiagnosticsUnlocked,
+            accessibilityWazeAvailable = BuildConfig.ALLOW_ACCESSIBILITY_WAZE,
             developerConfirmationRequested = developerConfirmationRequested,
             installedVersion = installedVersion,
             configurationNotice = configurationNotice,
@@ -404,13 +430,23 @@ class MainActivity : ComponentActivity() {
             },
             actions = CopilotActions(
                 onVersionTap = {
-                    if (!developerEnabled && !audioBusy() && developerChallenge.tap(SystemClock.elapsedRealtime()))
-                        developerConfirmationRequested = true
+                    if (!audioBusy() && developerChallenge.tap(SystemClock.elapsedRealtime())) {
+                        if (developerEnabled) {
+                            developerChallenge.confirm()
+                            developerDiagnosticsUnlocked = !developerDiagnosticsUnlocked
+                            settingsStore.setDeveloperDiagnosticsUnlocked(developerDiagnosticsUnlocked)
+                            Toast.makeText(this@MainActivity, if (developerDiagnosticsUnlocked) R.string.diagnostics_enabled
+                                else R.string.diagnostics_disabled, Toast.LENGTH_SHORT).show()
+                        } else developerConfirmationRequested = true
+                    }
                 },
                 onConfirmDeveloper = {
                     if (!audioBusy() && developerChallenge.confirm()) {
                         settingsStore.setDeveloperEnabled(BuildConfig.DEBUG, true)
                         developerEnabled = true
+                        developerDiagnosticsUnlocked = true
+                        settingsStore.setDeveloperDiagnosticsUnlocked(true)
+                        Toast.makeText(this@MainActivity, R.string.diagnostics_enabled, Toast.LENGTH_SHORT).show()
                     }
                     developerConfirmationRequested = false
                 },
@@ -419,8 +455,10 @@ class MainActivity : ComponentActivity() {
                     if (!audioBusy()) {
                         developerEnabled = false
                         settingsStore.setDeveloperEnabled(BuildConfig.DEBUG, false)
-                        WazeObservationAccess.setEnabled(this@MainActivity, false)
-                        wazeObservationEnabled = false
+                        if (!BuildConfig.IS_PLAYSTORE_BUILD) {
+                            WazeObservationAccess.setEnabled(this@MainActivity, false)
+                            wazeObservationEnabled = false
+                        }
                         WazeScreenAccess.setEnabled(this@MainActivity, false)
                         wazeScreenEnabled = false
                         if (tripAudioMode == WakeAudioMode.PHONE_WAKE || manualActivationOnly) {
@@ -484,7 +522,7 @@ class MainActivity : ComponentActivity() {
                 onRefreshApps = { refreshAppCatalog(force = true) },
                 onEnableChatContacts = {
                     if (!TripTestState.running && !TripTestState.restoringAudio && !listening && !running && !wakeEnabled && !wakeTransition) {
-                        chatContactsPermission.launch(Manifest.permission.READ_CONTACTS)
+                        disclose(DisclosureKind.CONTACTS) { chatContactsPermission.launch(Manifest.permission.READ_CONTACTS) }
                     }
                 },
                 onMusicPlayerChange = { selected ->
@@ -517,9 +555,11 @@ class MainActivity : ComponentActivity() {
                 },
                 onMediaAccessSettings = {
                     if (!audioBusy()) {
-                    runCatching { startActivity(TripMediaAccess.settingsIntent(this)) }
-                        .recoverCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-                        .onFailure { assistantMessage = "No se pudieron abrir los ajustes de acceso multimedia." }
+                        disclose(DisclosureKind.NOTIFICATIONS) {
+                            runCatching { startActivity(TripMediaAccess.settingsIntent(this)) }
+                                .recoverCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                                .onFailure { assistantMessage = "No se pudieron abrir los ajustes de acceso multimedia." }
+                        }
                     }
                 },
                 onTestObservation = { event ->
@@ -557,29 +597,38 @@ class MainActivity : ComponentActivity() {
                     }.onFailure { configurationNotice = it.message.orEmpty() }
                 },
                 onWazeObservationChange = { enabled ->
-                    if (canRunDeveloperTools() && !audioBusy()) {
+                    if ((BuildConfig.IS_PLAYSTORE_BUILD || canRunDeveloperTools()) && !audioBusy()) {
                         WazeObservationAccess.setEnabled(this@MainActivity, enabled)
                         wazeObservationEnabled = enabled
                     }
                 },
                 onWazeScreenChange = { enabled ->
-                    if (canRunDeveloperTools() && !audioBusy()) {
+                    if (BuildConfig.ALLOW_ACCESSIBILITY_WAZE && canRunDeveloperTools() && !audioBusy()) {
                         WazeScreenAccess.setEnabled(this@MainActivity, enabled)
                         wazeScreenEnabled = enabled
                     }
                 },
                 onWazeScreenPermission = {
-                    if (canRunDeveloperTools() && wazeScreenEnabled && !audioBusy()) startActivity(WazeScreenAccess.settingsIntent())
+                    if (BuildConfig.ALLOW_ACCESSIBILITY_WAZE && canRunDeveloperTools() && wazeScreenEnabled && !audioBusy()) startActivity(WazeScreenAccess.settingsIntent())
                 },
                 onWazeObservationPermission = {
-                    if (canRunDeveloperTools() && wazeObservationEnabled && !audioBusy())
-                        startActivity(WazeObservationAccess.settingsIntent(this@MainActivity))
+                    if ((BuildConfig.IS_PLAYSTORE_BUILD || canRunDeveloperTools()) && wazeObservationEnabled && !audioBusy())
+                        disclose(DisclosureKind.NOTIFICATIONS) {
+                            startActivity(WazeObservationAccess.settingsIntent(this@MainActivity))
+                        }
                 },
                 onOverlayEnabledChange = { enabled ->
-                    TripOverlayPreferences.setEnabled(this@MainActivity, enabled)
-                    overlayEnabled = enabled
-                    overlayMessage = ""
-                    if (enabled && !Settings.canDrawOverlays(this@MainActivity)) requestOverlayPermission()
+                    if (enabled && !Settings.canDrawOverlays(this@MainActivity)) {
+                        disclose(DisclosureKind.OVERLAY) {
+                            TripOverlayPreferences.setEnabled(this@MainActivity, true)
+                            overlayEnabled = true
+                            openOverlaySettings()
+                        }
+                    } else {
+                        TripOverlayPreferences.setEnabled(this@MainActivity, enabled)
+                        overlayEnabled = enabled
+                        overlayMessage = ""
+                    }
                 },
                 onOverlayPermission = ::requestOverlayPermission,
                 onShowOverlay = {
@@ -595,6 +644,11 @@ class MainActivity : ComponentActivity() {
                     tripCallContact = null
                     tripCallMessage = getString(R.string.contact_removed)
                     }
+                },
+                onOpenPrivacyPolicy = {
+                    runCatching { startActivity(Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://gust4av033.github.io/APP-Copiloto-Moto/privacy-policy.html"))) }
+                        .onFailure { configurationNotice = getString(R.string.privacy_policy_open_failed) }
                 }
             )
         )
@@ -737,7 +791,8 @@ class MainActivity : ComponentActivity() {
         microphoneGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         bluetoothGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
         notificationsGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        callsGranted = listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE).all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
+        callsGranted = !BuildConfig.ALLOW_DIRECT_CALL || listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+            .all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
         TripTestState.appVisible = true
         syncTripPresentation()
         TripTestState.openPendingAppFromVoice = voiceAppOpener
@@ -766,7 +821,7 @@ class MainActivity : ComponentActivity() {
         lastNavigationRequest = NavigationRequestStore.last(this, navigationProvider)
         wazeObservationEnabled = WazeObservationAccess.enabled(this)
         wazeObservationGranted = WazeObservationAccess.granted(this)
-        wazeScreenEnabled = WazeScreenAccess.enabled(this)
+        wazeScreenEnabled = BuildConfig.ALLOW_ACCESSIBILITY_WAZE && WazeScreenAccess.enabled(this)
         wazeScreenGranted = WazeScreenAccess.granted(this)
         if (!WazeScreenAccess.allowed(this)) WazeScreenState.clear()
         if (!WazeObservationAccess.allowed(this)) WazeNotificationObservation.clearSample()
@@ -793,6 +848,10 @@ class MainActivity : ComponentActivity() {
 
     private fun requestOverlayPermission() {
         if (Settings.canDrawOverlays(this)) { syncTripPresentation(); return }
+        disclose(DisclosureKind.OVERLAY, ::openOverlaySettings)
+    }
+
+    private fun openOverlaySettings() {
         runCatching {
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
         }.recoverCatching {
@@ -1004,9 +1063,12 @@ class MainActivity : ComponentActivity() {
 
     private fun requestNamedCallPermissions() {
         if (audioBusy()) return
-        val needed = listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+        val needed = (listOf(Manifest.permission.READ_CONTACTS) + if (BuildConfig.ALLOW_DIRECT_CALL)
+            listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE) else emptyList())
             .filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (needed.isEmpty()) tripCallMessage = "Los permisos ya están concedidos: decí ‘llama a [nombre]’."
+        else if (Manifest.permission.READ_CONTACTS in needed)
+            disclose(DisclosureKind.CONTACTS) { namedCallPermissions.launch(needed.toTypedArray()) }
         else namedCallPermissions.launch(needed.toTypedArray())
     }
 
@@ -1016,7 +1078,9 @@ class MainActivity : ComponentActivity() {
         val missing = required.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isEmpty()) onGranted() else {
             pendingAction = onGranted
-            permissionRequest.launch(missing.toTypedArray())
+            if (Manifest.permission.RECORD_AUDIO in missing)
+                disclose(DisclosureKind.MICROPHONE) { permissionRequest.launch(missing.toTypedArray()) }
+            else permissionRequest.launch(missing.toTypedArray())
         }
     }
 
@@ -1028,7 +1092,9 @@ class MainActivity : ComponentActivity() {
         val missing = required.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isEmpty()) startTripTest() else {
             pendingAction = ::startTripTest
-            permissionRequest.launch(missing.toTypedArray())
+            if (Manifest.permission.RECORD_AUDIO in missing)
+                disclose(DisclosureKind.MICROPHONE) { permissionRequest.launch(missing.toTypedArray()) }
+            else permissionRequest.launch(missing.toTypedArray())
         }
     }
 

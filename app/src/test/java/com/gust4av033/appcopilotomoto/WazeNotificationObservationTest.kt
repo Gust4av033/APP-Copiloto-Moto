@@ -77,9 +77,9 @@ class WazeNotificationObservationTest {
         WazeObservationAccess.setEnabled(app, true)
         Settings.Secure.putString(app.contentResolver, "enabled_notification_listeners", permission())
         TripNavigationState.beginSession()
-        assertFalse(WazeObservationAccess.allowed(app))
+        assertEquals(BuildConfig.IS_PLAYSTORE_BUILD, WazeObservationAccess.allowed(app))
         UserSettingsStore(app).setDeveloperEnabled(BuildConfig.DEBUG, true)
-        assertEquals(BuildConfig.DEBUG, WazeObservationAccess.allowed(app))
+        assertEquals(BuildConfig.IS_PLAYSTORE_BUILD || BuildConfig.DEBUG, WazeObservationAccess.allowed(app))
         TripNavigationState.endSession()
         assertFalse(WazeObservationAccess.allowed(app))
     }
@@ -118,7 +118,7 @@ class WazeNotificationObservationTest {
         WazeObservationAccess.setEnabled(app, true)
         Settings.Secure.putString(app.contentResolver, "enabled_notification_listeners", permission())
         service.onNotificationPosted(notification())
-        if (BuildConfig.DEBUG) {
+        if (BuildConfig.IS_PLAYSTORE_BUILD || BuildConfig.DEBUG) {
             val sample = WazeNotificationObservation.snapshot.sample
             assertNotNull(sample)
             service.onNotificationPosted(notification("other.app"))

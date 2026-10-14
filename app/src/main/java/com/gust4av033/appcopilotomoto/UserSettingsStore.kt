@@ -23,6 +23,13 @@ internal class UserSettingsStore(context: Context) {
         preferences.edit().putBoolean(developerKey(debugBuild), enabled).apply()
     }
 
+    fun developerDiagnosticsUnlocked(defaultValue: Boolean = BuildConfig.SHOW_DIAGNOSTICS_BY_DEFAULT): Boolean =
+        preferences.getBoolean("developer_diagnostics_unlocked", defaultValue)
+
+    fun setDeveloperDiagnosticsUnlocked(enabled: Boolean) {
+        preferences.edit().putBoolean("developer_diagnostics_unlocked", enabled).apply()
+    }
+
     private fun developerKey(debugBuild: Boolean) = if (debugBuild) "developer_opt_in_debug" else "developer_opt_in_public"
     private fun validPhrase(value: String?) = value?.takeIf { it in setOf("ALEXA", "HEY_JARVIS") } ?: "ALEXA"
     private fun validSensitivity(value: Float) = if (value.isFinite()) value.coerceIn(40f, 85f) else 80f
