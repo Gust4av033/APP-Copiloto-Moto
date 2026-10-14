@@ -107,6 +107,27 @@ class HomeDashboardUiTest {
         }
         render("route-storm-large-font")
     }
+    @Test fun largeTextCanScrollToStartTripWithoutAccidentallyStartingIt() {
+        RuntimeEnvironment.setQualifiers("w320dp-h800dp-night")
+        var starts=0
+        var screen:CopilotScreen?=null
+        app(scale=2f,actions=CopilotActions(onToggleTrip={starts++}),navigate={screen=it})
+        val start=compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.trip_start))
+        // The button lives inside a horizontal pager. Use the user's vertical
+        // gesture on the outer list rather than its nearest scroll semantics.
+        repeat(12) {
+            if (!start.isDisplayed()) compose.onNodeWithTag("settings_content").performTouchInput {
+                swipeUp(startY=height*.75f,endY=height*.5f,durationMillis=600)
+            }
+        }
+        render("home-large-font-after-scroll")
+        start.assertIsDisplayed()
+        assertEquals(0,starts)
+        render("home-large-font-start-visible")
+        start.performClick()
+        assertEquals(1,starts)
+        assertEquals(CopilotScreen.TRIP,screen)
+    }
     @Test fun dayThemeUsesTheSameThreeRealPanels() {
         RuntimeEnvironment.setQualifiers("w360dp-h800dp-notnight")
         app()
