@@ -2,10 +2,8 @@ package com.gust4av033.appcopilotomoto.presentation.theme
 
 import android.graphics.Bitmap
 import android.graphics.Canvas as AndroidCanvas
-import android.graphics.LinearGradient as AndroidLinearGradient
 import android.graphics.Paint
 import android.graphics.RadialGradient as AndroidRadialGradient
-import android.graphics.RectF
 import android.graphics.Shader
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -34,6 +32,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
@@ -44,17 +43,17 @@ import kotlin.math.roundToInt
 
 /** Backdrop, tint and contrast tokens for both themes. */
 internal object StormGlass {
-    val DayBackdrop = Color(0xFFDDEBFA)
-    val NightBackdrop = Color(CopilotPalette.Midnight)
+    val DayBackdrop = Color(0xFFD9E7F4)
+    val NightBackdrop = Color(0xFF061426)
     val DayTint = Color(0xFFE0F0FF)
     val NightTint = Color(CopilotPalette.Abyss)
     const val DayAlpha = .72f
     const val DayStrongAlpha = .78f
     const val NightAlpha = .50f
     const val NightStrongAlpha = .46f
-    val DayGlows = listOf(Color(0xFF68B7FF), Color(0xFF79DDFF), Color(0xFF4B6FBE))
-    val NightGlows = listOf(Color(CopilotPalette.Electric), Color(CopilotPalette.Lightning), Color(CopilotPalette.Indigo))
-    const val GlowAlpha = .25f
+    val DayGlows = listOf(Color(0xFF79B5E2), Color(0xFFA2DFFF), Color(0xFF82A9D4))
+    val NightGlows = listOf(Color(0xFF15578E), Color(0xFF1975AB), Color(0xFF20496E))
+    const val GlowAlpha = .42f
     val DayAction = Color(0xFF075BA8)
     val NightAction = Color(CopilotPalette.ActionBottom)
 }
@@ -133,31 +132,19 @@ fun CopilotBackdrop(modifier: Modifier = Modifier, content: @Composable () -> Un
 
 private fun paintScene(canvas: AndroidCanvas, w: Float, h: Float, dark: Boolean) {
     val p = Paint(Paint.ANTI_ALIAS_FLAG)
-    canvas.drawColor(if (dark) 0xFF040A1C.toInt() else 0xFFDDEBFA.toInt())
-    val x = w * 1.07f
-    val y = h * .34f
-    val radius = w * .59f
-    p.shader = AndroidRadialGradient(x, y, radius,
-        if (dark) intArrayOf(0xFF2F6BFF.toInt(), 0xCC123A9E.toInt(), 0x00123A9E)
-        else intArrayOf(0xFF68B7FF.toInt(), 0x995E91D4.toInt(), 0x005E91D4),
-        null, Shader.TileMode.CLAMP)
-    canvas.drawCircle(x, y, radius, p)
-    p.shader = null
-    p.color = if (dark) 0x8879DDFF.toInt() else 0x8861A8DB.toInt()
-    p.style = Paint.Style.STROKE
-    p.strokeWidth = (w * .006f).coerceAtLeast(1f)
-    canvas.drawArc(RectF(-w * .68f, h * .46f, w * .61f, h * 1.04f), 212f, 212f, false, p)
-    p.style = Paint.Style.FILL
-    p.shader = AndroidLinearGradient(-w * .2f, h * .82f, w * .85f, h * .08f,
-        intArrayOf(0x0079DDFF, if (dark) 0x8879DDFF.toInt() else 0x6669AFEB, 0x0079DDFF),
-        null, Shader.TileMode.CLAMP)
-    canvas.save()
-    canvas.rotate(-28f, w * .4f, h * .43f)
-    canvas.drawRoundRect(RectF(-w * .3f, h * .41f, w * 1.2f, h * .425f), h * .008f, h * .008f, p)
-    canvas.restore()
-    p.shader = AndroidRadialGradient(w * .06f, h * .93f, w * .42f,
-        intArrayOf(if (dark) 0x3F3A2E9E else 0x294B6FBE, 0x003A2E9E), null, Shader.TileMode.CLAMP)
-    canvas.drawCircle(w * .06f, h * .93f, w * .42f, p)
+    canvas.drawColor((if (dark) StormGlass.NightBackdrop else StormGlass.DayBackdrop).toArgb())
+    val colors = if (dark) StormGlass.NightGlows else StormGlass.DayGlows
+    val glows = listOf(
+        Triple(Offset(w * .05f, h * .08f), w, colors[0]),
+        Triple(Offset(w * 1.04f, h * .43f), w * .92f, colors[1]),
+        Triple(Offset(w * .10f, h * .95f), w * .9f, colors[2])
+    )
+    glows.forEach { (center, radius, color) ->
+        p.shader = AndroidRadialGradient(center.x, center.y, radius,
+            intArrayOf(color.copy(alpha = StormGlass.GlowAlpha).toArgb(),
+                color.copy(alpha = 0f).toArgb()), null, Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, 0f, w, h, p)
+    }
     p.shader = null
 }
 

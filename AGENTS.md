@@ -30,10 +30,10 @@
 
 ## Acabado visual de vidrio
 
-- Dirección: vidrio oscuro sobre fondo "tormenta medianoche" (base #040A1C, azul
+- Dirección: vidrio oscuro sobre fondo azul profundo con luz difusa (base #061426, azul
   eléctrico #2F6BFF, luz #79DDFF). Un solo elemento protagonista por pantalla;
   lo demás, vidrio sobrio.
-- El vidrio es: fondo propio con formas luminosas de borde definido, versión
+- El vidrio es: fondo propio con luces azules suaves, versión
   desenfocada precalculada de ese fondo dibujada dentro de cada panel según su
   posición, tinte oscuro para el contraste, borde de luz en gradiente y brillo
   especular. No leas la pantalla ni desenfoques controles. Sin `shadowElevation`

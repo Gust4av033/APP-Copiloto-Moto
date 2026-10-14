@@ -1,6 +1,6 @@
 # APP Copiloto Moto
 
-Rama visual experimental `feature/ui-midnight-glass-v2`, sobre Fase 2 con Google Maps: [vidrio tormenta medianoche v2, capturas y pruebas](docs/UI_TORMENTA_MEDIANOCHE_V2.md). Incluye versión Android `1.1.0-f2-glass2` (código 9), fuente Manrope e icono inspirado en la Hero Ignitor azul. La prueba física del scroll, burbuja y audio sigue pendiente.
+Rama visual experimental `feature/ui-midnight-glass-v2`, sobre Fase 2 con Google Maps: [vidrio tormenta medianoche v2, capturas y pruebas](docs/UI_TORMENTA_MEDIANOCHE_V2.md). Incluye versión Android `1.1.0-f2-glass2b` (código 10), fuente Manrope e icono vectorial original inspirado en la Hero Ignitor azul, sin fotografía incrustada. La prueba física del scroll, burbuja y audio sigue pendiente.
 
 Avance experimental de Fase 2: [Google Maps como segundo proveedor](docs/FASE_2_GOOGLE_MAPS.md), sobre la [lectura de pantalla de Waze](docs/FASE_2_PANTALLA_WAZE.md). `main` conserva el contexto de navegación aceptado; los avances posteriores siguen en ramas de prueba. La validación física del proveedor nuevo está pendiente.
 
