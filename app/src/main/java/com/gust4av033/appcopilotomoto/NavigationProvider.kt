@@ -85,16 +85,24 @@ object NavigationPreferences {
 class GoogleMapsNavigationProvider(private val context: Context) : NavigationProvider {
     override val id = NavigationApp.GOOGLE_MAPS.id
     override val label = NavigationApp.GOOGLE_MAPS.label
-    override val capabilities = NavigationCapabilities(opensSavedDestinations = true, searchesPlaces = true)
+    override val capabilities = NavigationCapabilities(opensSavedDestinations = false, searchesPlaces = true)
 
     override fun available(): Boolean = googleMapsSearchIntent("gasolinera").resolveActivity(context.packageManager) != null
 
     override fun prepare(destination: NavigationDestination): Result<AppTarget> = runCatching {
         val address = NavigationPreferences.address(context, destination)
-        check(address.isNotBlank()) { "Configurá la dirección de ${destination.label} en Ajustes → Navegación antes del viaje." }
-        val launch = googleMapsNavigationIntent(address)
-        check(launch.resolveActivity(context.packageManager) != null) { "Google Maps no está disponible para abrir la ruta." }
-        AppTarget("Ruta a ${destination.label} en $label", launch, navigationDestination = destination)
+        if (address.isBlank()) {
+            // Maps does not expose a documented deep link to the user's personal Home/Work.
+            // Show search results inside Maps; only the rider can identify the saved place.
+            val launch = googleMapsSearchIntent(destination.label)
+            check(launch.resolveActivity(context.packageManager) != null) { "Google Maps no está disponible para buscar ${destination.label}." }
+            AppTarget("Elegir ${destination.label} guardado en $label", launch,
+                navigationSearchQuery = destination.label)
+        } else {
+            val launch = googleMapsNavigationIntent(address)
+            check(launch.resolveActivity(context.packageManager) != null) { "Google Maps no está disponible para abrir la ruta." }
+            AppTarget("Ruta a ${destination.label} en $label", launch, navigationDestination = destination)
+        }
     }
 
     override fun search(query: String): Result<AppTarget> = runCatching {

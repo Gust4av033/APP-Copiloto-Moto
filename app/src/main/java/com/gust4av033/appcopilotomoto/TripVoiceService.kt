@@ -801,9 +801,10 @@ class TripVoiceService : Service() {
             }
             if (intent == TestIntent.OPEN_APP || intent == TestIntent.NAVIGATE || intent == TestIntent.SEARCH_PLACE || intent == TestIntent.OPEN_CONTACT_CHAT || intent == TestIntent.DRAFT_CONTACT_MESSAGE) {
                 clearPendingApp()
+                val navigator = (command.navigationProvider ?: NavigationPreferences.selected(this)).label
                 TripTestState.status = when (intent) {
-                    TestIntent.NAVIGATE -> "Preparando destino en Waze…"
-                    TestIntent.SEARCH_PLACE -> "Preparando búsqueda en Waze…"
+                    TestIntent.NAVIGATE -> "Preparando destino en $navigator…"
+                    TestIntent.SEARCH_PLACE -> "Preparando búsqueda en $navigator…"
                     TestIntent.OPEN_APP -> "Buscando aplicación…"
                     else -> "Buscando contacto para el chat…"
                 }

@@ -2,6 +2,8 @@
 
 La rama por defecto `main` conserva la base estable de Fase 1 RC1 y el contexto de navegación aceptado de Fase 2. La única base funcional de trabajo de Fase 2 es `feature/fase-2-integrada`, propuesta en el [PR #21](https://github.com/Gust4av033/APP-Copiloto-Moto/pull/21), todavía en borrador. Reúne observación y lectura experimental de Waze, Google Maps seleccionable y [Glass UI v2](docs/UI_TORMENTA_MEDIANOCHE_V2.md). La validación física en S22+ y casco sigue pendiente antes de integrar a `main`. [Auditoría de ramas](docs/AUDITORIA_RAMAS_FASE_2_2026-10-14.md).
 
+En [Google Maps de Fase 2](docs/FASE_2_GOOGLE_MAPS.md), Casa y Trabajo ya admiten una dirección opcional: sin ella, APP abre una búsqueda en Maps para que el conductor elija su lugar guardado con la moto detenida; con dirección, solicita la ruta directa. APP no lee los favoritos personales ni confirma una ruta externa.
+
 La documentación de [Ajustes de usuario y desarrollador](docs/AJUSTES_USUARIO_DESARROLLO.md) y [Fase 1 RC1](docs/FASE_1_RC1.md) se conserva como historial de la base integrada; la [regresión repetible](docs/REGRESION_FASE_1_RC1.md) separa las pruebas automatizadas de las físicas.
 
 Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta rama inicia la fase 1 sobre el prototipo de fase 0: reúne las órdenes en un Action Executor, amplía las frases de música y volumen, y descubre los accesos instalados para abrir aplicaciones por voz. **Comandos** reúne la guía, una comprobación de frases sin ejecución y los accesos de apps disponibles con búsqueda. Inicio y Viaje muestran las aperturas pendientes y los estados de llamada/recuperación. El viaje y el audio Bluetooth siguen en validación con hardware real.

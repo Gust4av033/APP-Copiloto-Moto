@@ -1,6 +1,8 @@
 package com.gust4av033.appcopilotomoto
 
 import android.content.Context
+import android.content.pm.ActivityInfo
+import android.content.pm.ResolveInfo
 import org.junit.After
 import org.junit.Before
 import org.junit.Assert.*
@@ -8,6 +10,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
@@ -20,12 +23,13 @@ class NavigationProviderChoiceTest {
         NavigationPreferences.select(context, NavigationApp.WAZE)
         NavigationPreferences.saveAddress(context, NavigationDestination.HOME, "")
         NavigationPreferences.saveAddress(context, NavigationDestination.WORK, "")
+        NavigationRequestStore.forget(context, NavigationApp.GOOGLE_MAPS)
+        TripNavigationState.endSession()
     }
 
-    @Test fun mapsNeedsAnExplicitLocalAddressForHomeAndWork() {
+    @Test fun mapsLocalAddressesRemainOptionalAndValidated() {
         NavigationPreferences.select(context, NavigationApp.GOOGLE_MAPS)
         assertEquals(NavigationApp.GOOGLE_MAPS, NavigationPreferences.selected(context))
-        assertTrue(GoogleMapsNavigationProvider(context).prepare(NavigationDestination.HOME).isFailure)
         NavigationPreferences.saveAddress(context, NavigationDestination.HOME, "Avenida Norte 12, San Salvador")
         assertEquals("Avenida Norte 12, San Salvador",
             NavigationPreferences.address(context, NavigationDestination.HOME))
@@ -33,6 +37,47 @@ class NavigationProviderChoiceTest {
         assertThrows(IllegalArgumentException::class.java) {
             NavigationPreferences.saveAddress(context, NavigationDestination.WORK, "calle\nabre otra app")
         }
+    }
+
+    @Test fun mapsWithoutAddressOpensSearchAndDoesNotRecordAnUnverifiedFavorite() {
+        val launch = googleMapsSearchIntent(NavigationDestination.HOME.label)
+        val resolved = ResolveInfo().apply {
+            activityInfo = ActivityInfo().apply {
+                packageName = NavigationApp.GOOGLE_MAPS.packageName
+                name = "com.google.android.maps.MapsActivity"
+            }
+        }
+        Shadows.shadowOf(context.packageManager).addResolveInfoForIntent(launch, resolved)
+        val provider = GoogleMapsNavigationProvider(context)
+        assertFalse(provider.capabilities.opensSavedDestinations)
+        val target = provider.prepare(NavigationDestination.HOME).getOrThrow()
+        assertEquals(launch.data, target.launchIntent.data)
+        assertEquals(NavigationApp.GOOGLE_MAPS.packageName, target.launchIntent.`package`)
+        assertNull(target.navigationDestination)
+        assertEquals("Casa", target.navigationSearchQuery)
+        assertTrue(navigationDispatchMessage(target).contains("Elegí el resultado"))
+
+        TripNavigationState.beginSession()
+        NavigationRequestStore.recordDispatched(context, target)
+        assertEquals(NavigationRequestKind.SEARCH, TripNavigationState.context.lastDispatch?.kind)
+        assertNull(NavigationRequestStore.last(context, NavigationApp.GOOGLE_MAPS))
+    }
+
+    @Test fun configuredAddressStillPreparesDirectNavigation() {
+        val address = "Avenida Norte 12, San Salvador"
+        NavigationPreferences.saveAddress(context, NavigationDestination.HOME, address)
+        val launch = googleMapsNavigationIntent(address)
+        val resolved = ResolveInfo().apply {
+            activityInfo = ActivityInfo().apply {
+                packageName = NavigationApp.GOOGLE_MAPS.packageName
+                name = "com.google.android.maps.MapsActivity"
+            }
+        }
+        Shadows.shadowOf(context.packageManager).addResolveInfoForIntent(launch, resolved)
+        val target = GoogleMapsNavigationProvider(context).prepare(NavigationDestination.HOME).getOrThrow()
+        assertEquals(launch.data, target.launchIntent.data)
+        assertEquals(NavigationDestination.HOME, target.navigationDestination)
+        assertNull(target.navigationSearchQuery)
     }
 
     @Test fun mapsUrisEncodeQueriesAndStayWithinTheMapsPackageAtDispatch() {

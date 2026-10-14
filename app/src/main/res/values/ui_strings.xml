@@ -371,7 +371,7 @@
     <string name="navigation_ready">%1$s disponible para recibir solicitudes.</string>
     <string name="navigation_missing">%1$s no está disponible. Instalalo y actualizá las integraciones.</string>
     <string name="navigation_setup">Guardá Casa y Trabajo en Waze antes del viaje. APP usa esos favoritos; no necesita conocer tu dirección.</string>
-    <string name="navigation_maps_setup">Para Casa y Trabajo en Google Maps, guardá aquí una dirección explícita antes del viaje. Solo se almacena en esta instalación. Puedes dejar un campo vacío para desactivarlo.</string>
+    <string name="navigation_maps_setup">La dirección aquí es opcional. Si el campo está vacío, APP abrirá la búsqueda de Casa o Trabajo en Maps; elegí tu lugar guardado con la moto detenida. Con una dirección aquí, APP solicita la ruta directa.</string>
     <string name="navigation_maps_home">Dirección de Casa para Google Maps</string>
     <string name="navigation_maps_work">Dirección de Trabajo para Google Maps</string>
     <string name="navigation_maps_save">Guardar %1$s</string>
@@ -380,7 +380,7 @@
     <string name="navigation_last">Última solicitud enviada a %1$s desde APP: %2$s.</string>
     <string name="navigation_last_empty">Todavía no hay una solicitud de ruta enviada desde APP.</string>
     <string name="navigation_scope">Último destino repite el favorito solicitado desde APP, incluso después de reiniciarla. No lee el historial de Waze ni confirma que la ruta haya comenzado. Waze resuelve el favorito guardado y su navegación.</string>
-    <string name="navigation_maps_scope">Casa y Trabajo usan la dirección escrita aquí. Último destino repite el nombre solicitado en Google Maps; APP no lee su historial ni confirma una ruta activa.</string>
+    <string name="navigation_maps_scope">Sin dirección aquí, Casa y Trabajo abren una búsqueda en Maps y no cambian el último favorito solicitado. APP no lee tus lugares guardados ni confirma una ruta activa.</string>
     <string name="navigation_forget">Olvidar última solicitud de ruta</string>
     <string name="command_navigate">Solicitar ruta</string>
     <string name="command_navigation_parameter">Destino: %1$s</string>
