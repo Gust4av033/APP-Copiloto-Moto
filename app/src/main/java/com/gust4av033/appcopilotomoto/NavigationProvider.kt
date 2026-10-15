@@ -40,7 +40,8 @@ class WazeNavigationProvider(private val context: Context) : NavigationProvider 
                 Uri.parse("waze://?ll=${coordinate.latitude},${coordinate.longitude}&navigate=yes"))
                 .setPackage("com.waze")
             if (launch.resolveActivity(context.packageManager) != null)
-                AppTarget("Ruta a ${destination.label} en $label", launch, navigationDestination = destination)
+                AppTarget("Ruta a ${destination.label} en $label", launch,
+                    navigationDestination = destination, navigationTarget = coordinate)
             else {
                 val query = "${coordinate.latitude},${coordinate.longitude}"
                 val search = Intent(Intent.ACTION_VIEW, Uri.parse(wazePlaceSearchLink(query))).setPackage("com.waze")
@@ -130,7 +131,8 @@ class GoogleMapsNavigationProvider(private val context: Context) : NavigationPro
         if (coordinates != null) {
             val launch = googleMapsNavigationIntent("${coordinates.latitude},${coordinates.longitude}")
             check(launch.resolveActivity(context.packageManager) != null) { "Google Maps no está disponible para abrir la ruta." }
-            AppTarget("Ruta a ${destination.label} en $label", launch, navigationDestination = destination)
+            AppTarget("Ruta a ${destination.label} en $label", launch,
+                navigationDestination = destination, navigationTarget = coordinates)
         } else if (address.isBlank()) {
             // Maps does not expose a documented deep link to the user's personal Home/Work.
             // Show search results inside Maps; only the rider can identify the saved place.
@@ -184,9 +186,8 @@ object NavigationRequestStore {
         TripNavigationState.record(sessionId, NavigationDispatch(app.id,
             if (query != null) NavigationRequestKind.SEARCH else NavigationRequestKind.FAVORITE,
             query ?: checkNotNull(destination).label, System.currentTimeMillis(),
-            destination?.let { saved -> NavigationPreferences.coordinates(context, saved)?.takeIf {
-                target.launchIntent.dataString.orEmpty().contains("${it.latitude},${it.longitude}")
-            } }, android.os.SystemClock.elapsedRealtime()))
+            target.navigationTarget.takeIf { destination != null && query == null },
+            android.os.SystemClock.elapsedRealtime()))
         if (destination != null) context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(key(app), destination.name).apply()
     }

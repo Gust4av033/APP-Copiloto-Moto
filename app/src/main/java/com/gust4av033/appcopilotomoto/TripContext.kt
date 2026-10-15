@@ -6,7 +6,8 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 enum class ContextSource { ANDROID_GPS, WAZE_NOTIFICATION, WAZE_ACCESSIBILITY,
-    GOOGLE_MAPS_NOTIFICATION, GOOGLE_MAPS_ACCESSIBILITY, SAVED_DESTINATION_COORDS, MEDIA_SESSION, DEVICE_STATUS, REPLAY_FIXTURE }
+    GOOGLE_MAPS_NOTIFICATION, GOOGLE_MAPS_ACCESSIBILITY, SAVED_DESTINATION_COORDS,
+    APP_SESSION, MEDIA_SESSION, DEVICE_STATUS, REPLAY_FIXTURE }
 enum class Freshness { FRESH, STALE, EXPIRED }
 
 /** All ages use the same monotonic clock domain, including replay fixtures. */
@@ -30,6 +31,14 @@ data class LocationSample(val epochMs: Long, val elapsedRealtimeMs: Long, val la
     val longitude: Double, val altitude: Double?, val speedMetersPerSec: Float?,
     val speedAccuracyMetersPerSec: Float?, val bearing: Float?, val bearingAccuracyDegrees: Float?,
     val horizontalAccuracyMeters: Float?, val provider: String, val isSimulated: Boolean)
+
+/** Quality gate shared by live context and local trip history. */
+fun LocationSample.hasTripPositionQuality(): Boolean =
+    !isSimulated && latitude in -90.0..90.0 && longitude in -180.0..180.0 &&
+        horizontalAccuracyMeters?.let { it.isFinite() && it in 0f..50f } == true
+
+fun LocationSample.usableForTripContext(nowElapsedMs: Long): Boolean =
+    hasTripPositionQuality() && nowElapsedMs - elapsedRealtimeMs in 0L until 10_000L
 
 fun distanceMeters(aLat: Double, aLon: Double, bLat: Double, bLon: Double): Double {
     val lat1 = Math.toRadians(aLat); val lat2 = Math.toRadians(bLat)
@@ -84,15 +93,16 @@ data class DeviceTripContext(val batteryPercent: ContextValue<Int>?, val chargin
     val bluetoothAudioConfirmed: ContextValue<Boolean>?)
 data class TripContextSnapshot(val navigation: NavigationContext = NavigationContext(),
     val location: ContextValue<LocationSample>? = null, val target: ContextValue<TargetDestination>? = null,
-    val media: MediaTripContext? = null, val device: DeviceTripContext? = null) {
+    val media: MediaTripContext? = null, val device: DeviceTripContext? = null,
+    val sessionDurationMs: ContextValue<Long>? = null) {
     fun straightLineMeters(now: Long): Double? {
         val point = location?.takeIf { it.freshness(now) != Freshness.EXPIRED }?.value ?: return null
-        val destination = target?.value ?: return null
+        val destination = target?.takeIf { it.freshness(now) != Freshness.EXPIRED }?.value ?: return null
         return distanceMeters(point.latitude, point.longitude, destination.latitude, destination.longitude)
     }
     fun targetBearingDegrees(now: Long): Double? {
         val point = location?.takeIf { it.freshness(now) != Freshness.EXPIRED }?.value ?: return null
-        val destination = target?.value ?: return null
+        val destination = target?.takeIf { it.freshness(now) != Freshness.EXPIRED }?.value ?: return null
         return bearingDegrees(point.latitude, point.longitude, destination.latitude, destination.longitude)
     }
 }

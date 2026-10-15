@@ -1,13 +1,16 @@
 package com.gust4av033.appcopilotomoto
 
 import android.content.pm.ServiceInfo
+import android.os.SystemClock
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.RuntimeEnvironment
 import java.nio.file.Files
 import java.time.ZoneId
+import org.json.JSONArray
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -102,12 +105,98 @@ class TripContextTest {
         } finally { root.deleteRecursively() }
     }
 
-    @Test fun briefVoiceNeverGuessesExpiredRoute() {
+    @Test fun voiceQueriesKeepTurnEtaAndOwnDistanceSeparate() {
         val turn = ContextValue("Gira a la derecha", ContextSource.WAZE_NOTIFICATION,
             100, 100, .8f, 1000)
-        val snapshot = TripContextSnapshot(navigation = NavigationContext(nextTurnInstruction = turn))
-        assertTrue(BriefTripContextTtsFormatter.route(snapshot, 150).contains("Gira a la derecha"))
-        assertTrue(BriefTripContextTtsFormatter.route(snapshot, 1100).contains("No tengo una ruta"))
+        val eta = ContextValue(7, ContextSource.GOOGLE_MAPS_NOTIFICATION, 100, 100, .65f, 1000)
+        val snapshot = TripContextSnapshot(navigation = NavigationContext(remainingMinutes = eta))
+        assertTrue(BriefTripContextTtsFormatter.nextTurn(snapshot, 150).contains("No tengo un próximo giro"))
+        assertEquals("Según Google Maps, faltan 7 minutos.", BriefTripContextTtsFormatter.remaining(snapshot, 150))
+        assertTrue(BriefTripContextTtsFormatter.remaining(snapshot, 1100).contains("No tengo un tiempo de ruta"))
+        val withTurn = snapshot.copy(navigation = NavigationContext(nextTurnInstruction = turn))
+        assertTrue(BriefTripContextTtsFormatter.nextTurn(withTurn, 150).contains("Gira a la derecha"))
+        assertTrue(BriefTripContextTtsFormatter.remaining(withTurn, 150).contains("No tengo un tiempo de ruta"))
+
+        val location = ContextValue(fix(100, -89.2), ContextSource.ANDROID_GPS, 100, 100, .9f, 10_000)
+        val target = ContextValue(TargetDestination("Casa", 13.7, -89.19),
+            ContextSource.SAVED_DESTINATION_COORDS, 100, 100, 1f, 86_400_000)
+        val own = TripContextSnapshot(location = location, target = target)
+        assertTrue(BriefTripContextTtsFormatter.remaining(own, 150).contains("Casa está a"))
+        assertTrue(BriefTripContextTtsFormatter.remaining(own, 150).contains("en línea recta"))
+        assertFalse(BriefTripContextTtsFormatter.remaining(own, 150).contains("minutos"))
+        assertTrue(BriefTripContextTtsFormatter.remaining(own, 11_000).contains("No tengo un tiempo"))
+        assertTrue(BriefTripContextTtsFormatter.remaining(TripContextSnapshot(target = target), 150)
+            .contains("Falta una posición GPS precisa"))
+        assertNull(own.straightLineMeters(86_400_100))
+        assertNull(own.targetBearingDegrees(86_400_100))
+    }
+
+    @Test fun locationContextRejectsPoorStaleSimulatedAndOutOfOrderFixes() {
+        val good = fix(100, -89.2)
+        assertTrue(good.usableForTripContext(10_099))
+        assertFalse(good.usableForTripContext(10_100))
+        assertFalse(good.copy(horizontalAccuracyMeters = 60f).usableForTripContext(200))
+        assertFalse(good.copy(isSimulated = true).usableForTripContext(200))
+        TripContextCollector.clear()
+        try {
+            TripContextCollector.recordLocation(good)
+            TripContextCollector.recordLocation(fix(200, -89.3, accuracy = 60f))
+            TripContextCollector.recordLocation(fix(50, -89.4))
+            assertEquals(good, TripContextCollector.latestLocation)
+        } finally { TripContextCollector.clear() }
+    }
+
+    @Test fun tripStatusOnlySpeaksMovementAndSpeedFromReliableFixes() {
+        fun snapshot(sample: LocationSample) = TripContextSnapshot(location = ContextValue(
+            sample, ContextSource.ANDROID_GPS, 100, 100, .9f, 10_000))
+        val stopped = snapshot(fix(100, -89.2, speed = 0f))
+        assertTrue(BriefTripContextTtsFormatter.status(stopped, 150, 0, MovementState.DETENIDO)
+            .contains("moto detenida"))
+        assertFalse(BriefTripContextTtsFormatter.status(stopped, 150, 0, MovementState.EN_MARCHA)
+            .contains("en marcha"))
+        val inaccurate = snapshot(fix(100, -89.2, accuracy = 40f))
+        assertEquals("No hay contexto reciente del viaje disponible.",
+            BriefTripContextTtsFormatter.status(inaccurate, 150, 0, MovementState.EN_MARCHA))
+        assertEquals("No hay contexto reciente del viaje disponible.",
+            BriefTripContextTtsFormatter.status(stopped, 10_100, 0, MovementState.DETENIDO))
+    }
+
+    @Test fun appSessionDurationHasOwnSourceAndExpiresAfterSession() {
+        TripNavigationState.endSession()
+        try {
+            TripNavigationState.beginSession()
+            val now = SystemClock.elapsedRealtime()
+            val snapshot = TripContextCollector.snapshot(RuntimeEnvironment.getApplication(),
+                1_700_000_000_000, now)
+            assertEquals(ContextSource.APP_SESSION, snapshot.sessionDurationMs?.source)
+            assertTrue(BriefTripContextTtsFormatter.status(snapshot, now, 0)
+                .contains("viaje recién iniciado"))
+            assertEquals("No hay contexto reciente del viaje disponible.",
+                BriefTripContextTtsFormatter.status(snapshot, now + 5_000, 0))
+            TripNavigationState.endSession()
+            assertNull(TripContextCollector.snapshot(RuntimeEnvironment.getApplication(),
+                1_700_000_000_000, now).sessionDurationMs)
+        } finally { TripNavigationState.endSession() }
+    }
+
+    @Test fun recordedDistanceRejectsDriftAndImpossibleJumps() {
+        val start = fix(1000, -89.2, speed = 8f)
+        val next = fix(2000, -89.1999, speed = 8f)
+        assertTrue(tripDistanceDelta(start, next, MovementState.EN_MARCHA) in 5.0..20.0)
+        assertEquals(0.0, tripDistanceDelta(start, next, MovementState.DETENIDO), 0.001)
+        assertEquals(0.0, tripDistanceDelta(start.copy(speedMetersPerSec = 0f), next,
+            MovementState.EN_MARCHA), 0.001)
+        assertEquals(0.0, tripDistanceDelta(start, fix(2000, -89.19), MovementState.EN_MARCHA), 0.001)
+        val root = Files.createTempDirectory("trip-drift").toFile()
+        try {
+            val repository = TripRepository(root)
+            repository.start(1_700_000_000_000)
+            repository.append(start.copy(speedMetersPerSec = 0f), MovementState.DETENIDO)
+            repository.append(next.copy(speedMetersPerSec = 0f), MovementState.DETENIDO)
+            repository.finish(1_700_000_003_000)
+            val index = JSONArray(root.resolve("trips/trips_index.json").readText())
+            assertEquals(0.0, index.getJSONObject(0).getDouble("distanceMeters"), 0.001)
+        } finally { root.deleteRecursively() }
     }
 
     @Test fun navigationParserKeepsProvenanceAndValidEta() {

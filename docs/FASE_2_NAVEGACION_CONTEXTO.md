@@ -95,3 +95,47 @@ Prueba física pendiente: con el casco, pedir Casa, consultar la solicitud y
 confirmar que se nombra el proveedor correcto sin afirmar navegación activa.
 Repetir tras una búsqueda, tras cambiar el proveedor y tras reiniciar el viaje;
 comprobar que la música y el modo botón regresan normalmente.
+
+## Contexto propio y consultas precisas · Context 2
+
+En `feature/ui-storm-refined`, versión `1.1.0-f2-context2` (código 15),
+la Fase 2 prioriza información que APP puede comprobar por sí misma. La lectura
+de Waze/Maps sigue siendo experimental y optativa; no se añaden anuncios de
+giros ni se depende de esa lectura para el estado general del viaje.
+
+| Consulta o dato | Respuesta verificable | Límite explícito |
+| --- | --- | --- |
+| «Próximo giro» | Solo maniobra externa explícita y reciente | Nunca responde con la ETA si falta el giro; Waze ya anuncia sus propios giros |
+| «Cuánto falta» | ETA observada y vigente de un proveedor; si falta, distancia a coordenadas del destino con GPS propio | La distancia se nombra «en línea recta» y nunca se presenta como duración o ruta vial |
+| «Estado del viaje» | Duración de la sesión APP con origen propio, movimiento/velocidad de GPS reciente y preciso, tiempo en movimiento, música y batería disponibles | Una muestra vieja o de mala precisión no autoriza a afirmar velocidad o movimiento |
+| Destino con coordenadas | Waze y Maps adjuntan el objetivo semántico al despacho de APP | No se deduce por cadenas del URI ni se asume que el navegador inició la ruta |
+| Distancia recorrida del historial local | Solo suma pares en marcha, con velocidad y precisión suficientes y desplazamiento físicamente plausible | Descarta deriva estacionaria y saltos de GPS; no crea mapas ni rutas viales |
+
+La distancia y el rumbo exigen un destino aún vigente. Si APP conserva las
+coordenadas pero falta GPS reciente, la respuesta hablada distingue ese caso
+de un destino no definido. La posición para contexto requiere permiso/ajuste activos, precisión horizontal
+de 50 m o mejor y menos de 10 segundos de antigüedad monotónica; se rechazan
+replays, muestras fuera de orden e inválidas. La voz exige mejor precisión
+para velocidad y estado de movimiento. La grabación local conserva su recorte
+de privacidad y retención, y no se inicia sin el consentimiento GPS existente.
+No hay permisos, pantallas, burbuja ni notificación nuevos; cambia únicamente
+el contenido de consultas ya disponibles. La prueba física de voz, GPS,
+recuperación musical y exportación queda pendiente en el Samsung.
+
+Queda para fases posteriores una ruta vial propia, geocodificación de
+direcciones, lectura documentada del destino de apps externas, tráfico, POI y
+conversación contextual. Sin esas fuentes, APP declara el dato ausente.
+
+### Verificación de Context 2
+
+`testFullDebugUnitTest` y `testPlaystoreDebugUnitTest`: 264 casos cada uno,
+cero fallos, dos y tres omitidos. Las pruebas incluyen contraste, navegación UI,
+contexto propio y despachos con coordenadas en Maps/Waze. En la variante de
+campo pasaron 19 pruebas dirigidas a contexto y proveedores; tras el último
+ajuste de vigencia se repitieron las 14 de contexto. `assembleFullFieldTest` y
+`assemblePlaystoreRelease` terminaron correctamente. `lintFullDebug` y
+`lintPlaystoreDebug` habían terminado sin errores antes del ajuste final.
+El APK de campo firmado tiene código 15, identificador `.pruebas` y SHA-256
+`62d56d7d7d78b06c787718e453fbd049c36b3a84d727a0a598df9975062fa43b`.
+La versión release de Play requiere la firma de publicación. No se verificó
+renderizado ni comportamiento físico en teléfono o emulador de esta sesión.

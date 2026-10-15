@@ -6,6 +6,29 @@ import java.io.File
 import java.time.Instant
 import java.util.UUID
 
+/** Avoid counting stationary GPS drift, poor fixes and impossible jumps as distance ridden. */
+internal fun tripDistanceDelta(previous: LocationSample, current: LocationSample,
+    state: MovementState): Double {
+    if (state != MovementState.EN_MARCHA) return 0.0
+    val elapsedSeconds = (current.elapsedRealtimeMs - previous.elapsedRealtimeMs) / 1000.0
+    if (elapsedSeconds <= 0 || elapsedSeconds > 15) return 0.0
+    val priorSpeed = previous.speedMetersPerSec ?: return 0.0
+    val currentSpeed = current.speedMetersPerSec ?: return 0.0
+    if (!priorSpeed.isFinite() || !currentSpeed.isFinite() ||
+        priorSpeed < MovementStateDetector.STOP_BELOW_MPS ||
+        currentSpeed < MovementStateDetector.STOP_BELOW_MPS ||
+        priorSpeed > 70f || currentSpeed > 70f) return 0.0
+    val priorAccuracy = previous.horizontalAccuracyMeters ?: return 0.0
+    val currentAccuracy = current.horizontalAccuracyMeters ?: return 0.0
+    if (priorAccuracy > MovementStateDetector.MAX_ACCURACY_METERS ||
+        currentAccuracy > MovementStateDetector.MAX_ACCURACY_METERS) return 0.0
+    val displacement = distanceMeters(previous.latitude, previous.longitude,
+        current.latitude, current.longitude)
+    val plausibleMaximum = maxOf(priorSpeed, currentSpeed) * elapsedSeconds * 2 +
+        priorAccuracy + currentAccuracy
+    return displacement.takeIf { it <= plausibleMaximum } ?: 0.0
+}
+
 /** Local append-only history. No simulated sample is accepted. */
 class TripRepository(private val filesDir: File) {
     companion object {
@@ -38,8 +61,9 @@ class TripRepository(private val filesDir: File) {
         return newId
     }
     fun append(sample: LocationSample, state: MovementState) {
-        if (id == null || sample.isSimulated) return
-        lastSample?.let { distance += distanceMeters(it.latitude, it.longitude, sample.latitude, sample.longitude) }
+        if (id == null || !sample.hasTripPositionQuality() ||
+            lastSample?.elapsedRealtimeMs?.let { sample.elapsedRealtimeMs <= it } == true) return
+        lastSample?.let { distance += tripDistanceDelta(it, sample, state) }
         lastSample = sample; samples++
         pending += JSONObject().put("type", "sample").put("epochMs", sample.epochMs)
             .put("elapsedMs", sample.elapsedRealtimeMs).put("lat", sample.latitude)

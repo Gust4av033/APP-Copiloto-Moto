@@ -22,7 +22,11 @@ internal fun selectNavigationNotification(samples: Collection<WazeNotificationSa
 internal object TripContextCollector {
     @Volatile var latestLocation: LocationSample? = null
         private set
-    fun recordLocation(sample: LocationSample) { latestLocation = sample }
+    fun recordLocation(sample: LocationSample) {
+        if (!sample.hasTripPositionQuality()) return
+        if (latestLocation?.elapsedRealtimeMs?.let { sample.elapsedRealtimeMs <= it } == true) return
+        latestLocation = sample
+    }
     fun clear() { latestLocation = null }
 
     fun snapshot(context: Context, nowEpoch: Long = System.currentTimeMillis(),
@@ -43,8 +47,13 @@ internal object TripContextCollector {
                 else ContextSource.WAZE_ACCESSIBILITY,
                 nowEpoch - (nowElapsed - screen.observedAtMs), screen.observedAtMs) else NavigationContext()
         val source = fuseNavigation(notification, accessible, nowElapsed)
-        val gps = latestLocation?.takeIf { TripLocationAccess.available(context) && !it.isSimulated }
-            ?.let { ContextValue(it, ContextSource.ANDROID_GPS, it.epochMs, it.elapsedRealtimeMs, .9f, 10_000) }
+        val gps = latestLocation?.takeIf { TripLocationAccess.available(context) && it.usableForTripContext(nowElapsed) }
+            ?.let { fix -> ContextValue(fix, ContextSource.ANDROID_GPS, fix.epochMs, fix.elapsedRealtimeMs,
+                when (fix.horizontalAccuracyMeters ?: Float.POSITIVE_INFINITY) {
+                    in 0f..10f -> .95f
+                    in 10f..25f -> .85f
+                    else -> .6f
+                }, 10_000) }
         val target = TripNavigationState.context.lastDispatch?.takeIf {
             it.dispatchedAtElapsedRealtimeMs > 0
         }?.let { dispatch -> dispatch.target?.let {
@@ -76,9 +85,14 @@ internal object TripContextCollector {
             AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER)
         val bluetoothAudio = audio.isBluetoothA2dpOn || audio.isBluetoothScoOn ||
             (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && audio.communicationDevice?.type in bluetoothTypes)
+        val session = TripNavigationState.context.takeIf { it.sessionId != null &&
+            nowElapsed >= it.startedAtElapsedRealtimeMs }?.let {
+            ContextValue(nowElapsed - it.startedAtElapsedRealtimeMs, ContextSource.APP_SESSION,
+                nowEpoch, nowElapsed, 1f, 5_000)
+        }
         return TripContextSnapshot(source, gps, target, mediaContext,
             DeviceTripContext(device(if (level >= 0 && scale > 0) level * 100 / scale else null),
                 device(status in setOf(BatteryManager.BATTERY_STATUS_CHARGING, BatteryManager.BATTERY_STATUS_FULL)),
-                device(bluetoothAudio)))
+                device(bluetoothAudio)), session)
     }
 }

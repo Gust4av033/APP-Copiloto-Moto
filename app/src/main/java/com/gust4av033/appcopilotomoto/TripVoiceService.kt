@@ -820,10 +820,13 @@ class TripVoiceService : Service() {
                 TripTestState.save(this)
                 val now = SystemClock.elapsedRealtime()
                 val reply = when (intent) {
-                    TestIntent.NEXT_TURN, TestIntent.HOW_LONG -> BriefTripContextTtsFormatter.route(
+                    TestIntent.NEXT_TURN -> BriefTripContextTtsFormatter.nextTurn(
+                        TripContextCollector.snapshot(this), now)
+                    TestIntent.HOW_LONG -> BriefTripContextTtsFormatter.remaining(
                         TripContextCollector.snapshot(this), now)
                     TestIntent.TRIP_STATUS -> BriefTripContextTtsFormatter.status(
-                        TripContextCollector.snapshot(this), now, TripRecordingState.movingMs)
+                        TripContextCollector.snapshot(this), now, TripRecordingState.movingMs,
+                        TripRecordingState.movement.takeIf { TripRecordingState.samples > 0 })
                     else -> actions.navigationRequestAnswer()
                 }
                 explainResolutionProblem(provider, cycle, reply)
