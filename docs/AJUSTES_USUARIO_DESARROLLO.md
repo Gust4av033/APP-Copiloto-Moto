@@ -177,7 +177,7 @@ SCO/ID/métricas permanecen dentro de las pantallas de desarrollo.
 | Acceso a notificaciones | Diálogo antes de abrir Ajustes de listener multimedia/Waze | Comprobación del callback y manifiesto fusionado |
 | Burbuja | Diálogo antes de solicitar superposición; cancelación deja desactivado el interruptor | Validación pendiente en Android real |
 | Voz/contactos | Diálogo antes de pedir `RECORD_AUDIO` o `READ_CONTACTS` | Pruebas unitarias de permisos; lectura física pendiente |
-| Política | Enlace en Voz, Permisos y Privacidad y en Privacidad | URL configurada; disponibilidad de GitHub Pages por confirmar |
+| Política | Enlace en Voz, Permisos y Privacidad y en Privacidad | `privacy-policy.html` en la raíz de `main`; GitHub Pages publicó la URL y respondió HTTP 200 el 14 de octubre de 2026 |
 
 El sabor `playstore` abre el marcador telefónico para que el usuario inicie
 la llamada. `full` conserva la llamada directa. En ambos casos APP distingue
@@ -202,8 +202,9 @@ el APK debug de `playstore` carecen de permisos de llamada directa y del
 servicio de accesibilidad. `assemblePlaystoreRelease` completó R8 y lint vital;
 el APK release quedó sin firma por falta de credenciales. Las pruebas se
 ejecutaron en Android JVM y no sustituyen la prueba de casco, SCO y marcador
-en el Samsung. La URL pública de GitHub Pages tampoco se pudo comprobar desde
-este entorno.
+en el Samsung. La URL pública de GitHub Pages se verificó después: la política
+se publicó desde la raíz de `main` y respondió HTTP 200. La apertura desde la
+app instalada aún requiere una comprobación física en el Samsung.
 
 ## Archivos de la entrega
 
