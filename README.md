@@ -1,6 +1,6 @@
 # APP Copiloto Moto
 
-La rama por defecto `main` conserva la base estable de Fase 1 RC1 y el contexto de navegación aceptado de Fase 2. La única base funcional de trabajo de Fase 2 es `feature/fase-2-integrada`, propuesta en el [PR #21](https://github.com/Gust4av033/APP-Copiloto-Moto/pull/21), todavía en borrador. Reúne observación y lectura experimental de Waze, Google Maps seleccionable y [Glass UI v2](docs/UI_TORMENTA_MEDIANOCHE_V2.md). La validación física en S22+ y casco sigue pendiente antes de integrar a `main`. [Auditoría de ramas](docs/AUDITORIA_RAMAS_FASE_2_2026-10-14.md).
+La rama por defecto `main` conserva la base estable de Fase 1 RC1 y el contexto de navegación aceptado de Fase 2. El trabajo actual continúa en `feature/ui-storm-refined`, descendiente de `feature/fase-2-integrada`. Reúne observación y lectura experimental de Waze, Google Maps seleccionable, los sabores `full`/`playstore` y [Glass UI refinada](docs/UI_TORMENTA_REFINADA_V3.md). La validación física en S22+ y casco sigue pendiente antes de integrar a `main`. [Auditoría anterior de ramas](docs/AUDITORIA_RAMAS_FASE_2_2026-10-14.md).
 
 En [Google Maps de Fase 2](docs/FASE_2_GOOGLE_MAPS.md), Casa y Trabajo ya admiten una dirección opcional: sin ella, APP abre una búsqueda en Maps para que el conductor elija su lugar guardado con la moto detenida; con dirección, solicita la ruta directa. APP no lee los favoritos personales ni confirma una ruta externa.
 
@@ -47,12 +47,12 @@ La arquitectura prevista conserva límites entre `presentation`, `application`, 
 - `docs/FASE_0.md`: objetivo, validación y orden de implementación.
 - `docs/FASE_1.md`: primera entrega del núcleo de comandos y su prueba en el S22+.
 - `docs/referencias/`: documentos originales del proyecto. La especificación V4, los requisitos y la arquitectura son la línea base. El registro de modificaciones aprobadas complementa los documentos base según su regla de precedencia. Las indicaciones iniciales se conservan como antecedente.
-- `main` es la base estable. El trabajo vigente de Fase 2 se concentra en `feature/fase-2-integrada`; validar en el teléfono antes de integrarlo mediante el PR #21.
+- `main` es la base estable. El trabajo vigente de Fase 2 se concentra en `feature/ui-storm-refined`; validar en el teléfono antes de integrarlo.
 - No incluir claves, tokens, firmados, `local.properties`, grabaciones personales ni datos de viajes en Git.
 
 ### Sincronizar cambios de GitHub
 
-En Android Studio, usar **Git > Fetch** y elegir `main` para la base integrada o la rama de Fase 2 que se vaya a probar. Después ejecutar **Git > Pull** y **Sync Project with Gradle Files**. En terminal: `git fetch origin`, `git switch main`, `git pull --ff-only origin main`. Conservar o respaldar cambios locales antes de cambiar de rama. Para subir cambios propios: **Commit** y luego **Push**.
+En Android Studio, usar **Git > Fetch** y elegir `feature/ui-storm-refined` para Fase 2. Después ejecutar **Git > Pull** y **Sync Project with Gradle Files**. En terminal, desde la rama ya descargada: `git fetch origin`, `git switch feature/ui-storm-refined`, `git pull --ff-only`. Si la rama aún no existe localmente: `git switch --track origin/feature/ui-storm-refined`. Conservar o respaldar cambios locales antes de cambiar de rama. La variante `fullDebug` conserva las herramientas de desarrollo; `playstoreDebug` prueba el sabor de publicación. Ambas comparten el código general, pero se compilan e instalan por separado. Para subir cambios propios: **Commit** y luego **Push**.
 
 
 ## Estabilización del núcleo y botón configurable

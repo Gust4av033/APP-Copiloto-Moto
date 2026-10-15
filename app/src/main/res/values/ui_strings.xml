@@ -494,6 +494,13 @@
     <string name="trip_navigation_search_unconfirmed">El lugar elegido en el navegador no está confirmado en APP.</string>
     <string name="trip_navigation_route_unknown">Estado de ruta no disponible.</string>
     <string name="trip_navigation_data_unavailable">ETA, distancia y próximo giro todavía no disponibles.</string>
+    <string name="navigation_request_command">Durante el viaje: «¿Qué destino pedí?» consulta la última solicitud enviada por APP; no confirma una ruta activa.</string>
+    <string name="navigation_request_no_trip">No hay un viaje activo de APP. No puedo confirmar una ruta del navegador.</string>
+    <string name="navigation_request_empty">Todavía no enviaste un destino o búsqueda desde APP en este viaje.</string>
+    <string name="navigation_request_unknown_provider">el navegador</string>
+    <string name="navigation_request_favorite_answer">La última solicitud de APP fue ir a %1$s en %2$s. No puedo confirmar que esa ruta esté activa.</string>
+    <string name="navigation_request_search_answer">La última búsqueda de APP fue %1$s en %2$s. No sé qué lugar elegiste ni si hay una ruta activa.</string>
+    <string name="command_navigation_request_status">Consultar última solicitud de navegación</string>
     <string name="waze_observation_access_label">APP · lectura experimental de Waze</string>
     <string name="waze_observation_title">Notificación de Waze · experimental</string>
     <string name="waze_observation_scope">Lee solo el texto de notificaciones de Waze durante un viaje de APP, con desarrollo activo. Conserva una muestra en memoria y la borra al detener el viaje. No anuncia ni confirma giros o ETA.</string>

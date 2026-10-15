@@ -66,3 +66,32 @@ La validación final se ejecutó en el clon original de Android Studio. Un inten
 El 13 de octubre de 2026 el usuario confirmó que los pasos propuestos funcionan y autorizó proseguir. Las dos capturas del teléfono muestran sesión activa en modo botón, solicitud a Casa y tarjeta «Navegación de este viaje» con ruta desconocida. No se inventan resultados individuales ni mediciones. PR #15 integrado en main mediante 7a0c239, conservando ascendencia.
 
 Estado: Contexto 1 aceptado por el usuario e integrado. La siguiente entrega recoge evidencia de Waze: [Observación experimental](FASE_2_OBSERVACION_WAZE.md).
+
+## Consulta hablada de la solicitud actual · NavQuery 1
+
+En `feature/ui-storm-refined`, versión `1.1.0-f2-navquery1` (código 13),
+«¿Qué destino pedí?», «¿Qué búsqueda hice?» y «¿A dónde voy?» consultan el
+último despacho de APP en el viaje actual. La respuesta distingue una solicitud
+de Casa/Trabajo de una búsqueda, nombra el proveedor que recibió el Intent y
+aclara que APP no sabe si la ruta está activa ni qué resultado se eligió. Sin
+viaje o sin despacho da una respuesta explícita. Cambiar el proveedor preferido
+no reescribe la solicitud ya enviada; detener/reiniciar descarta el contexto.
+
+No lee Maps ni Waze, no inicia navegación, no añade permisos y no altera las
+direcciones opcionales de Maps. Comandos y Ajustes anuncian la frase disponible;
+Viaje ya muestra la misma solicitud. Burbuja y notificación mantienen el estado
+de sesión y la locución reutiliza la recuperación de audio existente.
+
+Las suites `fullDebug` y `playstoreDebug` terminaron con 249 casos cada una,
+cero fallos y dos y tres omisiones respectivamente. Las pruebas nuevas cubren
+frases de consulta sin apertura, proveedor real del despacho, búsqueda y
+aislamiento tras reiniciar el viaje. Es una comprobación en Android JVM.
+`assembleFullDebug`, `assemblePlaystoreDebug`, `assemblePlaystoreRelease` y
+`processPlaystoreReleaseManifest` terminaron correctamente. Los dos APK debug
+firmados y el release sin firmar muestran versión 13; este último necesita la
+firma de publicación antes de instalarse o subirse a Play.
+
+Prueba física pendiente: con el casco, pedir Casa, consultar la solicitud y
+confirmar que se nombra el proveedor correcto sin afirmar navegación activa.
+Repetir tras una búsqueda, tras cambiar el proveedor y tras reiniciar el viaje;
+comprobar que la música y el modo botón regresan normalmente.

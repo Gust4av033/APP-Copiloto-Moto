@@ -34,6 +34,7 @@ fun NavigationCard(state: CopilotUiState, actions: CopilotActions) {
             NavigationAddressEditor(state, actions, NavigationDestination.WORK, state.navigationWorkAddress)
         }
         SupportingText(stringResource(R.string.navigation_commands))
+        SupportingText(stringResource(R.string.navigation_request_command))
         SupportingText(stringResource(R.string.navigation_search_hint))
         SupportingText(stringResource(R.string.navigation_confirmation))
         SupportingText(if (state.lastNavigationRequest.isBlank()) stringResource(R.string.navigation_last_empty)

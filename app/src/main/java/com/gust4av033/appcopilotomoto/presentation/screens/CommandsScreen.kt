@@ -62,6 +62,7 @@ fun LazyListScope.CommandsScreen(state: CopilotUiState, actions: CopilotActions)
                 else stringResource(if (state.navigationAvailable) R.string.navigation_ready else R.string.navigation_missing,
                     state.navigationProvider.label))
             Text(stringResource(R.string.navigation_commands))
+            SupportingText(stringResource(R.string.navigation_request_command))
             SupportingText(stringResource(R.string.navigation_search_hint))
             SupportingText(stringResource(R.string.navigation_confirmation))
             SupportingText(stringResource(if (state.navigationProvider == com.gust4av033.appcopilotomoto.NavigationApp.WAZE)

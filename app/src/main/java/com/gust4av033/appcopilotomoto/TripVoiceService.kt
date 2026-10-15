@@ -750,10 +750,11 @@ class TripVoiceService : Service() {
                 schedule(100L) { if (active && detector === provider && cycle == generation) startDetector(provider) }
                 return@listenOnce
             }
-            if (intent == TestIntent.NEXT_TURN) {
+            if (intent == TestIntent.NEXT_TURN || intent == TestIntent.NAVIGATION_REQUEST_STATUS) {
                 TripTestState.recognized++
                 TripTestState.save(this)
-                explainResolutionProblem(provider, cycle, actions.nextTurnAnswer())
+                explainResolutionProblem(provider, cycle, if (intent == TestIntent.NEXT_TURN)
+                    actions.nextTurnAnswer() else actions.navigationRequestAnswer())
                 return@listenOnce
             }
             if (intent == TestIntent.VOLUME_UP || intent == TestIntent.VOLUME_DOWN ||

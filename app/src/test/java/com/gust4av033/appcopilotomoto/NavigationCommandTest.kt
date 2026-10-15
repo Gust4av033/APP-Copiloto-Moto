@@ -37,6 +37,17 @@ class NavigationCommandTest {
         assertEquals(TestIntent.MEDIA_PREVIOUS, MinimalIntentRouter.resolve("anterior canción"))
     }
 
+    @Test fun requestStatusIsAQueryAndCannotOpenOrRepeatNavigation() {
+        for (phrase in listOf("¿Qué destino pedí?", "¿Qué búsqueda hice?", "¿A dónde voy?")) {
+            val command = MinimalIntentRouter.route(phrase)
+            assertEquals(TestIntent.NAVIGATION_REQUEST_STATUS, command.intent)
+            assertNull(command.navigationRequest)
+            assertNull(command.placeQuery)
+        }
+        assertEquals(TestIntent.UNKNOWN, MinimalIntentRouter.resolve("qué destino pedí y llama a Ana"))
+        assertEquals(TestIntent.NAVIGATE, MinimalIntentRouter.resolve("vamos al último destino"))
+    }
+
     @Test fun linksAddressOnlyDocumentedWazeFavorites() {
         assertEquals("https://waze.com/ul?favorite=home&navigate=yes&utm_source=app_copiloto_moto",
             WazeNavigationLink.forDestination(NavigationDestination.HOME))

@@ -103,4 +103,25 @@ class TripNavigationContextTest {
         assertEquals(NavigationDestination.HOME, NavigationRequestStore.last(app, NavigationApp.GOOGLE_MAPS))
         NavigationRequestStore.forget(app, NavigationApp.GOOGLE_MAPS)
     }
+
+    @Test fun spokenStatusReportsOnlyCurrentTripsLastDispatchAndItsActualProvider() {
+        val actions = ActionExecutor(app, MediaActionAdapter(app))
+        assertTrue(actions.navigationRequestAnswer().contains("No hay un viaje activo"))
+        TripNavigationState.beginSession()
+        assertTrue(actions.navigationRequestAnswer().contains("Todavía no enviaste"))
+
+        NavigationRequestStore.recordDispatched(app, favorite(NavigationDestination.HOME))
+        assertTrue(actions.navigationRequestAnswer().contains("ir a Casa en Waze"))
+        assertTrue(actions.navigationRequestAnswer().contains("No puedo confirmar"))
+
+        NavigationRequestStore.recordDispatched(app, AppTarget("Search",
+            Intent(Intent.ACTION_VIEW).setPackage(NavigationApp.GOOGLE_MAPS.packageName),
+            navigationSearchQuery = "gasolinera"))
+        val answer = actions.navigationRequestAnswer()
+        assertTrue(answer.contains("gasolinera en Google Maps"))
+        assertTrue(answer.contains("No sé qué lugar elegiste"))
+        TripNavigationState.endSession()
+        TripNavigationState.beginSession()
+        assertTrue(actions.navigationRequestAnswer().contains("Todavía no enviaste"))
+    }
 }

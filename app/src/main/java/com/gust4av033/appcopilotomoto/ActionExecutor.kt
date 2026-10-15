@@ -61,6 +61,18 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
         return navigation(current).nextTurnAnswer()
     }
 
+    /** Only reports what APP dispatched in this trip; the navigator's actual route is unknown. */
+    fun navigationRequestAnswer(): String {
+        val trip = TripNavigationState.context
+        if (trip.sessionId == null) return context.getString(R.string.navigation_request_no_trip)
+        val dispatch = trip.lastDispatch ?: return context.getString(R.string.navigation_request_empty)
+        val provider = NavigationApp.entries.firstOrNull { it.id == dispatch.providerId }?.label
+            ?: context.getString(R.string.navigation_request_unknown_provider)
+        return context.getString(if (dispatch.kind == NavigationRequestKind.SEARCH)
+            R.string.navigation_request_search_answer else R.string.navigation_request_favorite_answer,
+            dispatch.requestedDestination, provider)
+    }
+
     fun preparePlaceSearch(command: RoutedCommand): Result<AppTarget> = runCatching {
         check(command.intent == TestIntent.SEARCH_PLACE) { "La orden no pide buscar un lugar." }
         navigation(command.navigationProvider ?: NavigationPreferences.selected(context))
