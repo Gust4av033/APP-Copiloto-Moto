@@ -121,4 +121,34 @@ class TripContextTest {
         assertEquals("Avenida Los Próceres", maps.currentOrTargetStreet?.value)
         assertNull(fuseNavigation(maps, NavigationContext(), 16_000).etaObservation)
     }
+
+    @Test fun wazeFieldSampleDoesNotTurnGenericGuidanceIntoAManeuver() {
+        val waze = NavigationObservationParser.parse(listOf(
+            "No hay señal GPS. Se muestra tu ubicación aproximada.",
+            "Sigue la ruta destacada", "PRÓXIMOS GIROS", "REPORTES POR DELANTE",
+            "6.1 km", "RN 6 / Carretera a Los Planes", "17 min · 7.1 km"),
+            ContextSource.WAZE_ACCESSIBILITY, 100, 100)
+        assertEquals("Waze", waze.activeProvider?.value)
+        assertNull(waze.nextTurnInstruction)
+        assertNull(waze.distanceToNextTurnText)
+        assertEquals("RN 6 / Carretera a Los Planes", waze.currentOrTargetStreet?.value)
+        assertNull(waze.remainingMinutes)
+        assertNull(waze.remainingDistanceText)
+        val withGps = NavigationObservationParser.parse(listOf("Sigue la ruta destacada",
+            "6.1 km", "RN 6 / Carretera a Los Planes", "17 min · 7.1 km"),
+            ContextSource.WAZE_ACCESSIBILITY, 200, 200)
+        assertEquals(17, withGps.remainingMinutes?.value)
+        assertEquals("17 min · 7.1 km", withGps.remainingDistanceText?.value)
+    }
+
+    @Test fun visibleWazeCannotBorrowAMapsEta() {
+        val maps = WazeNotificationSample("maps", "", 1, 1,
+            mapOf("text" to "7 min · Llegada: 12:14"), WazeNotificationExtractor.MAPS_PACKAGE, 900)
+        val waze = WazeNotificationSample("waze", "", 1, 1,
+            mapOf("text" to "Waze en ejecución"), WazeNotificationExtractor.PACKAGE, 800)
+        assertEquals(waze, selectNavigationNotification(listOf(maps, waze), 1000, WazeNotificationExtractor.PACKAGE))
+        assertEquals(maps, selectNavigationNotification(listOf(maps, waze), 1000, null))
+        assertNull(selectNavigationNotification(listOf(maps), 1000, WazeNotificationExtractor.PACKAGE))
+        assertNull(selectNavigationNotification(listOf(maps), 61_000, null))
+    }
 }

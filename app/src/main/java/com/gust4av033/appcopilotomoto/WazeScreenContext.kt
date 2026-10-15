@@ -119,7 +119,8 @@ class WazeScreenService : AccessibilityService() {
                         if (++visited > 200 || depth > 12 || rows.size >= 64) return
                         if (node.packageName?.toString() != observedPackage) return
                         val rect = Rect(); node.getBoundsInScreen(rect)
-                        if (node.isVisibleToUser && rect.top < bounds.top + bounds.height() * 0.4) {
+                        // The maneuver card can sit below the upper 40%, especially in split screen.
+                        if (node.isVisibleToUser && Rect.intersects(rect, bounds)) {
                             for (value in listOf(node.text, node.contentDescription)) {
                                 val text = value?.toString()?.trim()?.take(180)
                                 if (!text.isNullOrEmpty()) rows.add(ScreenText(text, rect.top, rect.bottom))

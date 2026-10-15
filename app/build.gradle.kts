@@ -15,8 +15,8 @@ android {
         applicationId = "com.gust4av033.appcopilotomoto"
         minSdk = 26
         targetSdk = 36
-        versionCode = 13
-        versionName = "1.1.0-f2-navquery1"
+        versionCode = 14
+        versionName = "1.1.0-f2-navquery2"
     }
 
     flavorDimensions += "distribution"

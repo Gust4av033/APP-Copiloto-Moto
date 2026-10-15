@@ -11,6 +11,13 @@ import android.os.BatteryManager
 import android.os.SystemClock
 import android.os.Build
 
+/** Keep navigation fields from one observed app, preferring the app on screen. */
+internal fun selectNavigationNotification(samples: Collection<WazeNotificationSample>, nowElapsed: Long,
+    visiblePackage: String?): WazeNotificationSample? = samples.asSequence()
+    .filter { it.observedAtElapsedMs > 0 && nowElapsed - it.observedAtElapsedMs in 0..60_000 }
+    .filter { visiblePackage == null || it.packageName == visiblePackage }
+    .maxByOrNull { it.observedAtElapsedMs }
+
 /** Reads only the sources already granted and observed in this trip. */
 internal object TripContextCollector {
     @Volatile var latestLocation: LocationSample? = null
@@ -20,16 +27,17 @@ internal object TripContextCollector {
 
     fun snapshot(context: Context, nowEpoch: Long = System.currentTimeMillis(),
         nowElapsed: Long = SystemClock.elapsedRealtime()): TripContextSnapshot {
-        val notification = WazeNotificationObservation.snapshot.samples.values
-            .filter { TripNavigationState.context.sessionId != null &&
-                it.observedAtElapsedMs > 0 && nowElapsed - it.observedAtElapsedMs in 0..60_000 }
-            .map { sample -> NavigationObservationParser.parse(sample.fields.values.toList(),
-                if (sample.packageName == WazeNotificationExtractor.MAPS_PACKAGE) ContextSource.GOOGLE_MAPS_NOTIFICATION
-                else ContextSource.WAZE_NOTIFICATION, sample.observedAtMs, sample.observedAtElapsedMs) }
-            .fold(NavigationContext()) { previous, next -> fuseNavigation(previous, next, nowElapsed) }
         val screen = WazeScreenState.snapshot
-        val accessible = if (screen.visible && screen.recent(nowElapsed) &&
-            screen.sessionId == TripNavigationState.context.sessionId && screen.sessionId != null)
+        val screenVisible = screen.visible && screen.recent(nowElapsed) &&
+            screen.sessionId == TripNavigationState.context.sessionId && screen.sessionId != null
+        val notification = TripNavigationState.context.sessionId?.let {
+            selectNavigationNotification(WazeNotificationObservation.snapshot.samples.values, nowElapsed,
+                screen.packageName.takeIf { screenVisible })
+        }?.let { sample -> NavigationObservationParser.parse(sample.fields.values.toList(),
+                if (sample.packageName == WazeNotificationExtractor.MAPS_PACKAGE) ContextSource.GOOGLE_MAPS_NOTIFICATION
+                else ContextSource.WAZE_NOTIFICATION, sample.observedAtMs, sample.observedAtElapsedMs)
+        } ?: NavigationContext()
+        val accessible = if (screenVisible)
             NavigationObservationParser.parse(screen.texts.map(ScreenText::text),
                 if (screen.packageName == WazeNotificationExtractor.MAPS_PACKAGE) ContextSource.GOOGLE_MAPS_ACCESSIBILITY
                 else ContextSource.WAZE_ACCESSIBILITY,

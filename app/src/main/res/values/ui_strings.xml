@@ -524,7 +524,7 @@
     <string name="home_panel_player">Música · %1$s</string>
     <string name="waze_screen_label">APP · lectura de pantalla de navegación</string>
     <string name="waze_screen_title">Pantalla de Waze y Maps · experimental</string>
-    <string name="waze_screen_description">Lee solo texto visible en la parte superior de Waze o Maps durante un viaje. Requiere desarrollo activo y Accesibilidad. No pulsa controles ni cambia de app. Descarta lecturas al terminar.</string>
+    <string name="waze_screen_description">Lee texto visible de la ventana de Waze o Maps durante un viaje. Requiere desarrollo activo y Accesibilidad. No pulsa controles ni cambia de app. Descarta lecturas al terminar.</string>
     <string name="waze_screen_toggle">Observar pantalla de navegación</string>
     <string name="waze_screen_permission">Configurar Accesibilidad para navegación</string>
     <string name="waze_screen_granted">Accesibilidad concedida a esta instalación.</string>

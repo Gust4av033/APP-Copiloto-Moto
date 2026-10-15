@@ -12,7 +12,7 @@ Actualización Screen 2: versión 1.1.0-f2-screen2, código 7, sobre la misma ra
 
 Servicio de [Accesibilidad](https://developer.android.com/reference/android/accessibilityservice/AccessibilityService) con canRetrieveWindowContent y eventos restringidos a com.waze. Permiso propio, desactivado por defecto, con BuildConfig.DEBUG, desarrollo activo, opt-in específico y sesión de APP. Release no habilita el lector. No ejecuta gestos, clicks, acciones de nodos ni capturas de imagen, y no cambia la app al frente.
 
-Consulta la ventana activa en un trabajador cada dos segundos; verifica su paquete antes de leer contenido. Recoge textos/descripciones visibles del 40 % superior de Waze, hasta 200 nodos, profundidad 12, 64 textos de 180 caracteres. La pantalla bloqueada y la falta de permiso descartan datos. Cierre/reinicio, desconexión y opt-out invalidan muestras; una devolución de la sesión anterior no puede reemplazar el nuevo estado. No se conserva el árbol de vistas ni hay guardado/envío automático.
+Consulta la ventana activa en un trabajador cada dos segundos; verifica su paquete antes de leer contenido. Desde `1.1.0-f2-navquery2` recoge texto/descripciones visibles de toda la ventana de Waze o Maps, porque en la prueba real la tarjeta de maniobra quedó fuera del recorte anterior del 40 %, especialmente con ventana dividida. Mantiene el límite de 200 nodos, profundidad 12, 64 textos de 180 caracteres y solo los paquetes de ambos navegadores. La pantalla bloqueada y la falta de permiso descartan datos. Cierre/reinicio, desconexión y opt-out invalidan muestras; una devolución de la sesión anterior no puede reemplazar el nuevo estado. No se conserva el árbol de vistas ni hay guardado/envío automático.
 
 El parser exige una sola indicación explícita de maniobra. No transforma nombres de calles o avisos genéricos en giros. Adjunta una distancia únicamente si es un texto de unidad completo, único y cercano (180 píxeles); no extrae la distancia total o ETA. Las unidades decimales se conservan. Ese criterio deberá ajustarse con evidencia de la pantalla real; un icono sin descripción accesible puede no ofrecer una maniobra reconocible.
 
@@ -34,9 +34,17 @@ Con desarrollo activo, Ajustes → Navegación incorpora opt-in, acceso a Accesi
 
 El informe de pantalla ahora se puede copiar aunque no haya textos accesibles. Incluye el estado del interruptor, permiso, desarrollo y viaje, para distinguir falta de acceso de una pantalla de Waze sin nodos útiles. Se distingue por el encabezado «Fuente: pantalla de com.waze» y el botón «Copiar estado de pantalla de Waze». El botón de la tarjeta siguiente copia la notificación.
 
-Evidencia del usuario: Samsung SM-S906U, Android 16, informe de notificación fechado 2026-10-13T23:26:20Z. El lector estaba conectado, sin fallo de lectura y con sesión activa; la muestra era reciente y contenía `android.title: Waze` y `android.text: En ejecución. Toca para abrir.` El usuario oyó que el giro no estaba disponible y volvió a copiar la misma muestra. Esta evidencia solo confirma el contenido de la notificación y no explica por sí sola la ausencia del giro: la consulta usa el lector de pantalla, con permiso separado. Falta recoger el informe que empieza por «Fuente: pantalla de com.waze».
+Evidencia inicial del usuario: Samsung SM-S906U, Android 16, informe de notificación fechado 2026-10-13T23:26:20Z. El lector estaba conectado, sin fallo de lectura y con sesión activa; la muestra era reciente y contenía `android.title: Waze` y `android.text: En ejecución. Toca para abrir.` El usuario oyó que el giro no estaba disponible y volvió a copiar la misma muestra. Esa evidencia solo confirmaba el contenido de la notificación; el informe de pantalla se obtuvo el 15 de octubre y se describe abajo.
 
-La lectura de Accesibilidad depende de la interfaz de Waze y no sustituye su API. Mantener esta entrega en borrador hasta recoger la muestra del teléfono y completar la comparación/recuperación. Los ejemplos de JVM son sintéticos.
+La lectura de Accesibilidad depende de la interfaz de Waze y no sustituye su API. La muestra física de pantalla se recogió el 15 de octubre; faltan la comparación de voz con Waze y la recuperación de audio. Los ejemplos de JVM son sintéticos.
+
+## Prueba real y ajuste de campo · 15 de octubre de 2026
+
+El Samsung SM-S906U con Android 16 confirmó permiso, lectura activada, servicio conectado y sesión activa. El informe de pantalla de Waze conservó cinco textos accesibles, entre ellos «Sigue la ruta destacada», pero ningún giro explícito; `visible=false` era esperable después de volver a APP para copiarlo. La captura simultánea mostraba más abajo una tarjeta de maniobra con distancia y calle, junto a un icono direccional. El recorte superior del 40 % no llegaba a ella. Waze también avisaba que no tenía señal GPS y mostraba ubicación aproximada; no se afirma ruta confirmada.
+
+`navquery2` amplía la lectura a la ventana visible del navegador y exige una indicación direccional explícita antes de llenar «Giro». «Sigue la ruta destacada» ya no es un giro; una distancia suelta junto a un icono tampoco se clasifica como distancia restante al destino. Si la pantalla advierte pérdida de GPS, una duración mostrada en la vista previa no se anuncia como ETA vigente. La carretera puede figurar como texto observado si Accesibilidad la expone. La dirección dibujada solo en un icono permanece desconocida: no se usa OCR ni se infiere un giro por la forma. Falta una nueva muestra real con Waze al frente para saber si los nodos de la tarjeta inferior exponen distancia, calle y ETA, y la comparación de la respuesta por voz con Waze.
+
+Cuando ambos navegadores publican notificaciones, se elige una sola muestra reciente. Si la pantalla de Waze o Maps está visible, únicamente se combina con la notificación de ese mismo paquete; una ETA de Maps no acompaña un giro observado en Waze.
 
 ## Validación
 
@@ -48,4 +56,8 @@ Después del ajuste del gate de bloqueo se repitió la suite debug completa y se
 
 Se inspeccionó la tarjeta renderizada con desplazamiento y texto grande. Es un ejemplo sintético; no prueba que Waze exponga ese texto en el teléfono. Ambos APK contienen manifiesto, classes.dex y la configuración del servicio de Accesibilidad. SHA-256 debug: 114102D32B5C5A2500265611151343EB282D0FCF8A3F5482E83688D104062095. SHA-256 fieldTest: 2D6C902576A8BE4A911C7698566EF7B2E5916F42BA6FCCA714036B68E01E73AC.
 
-No hay teléfono conectado en esta ejecución. Quedan pendientes lectura real de nodos de Waze, precisión del parser, audibilidad, recuperación musical y comparación en modo voz/botón. Mantener en borrador.
+Ese ciclo inicial no tenía teléfono conectado. Tras la muestra del 15 de octubre, quedan pendientes los nodos de la tarjeta inferior, la audibilidad, la recuperación musical y la comparación en modo voz/botón. Mantener en borrador.
+
+### Validación de `navquery2`
+
+La suite completa de `fullDebug` pasó (259 casos, dos omitidos); la de `playstoreDebug` también (259 casos, tres omitidos). Las 15 pruebas dirigidas de `TripContextTest` y `WazeScreenContextTest` pasaron en `fullFieldTest`, y se compilaron los APK de campo y Play debug. La suite completa `fullFieldTest` aún falla en 29 casos: 28 pruebas de interfaz usan un host `ComponentActivity` no registrado para el sufijo `.pruebas`, y una prueba de permiso multimedia presupone el paquete sin sufijo. Son limitaciones del fixture de esa variante, no se cuentan como pruebas aprobadas. No hay emulador o Samsung conectado en esta ejecución para comprobar el resultado renderizado ni el nuevo texto de Waze.
