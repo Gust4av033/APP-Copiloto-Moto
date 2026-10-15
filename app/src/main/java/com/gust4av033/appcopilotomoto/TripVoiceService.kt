@@ -1,6 +1,7 @@
 package com.gust4av033.appcopilotomoto
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.KeyguardManager
 import android.app.NotificationChannel
@@ -11,6 +12,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import androidx.core.app.ServiceCompat
 import android.media.AudioDeviceInfo
 import android.media.AudioDeviceCallback
 import android.media.AudioManager
@@ -43,6 +45,7 @@ class TripVoiceService : Service() {
         const val EXTRA_PHRASE = "phrase"
         const val EXTRA_SENSITIVITY = "sensitivity"
         const val EXTRA_AUDIO_MODE = "audio_mode"
+        const val EXTRA_STARTED_VISIBLE = "started_visible"
         const val EXTRA_MANUAL_ONLY = "manual_activation_only"
         private const val CHANNEL_ID = "trip_voice_test"
         private const val NOTIFICATION_ID = 103
@@ -72,6 +75,12 @@ class TripVoiceService : Service() {
     private val actions by lazy { ActionExecutor(this, media) }
     private val audioManager by lazy { getSystemService(AudioManager::class.java) }
     private var deviceCallback: AudioDeviceCallback? = null
+    private var tripLocationSource: LocationSource? = null
+    private var tripRepository: TripRepository? = null
+    private var movementDetector: MovementStateDetector? = null
+    private var lastEtaKey: Pair<EtaSource, Long>? = null
+    private var lastMovingSampleElapsed = 0L
+    private var locationReadyForSession = false
     private var communicationListener: AudioManager.OnCommunicationDeviceChangedListener? = null
     private var routeCheck: Runnable? = null
     private var detector: WakeWordProvider? = null
@@ -151,9 +160,25 @@ class TripVoiceService : Service() {
             mainHandler.postDelayed(this, 400L)
         }
     }
+    private val contextTick = object : Runnable {
+        override fun run() {
+            if (!active || tripRepository == null) return
+            val eta = TripContextCollector.snapshot(this@TripVoiceService).navigation.etaObservation
+            if (eta != null && eta.valid(SystemClock.elapsedRealtime())) {
+                val key = eta.source to eta.capturedAtElapsedRealtimeMs
+                if (key != lastEtaKey) {
+                    tripRepository?.append(eta)
+                    TripRecordingState.eta = eta
+                    lastEtaKey = key
+                }
+            }
+            mainHandler.postDelayed(this, 2_000L)
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
+    @SuppressLint("ForegroundServiceType") // The declared types are in the merged manifest; ServiceCompat receives a guarded mask.
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_SHOW_OVERLAY) {
             if (active) { TripTestState.overlayHidden = false; TripTestState.overlayMessage = "" }
@@ -288,12 +313,15 @@ class TripVoiceService : Service() {
             val notice = buildNotification(if (effectiveAudioMode == WakeAudioMode.BUTTON) {
                 "Preparando modo botón · música normal"
             } else "Preparando micrófono Bluetooth…")
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                val serviceTypes = ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE or
-                    if (binding != TripButtonBinding.NONE && TripMediaAccess.granted(this))
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK else 0
-                startForeground(NOTIFICATION_ID, notice, serviceTypes)
-            } else startForeground(NOTIFICATION_ID, notice)
+            val locationReady = locationForegroundReady(UserSettingsStore(this).tripLocationEnabled(),
+                TripLocationAccess.permission(this), TripLocationAccess.gpsOn(this),
+                intent.getBooleanExtra(EXTRA_STARTED_VISIBLE, false))
+            locationReadyForSession = locationReady
+            val serviceTypes = tripForegroundTypes(
+                binding != TripButtonBinding.NONE && TripMediaAccess.granted(this), locationReady)
+            ServiceCompat.startForeground(this, NOTIFICATION_ID, notice, serviceTypes)
+            if (UserSettingsStore(this).tripLocationEnabled() && !locationReady)
+                TripTestState.status = "Contexto GPS no disponible: revisá permiso, GPS e inicio desde la app abierta."
         } catch (e: Exception) {
             TripTestState.sessionProblem = true
             TripTestState.status = "No se pudo iniciar la sesión: ${e.message ?: e.javaClass.simpleName}"
@@ -313,6 +341,41 @@ class TripVoiceService : Service() {
         mainHandler.post(overlayTick)
         TripTestState.running = true
         TripNavigationState.beginSession()
+        TripRecordingState.clear()
+        TripRecordingState.locationStatus = if (UserSettingsStore(this).tripLocationEnabled())
+            if (locationReadyForSession) "AVAILABLE" else "UNAVAILABLE" else "OFF"
+        lastMovingSampleElapsed = 0L
+        if (locationReadyForSession) {
+            tripRepository = TripRepository(filesDir).also { it.start() }
+            movementDetector = MovementStateDetector()
+            val source = AndroidLocationSource(this)
+            if (source.start { sample ->
+                    TripContextCollector.recordLocation(sample)
+                    val detector = movementDetector
+                    val repository = tripRepository
+                    if (detector != null && repository != null) {
+                        detector.accept(sample).forEach(repository::append)
+                        if (detector.state == MovementState.EN_MARCHA && lastMovingSampleElapsed > 0)
+                            TripRecordingState.movingMs += (sample.elapsedRealtimeMs - lastMovingSampleElapsed)
+                                .coerceIn(0, 10_000)
+                        lastMovingSampleElapsed = sample.elapsedRealtimeMs
+                        repository.append(sample, detector.state)
+                        TripRecordingState.movement = detector.state
+                        TripRecordingState.samples = repository.currentSampleCount
+                        TripRecordingState.events = repository.currentEventCount
+                    }
+                }) {
+                tripLocationSource = source
+                TripRecordingState.locationStatus = "AVAILABLE"
+                mainHandler.post(contextTick)
+            } else {
+                tripRepository?.abort()
+                tripRepository = null
+                movementDetector = null
+                TripRecordingState.locationStatus = "UNAVAILABLE"
+                TripTestState.status = "Contexto GPS no disponible: sin lecturas del proveedor."
+            }
+        }
         TripTestState.markRunning(this, true)
         TripTestState.reset(this)
         buttonCoordinator = TripButtonCoordinator(this, binding,
@@ -681,6 +744,7 @@ class TripVoiceService : Service() {
         }
     }
 
+    @SuppressLint("SuspiciousIndentation") // Nested callback branches are delimited by braces.
     private fun listenForCommand(provider: WakeWordProvider, wakeAt: Long, source: String) {
         buttonCoordinator?.beforeCapture()
         TripTestState.status = "$source: abriendo reconocedor; decí la orden cuando esté listo…"
@@ -750,11 +814,19 @@ class TripVoiceService : Service() {
                 schedule(100L) { if (active && detector === provider && cycle == generation) startDetector(provider) }
                 return@listenOnce
             }
-            if (intent == TestIntent.NEXT_TURN || intent == TestIntent.NAVIGATION_REQUEST_STATUS) {
+            if (intent in setOf(TestIntent.NEXT_TURN, TestIntent.HOW_LONG,
+                    TestIntent.TRIP_STATUS, TestIntent.NAVIGATION_REQUEST_STATUS)) {
                 TripTestState.recognized++
                 TripTestState.save(this)
-                explainResolutionProblem(provider, cycle, if (intent == TestIntent.NEXT_TURN)
-                    actions.nextTurnAnswer() else actions.navigationRequestAnswer())
+                val now = SystemClock.elapsedRealtime()
+                val reply = when (intent) {
+                    TestIntent.NEXT_TURN, TestIntent.HOW_LONG -> BriefTripContextTtsFormatter.route(
+                        TripContextCollector.snapshot(this), now)
+                    TestIntent.TRIP_STATUS -> BriefTripContextTtsFormatter.status(
+                        TripContextCollector.snapshot(this), now, TripRecordingState.movingMs)
+                    else -> actions.navigationRequestAnswer()
+                }
+                explainResolutionProblem(provider, cycle, reply)
                 return@listenOnce
             }
             if (intent == TestIntent.VOLUME_UP || intent == TestIntent.VOLUME_DOWN ||
@@ -1331,6 +1403,7 @@ class TripVoiceService : Service() {
     }
 
     @Suppress("DEPRECATION")
+    @SuppressLint("SuspiciousIndentation", "MissingPermission") // Playstore exits before this full-only call; permission is checked again below.
     private fun finishAndPlaceCall(provider: WakeWordProvider, contact: TripCallContact) {
         if (!BuildConfig.ALLOW_DIRECT_CALL) {
             buttonCoordinator?.close()
@@ -1350,6 +1423,13 @@ class TripVoiceService : Service() {
                     stopSession("Viaje en pausa para abrir el marcador; iniciá la llamada en Teléfono.", expected = true)
                 }
             }
+            return
+        }
+        if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+            TripTestState.status = "Falta permiso de llamada; no se marcó."
+            TripTestState.lastCommandResult = TripTestState.status
+            resumeAfterButtonRoute = capture.cancel(resumePlayback = false) || resumeAfterButtonRoute
+            schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider) startDetector(provider) }
             return
         }
         if (checkSelfPermission(Manifest.permission.READ_PHONE_STATE) != PackageManager.PERMISSION_GRANTED) {
@@ -1552,6 +1632,14 @@ class TripVoiceService : Service() {
         val resumeAfterRoute = pausedBySpeech || pausedForRoute
         val audioCaptureGeneration = TripTestState.audioCaptureGeneration
         TripTestState.running = false
+        mainHandler.removeCallbacks(contextTick)
+        tripLocationSource?.stop()
+        tripLocationSource = null
+        tripRepository?.finish()
+        tripRepository = null
+        movementDetector = null
+        lastEtaKey = null
+        TripContextCollector.clear()
         TripNavigationState.endSession()
         TripTestState.markRunning(this, false)
         TripTestState.status = "$reason Restaurando audio del casco…"
@@ -1767,6 +1855,7 @@ class TripVoiceService : Service() {
         followUpGate.cancel()
         capture.releaseCue()
         mainHandler.removeCallbacks(overlayTick)
+        mainHandler.removeCallbacks(contextTick)
         overlay.close()
         clearPendingApp()
         stopMonitoringHardware()

@@ -1,5 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="trip_location_title">Contexto de viaje (ubicación GPS)</string>
+    <string name="trip_location_explanation">Opcional. Solo durante el viaje; ubicación e historial quedan en este teléfono. Al activarlo, Android solicitará ubicación precisa.</string>
+    <string name="trip_location_off">Apagado. APP no lee ni guarda ubicación.</string>
+    <string name="trip_location_ready">GPS disponible para el próximo viaje.</string>
+    <string name="trip_location_unavailable">No disponible: revisá permiso de ubicación y GPS del teléfono.</string>
+    <string name="navigation_coordinates_label">Coordenadas de %1$s (latitud,longitud)</string>
+    <string name="navigation_coordinates_save">Guardar coordenadas</string>
+    <string name="navigation_coordinates_pin">Fijar con mi ubicación GPS actual</string>
+    <string name="command_how_long">Cuánto falta</string>
+    <string name="command_trip_status">Estado del viaje</string>
+    <string name="trip_history_title">Historial local de viajes</string>
+    <string name="trip_history_explanation">Se guarda solo en este teléfono con el GPS activado. Las muestras crudas se borran tras 30 días; podés olvidar todo ahora.</string>
+    <string name="trip_history_forget">Olvidar historial de viajes</string>
+    <string name="trip_context_layers">Contexto de viaje por capas</string>
+    <string name="trip_context_waiting">Sin observaciones actuales.</string>
+    <string name="trip_export_gpx">Compartir último viaje en GPX</string>
+    <string name="trip_export_json">Compartir último viaje en JSON</string>
     <string name="settings_group_headset">Casco y Botón Bluetooth</string>
     <string name="settings_group_headset_hint">Conexión, activación y audio</string>
     <string name="settings_group_destinations">Navegación y Destinos</string>
@@ -11,15 +28,15 @@
     <string name="diagnostics_disabled">Modo diagnóstico desactivado</string>
     <string name="privacy_policy_button">Política de Privacidad</string>
     <string name="privacy_policy_open_failed">No se pudo abrir la Política de Privacidad.</string>
-    <string name="navigation_waze_notices">Avisos de Waze</string>
-    <string name="navigation_waze_notices_toggle">Observar avisos de Waze durante el viaje</string>
+    <string name="navigation_waze_notices">Avisos de Waze y Google Maps</string>
+    <string name="navigation_waze_notices_toggle">Observar avisos de navegación durante el viaje</string>
     <string name="navigation_waze_notices_disabled">Lectura desactivada en APP. Podés activarla aquí cuando quieras.</string>
-    <string name="navigation_waze_notices_ready">Acceso a avisos disponible. Las indicaciones dependen de lo que Waze publique.</string>
-    <string name="navigation_waze_notices_permission">Permití el acceso a notificaciones para que APP pueda intentar leer indicaciones de Waze durante el viaje.</string>
+    <string name="navigation_waze_notices_ready">Acceso a avisos disponible. Las indicaciones dependen de lo que Waze o Maps publiquen.</string>
+    <string name="navigation_waze_notices_permission">Permití el acceso a notificaciones para intentar leer indicaciones de Waze y Maps durante el viaje.</string>
     <string name="navigation_waze_notices_button">Configurar acceso a notificaciones</string>
     <string name="settings_calls_playstore_hint">Habilitá contactos antes del viaje para decir “llama a [nombre]”. APP abrirá el marcador; vos iniciarás la llamada.</string>
     <string name="disclosure_notifications_title">Acceso a notificaciones</string>
-    <string name="disclosure_notifications_body">Android concede acceso a las notificaciones del dispositivo. APP observa en memoria las de Waze para intentar identificar indicaciones y usa el estado multimedia para controlar el audio del casco. No guarda ni transmite mensajes personales. Podés retirar el acceso en Ajustes.</string>
+    <string name="disclosure_notifications_body">Android concede acceso a las notificaciones del dispositivo. APP observa las de Waze y Google Maps para intentar identificar indicaciones, y usa el estado multimedia para controlar el audio del casco. Solo guarda ETA del viaje si activaste el historial GPS; no guarda ni transmite mensajes personales. Podés retirar el acceso en Ajustes.</string>
     <string name="disclosure_overlay_title">Burbuja sobre otras aplicaciones</string>
     <string name="disclosure_overlay_body">APP dibuja una burbuja de control rápido sobre el mapa durante el viaje. No lee la pantalla ni modifica otras aplicaciones. Podés ocultarla o retirar el permiso en Ajustes.</string>
     <string name="disclosure_microphone_title">Micrófono y reconocimiento local</string>

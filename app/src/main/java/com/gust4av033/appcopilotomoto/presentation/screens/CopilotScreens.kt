@@ -147,6 +147,13 @@ private fun LazyListScope.DeveloperTripDetails(state: CopilotUiState, onOpenTest
 fun LazyListScope.TestsScreen(state: CopilotUiState, actions: CopilotActions) {
     if (!state.developerEnabled) { BasicDiagnosticsScreen(state, actions); return }
     DeveloperTripDetails(state, actions.onOpenBasicDiagnostics)
+    item("trip_context_layers") { SectionCard(stringResource(R.string.trip_context_layers)) {
+        SupportingText(state.tripContextReport.ifBlank { stringResource(R.string.trip_context_waiting) })
+        ActionButton(stringResource(R.string.trip_export_gpx), enabled = !state.busy,
+            onClick = { actions.onExportLastTrip(true) })
+        ActionButton(stringResource(R.string.trip_export_json), enabled = !state.busy,
+            onClick = { actions.onExportLastTrip(false) })
+    } }
     if (!state.developerToolsAvailable) {
         item("release_diagnostics") { SupportingText(stringResource(R.string.settings_developer_read_only)) }
         item("release_devices") { AudioDevicesCard(state, actions) }

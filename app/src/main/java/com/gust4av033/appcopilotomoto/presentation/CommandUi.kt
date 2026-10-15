@@ -28,6 +28,8 @@ fun RoutedCommand.toCommandUi(): CommandUi = when (intent) {
         "${chatApp?.label.orEmpty()}: ${contactName.orEmpty()}")
     TestIntent.SEARCH_PLACE -> CommandUi(R.string.command_search_place, R.string.command_place_query, placeQuery.orEmpty())
     TestIntent.NEXT_TURN -> CommandUi(R.string.command_next_turn)
+    TestIntent.HOW_LONG -> CommandUi(R.string.command_how_long)
+    TestIntent.TRIP_STATUS -> CommandUi(R.string.command_trip_status)
     TestIntent.NAVIGATION_REQUEST_STATUS -> CommandUi(R.string.command_navigation_request_status)
     TestIntent.NAVIGATE -> CommandUi(R.string.command_navigate, R.string.command_navigation_parameter,
         when (navigationRequest) {

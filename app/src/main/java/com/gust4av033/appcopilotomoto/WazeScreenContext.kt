@@ -40,13 +40,14 @@ object WazeTurnParser {
 }
 
 data class WazeScreenSnapshot(val sessionId: String? = null, val connected: Boolean = false,
-    val visible: Boolean = false, val observedAtMs: Long = 0, val texts: List<ScreenText> = emptyList(), val turn: WazeTurn? = null) {
+    val visible: Boolean = false, val observedAtMs: Long = 0, val texts: List<ScreenText> = emptyList(),
+    val turn: WazeTurn? = null, val packageName: String = "com.waze") {
     fun recent(now: Long) = observedAtMs > 0 && now >= observedAtMs && now - observedAtMs <= 15_000
     fun answer(now: Long): String = if (!visible || !recent(now) || turn == null)
-        "No tengo una indicación reciente de Waze. Dejalo al frente con la ruta iniciada y comprobá el permiso de lectura de pantalla."
-        else "Según la pantalla de Waze: ${turn.instruction}${turn.distance?.let { ". Distancia indicada: $it" }.orEmpty()}."
+        "No tengo una indicación reciente de navegación. Dejá el navegador al frente con la ruta iniciada y comprobá el permiso de lectura de pantalla."
+        else "Según la pantalla de ${if (packageName == "com.waze") "Waze" else "Google Maps"}: ${turn.instruction}${turn.distance?.let { ". Distancia indicada: $it" }.orEmpty()}."
     fun report() = buildString {
-        appendLine("Fuente: pantalla de com.waze, experimental. No confirma ruta ni ETA.")
+        appendLine("Fuente: pantalla de $packageName, experimental. No confirma ruta ni ETA.")
         appendLine("Conectado=$connected; visible=$visible; observadoElapsed=$observedAtMs; sesión=${sessionId != null}")
         if (texts.isEmpty()) appendLine("Sin textos accesibles de Waze en la muestra actual.")
         texts.forEach { appendLine("y=${it.top}..${it.bottom}: ${it.text}") }
@@ -78,11 +79,12 @@ object WazeScreenState {
     fun session(id: String?) { snapshot = WazeScreenSnapshot(sessionId = id, connected = snapshot.connected) }
     fun clear() { snapshot = snapshot.copy(visible = false, observedAtMs = 0, texts = emptyList(), turn = null) }
     fun connection(connected: Boolean) { clear(); snapshot = snapshot.copy(connected = connected) }
-    fun update(session: String?, texts: List<ScreenText>?, now: Long) {
+    fun update(session: String?, texts: List<ScreenText>?, now: Long, packageName: String = "com.waze") {
         if (session == null || session != snapshot.sessionId) return
         if (texts == null) { snapshot = snapshot.copy(visible = false); return }
         val bounded = texts.take(64).map { it.copy(text = it.text.take(180)) }
-        snapshot = snapshot.copy(visible = true, observedAtMs = now, texts = bounded, turn = WazeTurnParser.parse(bounded))
+        snapshot = snapshot.copy(visible = true, observedAtMs = now, texts = bounded,
+            turn = WazeTurnParser.parse(bounded), packageName = packageName)
     }
 }
 
@@ -105,16 +107,17 @@ class WazeScreenService : AccessibilityService() {
         val session = TripNavigationState.context.sessionId
         reading = true
         worker.execute {
-            val texts = runCatching {
+            val result = runCatching {
                 val root = rootInActiveWindow ?: return@runCatching null
                 try {
-                    if (root.packageName?.toString() != "com.waze") return@runCatching null
+                    val observedPackage = root.packageName?.toString()
+                    if (observedPackage !in setOf("com.waze", "com.google.android.apps.maps")) return@runCatching null
                     val bounds = Rect(); root.getBoundsInScreen(bounds)
                     val rows = arrayListOf<ScreenText>()
                     var visited = 0
                     fun walk(node: AccessibilityNodeInfo, depth: Int) {
                         if (++visited > 200 || depth > 12 || rows.size >= 64) return
-                        if (node.packageName?.toString() != "com.waze") return
+                        if (node.packageName?.toString() != observedPackage) return
                         val rect = Rect(); node.getBoundsInScreen(rect)
                         if (node.isVisibleToUser && rect.top < bounds.top + bounds.height() * 0.4) {
                             for (value in listOf(node.text, node.contentDescription)) {
@@ -128,14 +131,15 @@ class WazeScreenService : AccessibilityService() {
                         }
                     }
                     walk(root, 0)
-                    rows.distinct().take(64)
+                    observedPackage to rows.distinct().take(64)
                 } finally { root.recycle() }
             }.getOrNull()
             val observed = SystemClock.elapsedRealtime()
             handler.post {
                 reading = false
                 if (closed) return@post
-                if (WazeScreenAccess.allowed(this)) WazeScreenState.update(session, texts, observed)
+                if (WazeScreenAccess.allowed(this)) WazeScreenState.update(session, result?.second, observed,
+                    result?.first ?: "com.waze")
                 else WazeScreenState.clear()
             }
         }

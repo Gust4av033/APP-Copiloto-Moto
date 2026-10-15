@@ -94,6 +94,9 @@ class MainActivity : ComponentActivity() {
     private val refreshDevicesTask = object : Runnable {
         override fun run() {
             refreshAudioDevices()
+            if (developerEnabled) tripContextReport = "GPS: ${TripRecordingState.locationStatus}\n" + TripContextDiagnostics.report(
+                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime(),
+                TripRecordingState.movement, TripRecordingState.samples, TripRecordingState.events)
             // Los índices de volumen aún necesitan refresco; las consultas ocurren fuera de UI.
             mainHandler.postDelayed(this, 2_000L)
         }
@@ -126,6 +129,17 @@ class MainActivity : ComponentActivity() {
     private var navigationProvider by mutableStateOf(NavigationApp.WAZE)
     private var navigationHomeAddress by mutableStateOf("")
     private var navigationWorkAddress by mutableStateOf("")
+    private var navigationHomeCoordinates by mutableStateOf("")
+    private var navigationWorkCoordinates by mutableStateOf("")
+    private var tripContextReport by mutableStateOf("")
+    private fun refreshSavedCoordinates() {
+        navigationHomeCoordinates = NavigationPreferences.coordinates(this, NavigationDestination.HOME)
+            ?.let { "${it.latitude},${it.longitude}" }.orEmpty()
+        navigationWorkCoordinates = NavigationPreferences.coordinates(this, NavigationDestination.WORK)
+            ?.let { "${it.latitude},${it.longitude}" }.orEmpty()
+    }
+    private var tripLocationEnabled by mutableStateOf(false)
+    private var tripLocationAvailable by mutableStateOf(false)
     private var lastNavigationRequest by mutableStateOf<NavigationDestination?>(null)
     private var chatCapabilities by mutableStateOf<List<ContactChatCapability>>(emptyList())
     private var chatContactsGranted by mutableStateOf(false)
@@ -173,6 +187,18 @@ class MainActivity : ComponentActivity() {
             voiceMessage = message
             TripTestState.status = "Se necesitan los permisos solicitados para mostrar la notificación y usar el micrófono del casco."
         }
+    }
+
+    private val tripLocationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        val granted = TripLocationAccess.permission(this)
+        settingsStore.setTripLocationEnabled(granted)
+        tripLocationEnabled = granted
+        tripLocationAvailable = TripLocationAccess.available(this)
+        TripRepository(filesDir).prune()
+        configurationNotice = if (granted) "GPS local activado. Los datos quedan en este teléfono."
+            else "Contexto GPS no disponible: permiso denegado."
     }
 
     private val assistantRoleRequest = registerForActivityResult(
@@ -385,6 +411,11 @@ class MainActivity : ComponentActivity() {
             navigationProvider = navigationProvider,
             navigationHomeAddress = navigationHomeAddress,
             navigationWorkAddress = navigationWorkAddress,
+            navigationHomeCoordinates = navigationHomeCoordinates,
+            navigationWorkCoordinates = navigationWorkCoordinates,
+            tripLocationEnabled = tripLocationEnabled,
+            tripLocationAvailable = tripLocationAvailable,
+            tripContextReport = tripContextReport,
             wazeObservationEnabled = wazeObservationEnabled,
             wazeObservationGranted = wazeObservationGranted,
             wazeObservation = WazeNotificationObservation.snapshot,
@@ -596,6 +627,54 @@ class MainActivity : ComponentActivity() {
                         else navigationWorkAddress = NavigationPreferences.address(this@MainActivity, destination)
                     }.onFailure { configurationNotice = it.message.orEmpty() }
                 },
+                onNavigationCoordinatesSave = { destination, coordinates ->
+                    if (!audioBusy()) runCatching {
+                        NavigationPreferences.saveCoordinates(this@MainActivity, destination, coordinates)
+                    }.onSuccess { refreshSavedCoordinates() }
+                        .onFailure { configurationNotice = it.message.orEmpty() }
+                },
+                onNavigationPinCurrentGps = { destination ->
+                    if (!audioBusy()) {
+                        val fix = TripLocationAccess.currentFix(this@MainActivity)
+                        if (fix == null) configurationNotice = "GPS no disponible o sin lectura reciente."
+                        else runCatching {
+                            NavigationPreferences.saveCoordinates(this@MainActivity, destination,
+                                "${fix.latitude},${fix.longitude}")
+                        }.onSuccess { refreshSavedCoordinates() }
+                    }
+                },
+                onTripLocationChange = { enabled ->
+                    if (!audioBusy()) {
+                        if (!enabled) {
+                            settingsStore.setTripLocationEnabled(false)
+                            tripLocationEnabled = false
+                            tripLocationAvailable = false
+                        } else {
+                            configurationNotice = "El GPS del viaje queda solo en este teléfono. Concedé ubicación precisa para activarlo."
+                            if (TripLocationAccess.permission(this@MainActivity)) {
+                                settingsStore.setTripLocationEnabled(true)
+                                tripLocationEnabled = true
+                                tripLocationAvailable = TripLocationAccess.available(this@MainActivity)
+                            } else tripLocationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,
+                                Manifest.permission.ACCESS_COARSE_LOCATION))
+                        }
+                    }
+                },
+                onForgetTripHistory = {
+                    if (!audioBusy()) {
+                        TripRepository(filesDir).forget()
+                        TripRecordingState.clear()
+                        configurationNotice = "Historial de viajes eliminado del teléfono."
+                    }
+                },
+                onExportLastTrip = { gpx ->
+                    if (developerEnabled && !audioBusy()) {
+                        val payload = TripRepository(filesDir).exportLast(gpx)
+                        val share = Intent(Intent.ACTION_SEND).setType(if (gpx) "application/gpx+xml" else "application/json")
+                            .putExtra(Intent.EXTRA_TEXT, payload)
+                        startActivity(Intent.createChooser(share, "Compartir último viaje real recortado"))
+                    }
+                },
                 onWazeObservationChange = { enabled ->
                     if ((BuildConfig.IS_PLAYSTORE_BUILD || canRunDeveloperTools()) && !audioBusy()) {
                         WazeObservationAccess.setEnabled(this@MainActivity, enabled)
@@ -788,6 +867,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        tripLocationEnabled = settingsStore.tripLocationEnabled()
+        tripLocationAvailable = TripLocationAccess.available(this)
+        refreshSavedCoordinates()
         microphoneGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         bluetoothGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
         notificationsGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -1105,6 +1187,7 @@ class MainActivity : ComponentActivity() {
             .putExtra(TripVoiceService.EXTRA_SENSITIVITY, wakeSensitivity)
             .putExtra(TripVoiceService.EXTRA_AUDIO_MODE, tripAudioMode.name)
             .putExtra(TripVoiceService.EXTRA_MANUAL_ONLY, manualActivationOnly)
+            .putExtra(TripVoiceService.EXTRA_STARTED_VISIBLE, lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
         runCatching { startForegroundService(intent) }.onFailure {
             TripTestState.status = "No se pudo iniciar la sesión: ${it.message ?: it.javaClass.simpleName}"
         }
@@ -1270,6 +1353,10 @@ class MainActivity : ComponentActivity() {
                             )
                             TestIntent.SEARCH_PLACE -> "Búsqueda interpretada; se confirma en el viaje. No se abrió ningún navegador."
                             TestIntent.NEXT_TURN -> actions.nextTurnAnswer()
+                            TestIntent.HOW_LONG -> BriefTripContextTtsFormatter.route(
+                                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime())
+                            TestIntent.TRIP_STATUS -> BriefTripContextTtsFormatter.status(
+                                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime(), 0)
                             TestIntent.NAVIGATION_REQUEST_STATUS -> actions.navigationRequestAnswer()
                             TestIntent.NAVIGATE -> "Destino interpretado; la ruta y su confirmación se prueban durante el viaje. No se abrió ningún navegador."
                             TestIntent.OPEN_CONTACT_CHAT -> "Escuché: ‘$heard’. Los chats con confirmación por voz se prueban en la sesión de viaje."

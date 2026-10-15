@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
+import android.os.SystemClock
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import androidx.compose.runtime.getValue
@@ -18,7 +19,9 @@ data class WazeNotificationSample(
     val category: String,
     val sourcePostTimeMs: Long,
     val observedAtMs: Long,
-    val fields: Map<String, String>
+    val fields: Map<String, String>,
+    val packageName: String = "com.waze",
+    val observedAtElapsedMs: Long = 0
 ) {
     fun isRecent(nowMs: Long) = sourcePostTimeMs > 0 && nowMs >= sourcePostTimeMs && nowMs - sourcePostTimeMs <= 60_000
 }
@@ -27,10 +30,12 @@ data class WazeObservationSnapshot(
     val sessionId: String? = null,
     val connected: Boolean = false,
     val sample: WazeNotificationSample? = null,
-    val readFailed: Boolean = false
+    val readFailed: Boolean = false,
+    val samples: Map<String, WazeNotificationSample> = emptyMap()
 ) {
     fun record(session: String?, value: WazeNotificationSample): WazeObservationSnapshot =
-        if (sessionId != null && session == sessionId) copy(sample = value, readFailed = false) else this
+        if (sessionId != null && session == sessionId) copy(sample = value, readFailed = false,
+            samples = samples + (value.packageName to value)) else this
 
     fun report(nowMs: Long): String = buildString {
         appendLine("Fuente: notificación de com.waze (experimental; no confirma una ruta)")
@@ -67,9 +72,10 @@ internal object WazeObservationAccess {
 
 internal object WazeNotificationExtractor {
     const val PACKAGE = "com.waze"
+    const val MAPS_PACKAGE = "com.google.android.apps.maps"
     fun extract(sbn: StatusBarNotification, nowMs: Long): WazeNotificationSample? {
         // Filter before accessing extras, including when Android delivers another app's event.
-        if (sbn.packageName != PACKAGE) return null
+        if (sbn.packageName !in setOf(PACKAGE, MAPS_PACKAGE)) return null
         val notification = sbn.notification
         val extras = notification.extras
         val fields = linkedMapOf<String, String>()
@@ -79,7 +85,8 @@ internal object WazeNotificationExtractor {
         extras.getCharSequenceArray(Notification.EXTRA_TEXT_LINES)?.take(4)?.forEachIndexed { index, text ->
             text?.toString()?.take(240)?.takeIf { it.isNotBlank() }?.let { fields["line_$index"] = it }
         }
-        return WazeNotificationSample(sbn.key, notification.category.orEmpty().take(80), sbn.postTime, nowMs, fields)
+        return WazeNotificationSample(sbn.key, notification.category.orEmpty().take(80), sbn.postTime,
+            nowMs, fields, sbn.packageName, SystemClock.elapsedRealtime())
     }
 }
 
@@ -93,10 +100,15 @@ object WazeNotificationObservation {
         listener?.readExisting()
     }
     fun endSession() { snapshot = WazeObservationSnapshot(connected = snapshot.connected) }
-    fun clearSample() { snapshot = snapshot.copy(sample = null, readFailed = false) }
-    internal fun connection(connected: Boolean) { snapshot = snapshot.copy(connected = connected, sample = null, readFailed = false) }
+    fun clearSample() { snapshot = snapshot.copy(sample = null, samples = emptyMap(), readFailed = false) }
+    internal fun connection(connected: Boolean) { snapshot = snapshot.copy(connected = connected, sample = null,
+        samples = emptyMap(), readFailed = false) }
     internal fun record(sessionId: String?, value: WazeNotificationSample) { snapshot = snapshot.record(sessionId, value) }
-    internal fun removed(key: String) { if (snapshot.sample?.key == key) clearSample() }
+    internal fun removed(key: String) {
+        val remaining = snapshot.samples.filterValues { it.key != key }
+        if (remaining.size != snapshot.samples.size) snapshot = snapshot.copy(samples = remaining,
+            sample = remaining.values.maxByOrNull { it.observedAtElapsedMs })
+    }
     internal fun readFailed() { snapshot = snapshot.copy(sample = null, readFailed = true) }
 }
 
@@ -114,8 +126,9 @@ class WazeNavigationObservationService : NotificationListenerService() {
     internal fun readExisting() {
         if (!WazeObservationAccess.allowed(this) || !WazeNotificationObservation.snapshot.connected) return
         runCatching {
-            activeNotifications.filter { it.packageName == WazeNotificationExtractor.PACKAGE }
-                .maxByOrNull { it.postTime }?.let { onNotificationPosted(it) }
+            activeNotifications.filter { it.packageName in setOf(WazeNotificationExtractor.PACKAGE,
+                WazeNotificationExtractor.MAPS_PACKAGE) }.groupBy { it.packageName }.values
+                .mapNotNull { entries -> entries.maxByOrNull { it.postTime } }.forEach(::onNotificationPosted)
         }.onFailure { WazeNotificationObservation.readFailed() }
     }
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -128,7 +141,8 @@ class WazeNavigationObservationService : NotificationListenerService() {
             .onFailure { WazeNotificationObservation.readFailed() }
     }
     override fun onNotificationRemoved(sbn: StatusBarNotification) {
-        if (sbn.packageName == WazeNotificationExtractor.PACKAGE) WazeNotificationObservation.removed(sbn.key)
+        if (sbn.packageName in setOf(WazeNotificationExtractor.PACKAGE, WazeNotificationExtractor.MAPS_PACKAGE))
+            WazeNotificationObservation.removed(sbn.key)
     }
     override fun onDestroy() {
         if (WazeNotificationObservation.listener === this) {

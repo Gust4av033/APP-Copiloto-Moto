@@ -6,6 +6,11 @@ import android.content.Context
 internal class UserSettingsStore(context: Context) {
     private val preferences = context.getSharedPreferences("ui_settings", Context.MODE_PRIVATE)
 
+    fun tripLocationEnabled(): Boolean = preferences.getBoolean("trip_location_enabled", false)
+    fun setTripLocationEnabled(enabled: Boolean) {
+        preferences.edit().putBoolean("trip_location_enabled", enabled).apply()
+    }
+
     fun loadVoice(legacyPhrase: String? = null, legacySensitivity: Float? = null): Pair<String, Float> {
         val phrase = validPhrase(preferences.getString("wake_phrase", legacyPhrase))
         val sensitivity = validSensitivity(preferences.getFloat("wake_sensitivity", legacySensitivity ?: 80f))

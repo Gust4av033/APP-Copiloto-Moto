@@ -4,6 +4,14 @@ La rama por defecto `main` conserva la base estable de Fase 1 RC1 y el contexto 
 
 En [Google Maps de Fase 2](docs/FASE_2_GOOGLE_MAPS.md), Casa y Trabajo ya admiten una dirección opcional: sin ella, APP abre una búsqueda en Maps para que el conductor elija su lugar guardado con la moto detenida; con dirección, solicita la ruta directa. APP no lee los favoritos personales ni confirma una ruta externa.
 
+## Cierre del contexto disponible de Fase 2
+
+La rama funcional `feature/ui-storm-refined` reúne observaciones recientes de Waze y Google Maps, sesión multimedia y batería/audio del teléfono en un contexto con fuente, confianza y vigencia. La lectura de pantalla es experimental y depende del sabor `full`, del permiso y de una sesión activa. Casa y Trabajo aceptan coordenadas opcionales además de texto; con coordenadas, APP solicita la navegación externa y puede calcular distancia lineal y rumbo, sin atribuirse una ruta vial. El GPS propio es opcional, apagado por defecto, con permiso preciso y sin ubicación en segundo plano. El historial local y el detector de movimiento en sombra pertenecen a esta entrega y requieren prueba física antes de integrar a `main`.
+
+### MOD-009 — Tráfico colaborativo y calibración personal (RESERVADA)
+
+Estado: reservada, **no aprobada para implementar**. Se relaciona con Fase 9 (historial), Fase 11 (cuenta) y Fase 13 (tráfico); Fase 8 corresponde a Seguridad. Orden de valor: (1) calibración personal sin servidor a partir de velocidad real por tramo y hora para mejorar ETA incluso con un solo usuario; (2) detección en sombra de lentitud y paradas para medir falsos positivos sin preguntar; (3) confirmación por voz uno/dos; (4) colaboración con opt-in separado y backend anónimo. Ir lento no prueba tráfico: puede ser semáforo, tope o lluvia. La moto filtra carriles y su tráfico no equivale al de auto. No se pedirán confirmaciones en curvas ni a alta velocidad; un «no» también aporta información. Antes de cualquier colaboración, `PrivacyTrim` recorta 300 m al inicio y al final. La calibración personal cubre el arranque en frío sin comunidad.
+
 La documentación de [Ajustes de usuario y desarrollador](docs/AJUSTES_USUARIO_DESARROLLO.md) y [Fase 1 RC1](docs/FASE_1_RC1.md) se conserva como historial de la base integrada; la [regresión repetible](docs/REGRESION_FASE_1_RC1.md) separa las pruebas automatizadas de las físicas.
 
 Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta rama inicia la fase 1 sobre el prototipo de fase 0: reúne las órdenes en un Action Executor, amplía las frases de música y volumen, y descubre los accesos instalados para abrir aplicaciones por voz. **Comandos** reúne la guía, una comprobación de frases sin ejecución y los accesos de apps disponibles con búsqueda. Inicio y Viaje muestran las aperturas pendientes y los estados de llamada/recuperación. El viaje y el audio Bluetooth siguen en validación con hardware real.

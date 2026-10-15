@@ -33,6 +33,8 @@ fun NavigationCard(state: CopilotUiState, actions: CopilotActions) {
             NavigationAddressEditor(state, actions, NavigationDestination.HOME, state.navigationHomeAddress)
             NavigationAddressEditor(state, actions, NavigationDestination.WORK, state.navigationWorkAddress)
         }
+        NavigationCoordinatesEditor(state, actions, NavigationDestination.HOME, state.navigationHomeCoordinates)
+        NavigationCoordinatesEditor(state, actions, NavigationDestination.WORK, state.navigationWorkCoordinates)
         SupportingText(stringResource(R.string.navigation_commands))
         SupportingText(stringResource(R.string.navigation_request_command))
         SupportingText(stringResource(R.string.navigation_search_hint))
@@ -44,6 +46,23 @@ fun NavigationCard(state: CopilotUiState, actions: CopilotActions) {
         if (state.lastNavigationRequest.isNotBlank()) ActionButton(stringResource(R.string.navigation_forget),
             enabled = !state.busy, onClick = actions.onForgetNavigationRequest)
     }
+}
+
+@Composable
+private fun NavigationCoordinatesEditor(state: CopilotUiState, actions: CopilotActions,
+    destination: NavigationDestination, saved: String) {
+    var draft by rememberSaveable(destination.name, saved) { mutableStateOf(saved) }
+    val valid = draft.isBlank() || com.gust4av033.appcopilotomoto.parseCoordinates(destination.label, draft) != null
+    OutlinedTextField(value = draft, onValueChange = { draft = it.take(80) },
+        modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !state.busy, isError = !valid,
+        label = { Text(stringResource(R.string.navigation_coordinates_label, destination.label)) },
+        colors = com.gust4av033.appcopilotomoto.presentation.theme.glassTextFieldColors())
+    ActionButton(stringResource(R.string.navigation_coordinates_save),
+        enabled = !state.busy && valid && draft.trim() != saved,
+        onClick = { actions.onNavigationCoordinatesSave(destination, draft) })
+    ActionButton(stringResource(R.string.navigation_coordinates_pin),
+        enabled = !state.busy && state.tripLocationAvailable,
+        onClick = { actions.onNavigationPinCurrentGps(destination) })
 }
 
 @Composable

@@ -85,7 +85,7 @@ class SettingsNavigationUiTest {
     }
     @Test fun wazeObservationIsHiddenFromOrdinaryNavigation() {
         app(section=SettingsSection.NAVIGATION)
-        compose.onNodeWithText("Notificación de Waze · experimental").assertDoesNotExist()
+        compose.onNodeWithText("Notificaciones de Waze y Maps · experimental").assertDoesNotExist()
     }
     @Test fun playstoreCanReenableWazeNoticesWithoutOpeningTheMicrophone() {
         assumeTrue(BuildConfig.IS_PLAYSTORE_BUILD)
@@ -93,8 +93,8 @@ class SettingsNavigationUiTest {
         var microphoneRequests = 0
         app(state=CopilotUiState(wazeObservationEnabled=false), section=SettingsSection.NAVIGATION,
             actions=CopilotActions(onWazeObservationChange={enabled=it}, onManualTripCommand={microphoneRequests++}))
-        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Observar avisos de Waze durante el viaje"))
-        compose.onNodeWithText("Observar avisos de Waze durante el viaje").performClick()
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Observar avisos de navegación durante el viaje"))
+        compose.onNodeWithText("Observar avisos de navegación durante el viaje").performClick()
         assertEquals(true, enabled)
         assertEquals(0, microphoneRequests)
     }
@@ -104,8 +104,8 @@ class SettingsNavigationUiTest {
         var microphoneRequests=0
         app(state=CopilotUiState(developerAccess=DeveloperAccess(true,true)),section=SettingsSection.NAVIGATION,
             actions=CopilotActions(onWazeScreenChange={enabled=it},onManualTripCommand={microphoneRequests++}))
-        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Observar pantalla de Waze"))
-        compose.onNodeWithText("Observar pantalla de Waze").performClick()
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Observar pantalla de navegación"))
+        compose.onNodeWithText("Observar pantalla de navegación").performClick()
         assertEquals(true,enabled)
         assertEquals(0,microphoneRequests)
     }
@@ -117,8 +117,8 @@ class SettingsNavigationUiTest {
             wazeScreen=WazeScreenSnapshot(sessionId="session",connected=true)),
             section=SettingsSection.NAVIGATION,
             actions=CopilotActions(onCopyDiagnostics={copied=it}))
-        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Copiar estado de pantalla de Waze"))
-        compose.onNodeWithText("Copiar estado de pantalla de Waze").assertIsEnabled().performClick()
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Copiar estado de pantalla de navegación"))
+        compose.onNodeWithText("Copiar estado de pantalla de navegación").assertIsEnabled().performClick()
         assertTrue(copied.orEmpty().contains("Lectura activada=true; permiso=true"))
         assertTrue(copied.orEmpty().contains("Sin textos accesibles de Waze"))
     }
@@ -155,13 +155,13 @@ class SettingsNavigationUiTest {
                 WazeNotificationSample("waze-key","navigation",1000,2000,mapOf("android.text" to "En 300 m")))),
             section=SettingsSection.NAVIGATION,scale=1.5f,
             actions=CopilotActions(onCopyDiagnostics={copied=it}))
-        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Copiar notificación de Waze"))
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Copiar notificación de navegación"))
         compose.onNodeWithText("En 300 m").assertExists()
         assertNull(copied)
         saveRender("phase2-waze-observation-large-font")
-        compose.onNodeWithText("Copiar notificación de Waze").performClick()
+        compose.onNodeWithText("Copiar notificación de navegación").performClick()
         assertTrue(copied.orEmpty().contains("android.text: En 300 m"))
-        compose.onNodeWithText("Observar notificaciones de Waze").assertIsNotEnabled()
+        compose.onNodeWithText("Observar notificaciones de navegación").assertIsNotEnabled()
     }
     @Test fun audioAtLargeFontStillOffersInstallationSpecificPermission() {
         app(section=SettingsSection.AUDIO,scale=2f)

@@ -55,3 +55,13 @@
 - Antes de cerrar: compilar, correr `SettingsContrastTest` y los tests de UI, y
   revisar capturas en oscuro, claro y fuente al 200%. La deuda visual fuera del
   alcance se anota en los documentos de trazabilidad.
+
+## Contexto de viaje y Fusión por Capas
+
+1. Capa 1: GPS y sensores propios del teléfono, solo con permiso y ajuste activo.
+2. Capa 2: calle bajo las ruedas, reservada para un motor libre futuro como OSM/Valhalla.
+3. Capa 3: ruta propia estimada a las coordenadas del destino; por ahora solo distancia lineal y rumbo, nunca una ruta vial supuesta.
+4. Capa 4: observación del navegador externo Waze o Google Maps por notificación y, en el sabor autorizado, accesibilidad. Una solicitud despachada no confirma la ruta.
+5. Capa 5: futuros servicios de tráfico de pago, sin implementación ni acceso de red en Fase 2.
+
+Todo dato del contexto lleva `source`, captura monotónica, confianza entre 0 y 1, `ttlMs` e `isSimulated`. La fusión descarta datos vencidos y prefiere los frescos de mayor confianza. Sin permiso o con el ajuste apagado, no se lee ni guarda GPS. Replay jamás toca el historial real. Ningún dato de viaje sale del teléfono. El detector de movimiento funciona solo en sombra: registra eventos, sin preguntas espontáneas.

@@ -117,6 +117,19 @@ fun LazyListScope.SettingsScreen(
         }
         SettingsSection.CALLS -> CallsSettings(state, actions)
         SettingsSection.PRIVACY -> {
+            item("trip_location") { SectionCard(stringResource(R.string.trip_location_title)) {
+                ToggleSettingRow(stringResource(R.string.trip_location_title), state.tripLocationEnabled,
+                    enabled = !state.busy, onCheckedChange = actions.onTripLocationChange)
+                SupportingText(stringResource(R.string.trip_location_explanation))
+                SupportingText(if (!state.tripLocationEnabled) stringResource(R.string.trip_location_off)
+                    else if (state.tripLocationAvailable) stringResource(R.string.trip_location_ready)
+                    else stringResource(R.string.trip_location_unavailable))
+            } }
+            item("forget_trip_history") { SectionCard(stringResource(R.string.trip_history_title)) {
+                SupportingText(stringResource(R.string.trip_history_explanation))
+                ActionButton(stringResource(R.string.trip_history_forget), enabled = !state.busy, destructive = true,
+                    onClick = actions.onForgetTripHistory)
+            } }
             item("permissions") { PermissionsCard(state, actions) }
             item("media_permission") { MediaAccessCard(state, actions) }
             item("overlay_permission") { SectionCard(stringResource(R.string.overlay_settings_title)) {

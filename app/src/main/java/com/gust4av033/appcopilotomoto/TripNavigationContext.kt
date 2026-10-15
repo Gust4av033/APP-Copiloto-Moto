@@ -12,7 +12,9 @@ data class NavigationDispatch(
     val providerId: String,
     val kind: NavigationRequestKind,
     val requestedDestination: String,
-    val dispatchedAtEpochMs: Long
+    val dispatchedAtEpochMs: Long,
+    val target: TargetDestination? = null,
+    val dispatchedAtElapsedRealtimeMs: Long = 0L
 )
 
 data class TripNavigationContext(

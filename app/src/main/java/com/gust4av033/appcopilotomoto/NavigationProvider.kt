@@ -34,12 +34,26 @@ class WazeNavigationProvider(private val context: Context) : NavigationProvider 
     }.getOrDefault(false)
 
     override fun prepare(destination: NavigationDestination): Result<AppTarget> = runCatching {
-        val launch = intent(destination)
-        check(launch.resolveActivity(context.packageManager) != null) {
-            "Waze no está disponible para abrir destinos. Instalalo y guardá Casa y Trabajo allí."
+        val coordinate = NavigationPreferences.coordinates(context, destination)
+        if (coordinate != null) {
+            val launch = Intent(Intent.ACTION_VIEW,
+                Uri.parse("waze://?ll=${coordinate.latitude},${coordinate.longitude}&navigate=yes"))
+                .setPackage("com.waze")
+            if (launch.resolveActivity(context.packageManager) != null)
+                AppTarget("Ruta a ${destination.label} en $label", launch, navigationDestination = destination)
+            else {
+                val query = "${coordinate.latitude},${coordinate.longitude}"
+                val search = Intent(Intent.ACTION_VIEW, Uri.parse(wazePlaceSearchLink(query))).setPackage("com.waze")
+                check(search.resolveActivity(context.packageManager) != null) { "Waze no está disponible para buscar el destino." }
+                AppTarget("Búsqueda de ${destination.label} en Waze", search, navigationSearchQuery = query)
+            }
+        } else {
+            val launch = intent(destination)
+            check(launch.resolveActivity(context.packageManager) != null) {
+                "Waze no está disponible para abrir destinos. Instalalo y guardá Casa y Trabajo allí."
+            }
+            AppTarget("Ruta a ${destination.label} en $label", launch, navigationDestination = destination)
         }
-        AppTarget("Ruta a ${destination.label} en $label", launch,
-            navigationDestination = destination)
     }
 
     override fun search(query: String): Result<AppTarget> = runCatching {
@@ -80,6 +94,27 @@ object NavigationPreferences {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(destination.name.lowercase(), value).apply()
     }
+    fun coordinates(context: Context, destination: NavigationDestination): TargetDestination? {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("${destination.name.lowercase()}_coords", null) ?: return null
+        return parseCoordinates(destination.label, raw)
+    }
+    fun saveCoordinates(context: Context, destination: NavigationDestination, raw: String) {
+        val value = raw.trim()
+        require(value.isEmpty() || parseCoordinates(destination.label, value) != null) {
+            "Escribí coordenadas válidas como latitud,longitud."
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("${destination.name.lowercase()}_coords", value).apply()
+    }
+}
+
+internal fun parseCoordinates(label: String, raw: String): TargetDestination? {
+    val parts = raw.split(',').map(String::trim)
+    if (parts.size != 2) return null
+    val lat = parts[0].toDoubleOrNull() ?: return null
+    val lon = parts[1].toDoubleOrNull() ?: return null
+    return runCatching { TargetDestination(label, lat, lon) }.getOrNull()
 }
 
 class GoogleMapsNavigationProvider(private val context: Context) : NavigationProvider {
@@ -90,8 +125,13 @@ class GoogleMapsNavigationProvider(private val context: Context) : NavigationPro
     override fun available(): Boolean = googleMapsSearchIntent("gasolinera").resolveActivity(context.packageManager) != null
 
     override fun prepare(destination: NavigationDestination): Result<AppTarget> = runCatching {
+        val coordinates = NavigationPreferences.coordinates(context, destination)
         val address = NavigationPreferences.address(context, destination)
-        if (address.isBlank()) {
+        if (coordinates != null) {
+            val launch = googleMapsNavigationIntent("${coordinates.latitude},${coordinates.longitude}")
+            check(launch.resolveActivity(context.packageManager) != null) { "Google Maps no está disponible para abrir la ruta." }
+            AppTarget("Ruta a ${destination.label} en $label", launch, navigationDestination = destination)
+        } else if (address.isBlank()) {
             // Maps does not expose a documented deep link to the user's personal Home/Work.
             // Show search results inside Maps; only the rider can identify the saved place.
             val launch = googleMapsSearchIntent(destination.label)
@@ -143,7 +183,10 @@ object NavigationRequestStore {
         if (sessionId != null && sessionId != TripNavigationState.context.sessionId) return
         TripNavigationState.record(sessionId, NavigationDispatch(app.id,
             if (query != null) NavigationRequestKind.SEARCH else NavigationRequestKind.FAVORITE,
-            query ?: checkNotNull(destination).label, System.currentTimeMillis()))
+            query ?: checkNotNull(destination).label, System.currentTimeMillis(),
+            destination?.let { saved -> NavigationPreferences.coordinates(context, saved)?.takeIf {
+                target.launchIntent.dataString.orEmpty().contains("${it.latitude},${it.longitude}")
+            } }, android.os.SystemClock.elapsedRealtime()))
         if (destination != null) context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(key(app), destination.name).apply()
     }
