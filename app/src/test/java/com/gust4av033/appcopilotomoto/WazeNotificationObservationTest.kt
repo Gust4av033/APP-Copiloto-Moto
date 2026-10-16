@@ -188,6 +188,44 @@ class WazeNotificationObservationTest {
             .navigation.remainingMinutes)
     }
 
+    @Test fun freshNoticesComplementOnlyTheirOwnNavigator() {
+        TripNavigationState.beginSession()
+        UserSettingsStore(app).setDeveloperEnabled(BuildConfig.DEBUG, true)
+        WazeObservationAccess.setEnabled(app, true)
+        Settings.Secure.putString(app.contentResolver, "enabled_notification_listeners", permission())
+        val session = TripNavigationState.context.sessionId
+        val epoch = 1_700_000_010_000L
+        WazeNotificationObservation.record(session, WazeNotificationSample("waze-eta",
+            Notification.CATEGORY_NAVIGATION, epoch - 2_000, epoch - 2_000,
+            mapOf(Notification.EXTRA_TEXT to "9 min para llegar"), WazeNotificationExtractor.PACKAGE, 8_000))
+        WazeNotificationObservation.record(session, WazeNotificationSample("waze-street",
+            Notification.CATEGORY_NAVIGATION, epoch - 1_000, epoch - 1_000,
+            mapOf(Notification.EXTRA_TEXT to "Carretera a Los Planes"), WazeNotificationExtractor.PACKAGE, 9_000))
+        WazeNotificationObservation.record(session, WazeNotificationSample("maps-distance",
+            Notification.CATEGORY_NAVIGATION, epoch - 3_000, epoch - 3_000,
+            mapOf(Notification.EXTRA_TEXT to "5 min · 2.1 km"), WazeNotificationExtractor.MAPS_PACKAGE, 7_000))
+        val observed = TripContextCollector.navigationSnapshot(app, epoch, 10_000).navigation
+        assertEquals("Waze", observed.activeProvider?.value)
+        assertEquals(9, observed.remainingMinutes?.value)
+        assertEquals("Carretera a Los Planes", observed.currentOrTargetStreet?.value)
+        assertNull(observed.remainingDistanceText)
+    }
+
+    @Test fun oldPublishedRouteCannotBecomeCurrentWhenListenerReconnects() {
+        TripNavigationState.beginSession()
+        UserSettingsStore(app).setDeveloperEnabled(BuildConfig.DEBUG, true)
+        WazeObservationAccess.setEnabled(app, true)
+        Settings.Secure.putString(app.contentResolver, "enabled_notification_listeners", permission())
+        val epoch = 1_700_000_200_000L
+        WazeNotificationObservation.record(TripNavigationState.context.sessionId,
+            WazeNotificationSample("old-route", Notification.CATEGORY_NAVIGATION,
+                epoch - 180_000, epoch, mapOf(Notification.EXTRA_TEXT to "7 min para llegar"),
+                WazeNotificationExtractor.PACKAGE, 10_000))
+        val observed = TripContextCollector.navigationSnapshot(app, epoch, 10_000)
+        assertNull(observed.navigation.remainingMinutes)
+        assertNull(observed.lastObservedEta)
+    }
+
     @Test fun expiredWazeRouteCannotHideARecentlyObservedMapsEta() {
         TripNavigationState.beginSession()
         UserSettingsStore(app).setDeveloperEnabled(BuildConfig.DEBUG, true)

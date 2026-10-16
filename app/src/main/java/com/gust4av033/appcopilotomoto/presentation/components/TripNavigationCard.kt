@@ -34,7 +34,8 @@ fun TripNavigationCard(context: TripNavigationContext, observed: TripContextSnap
         val distance = route.remainingDistanceText.recent()
         val turn = route.nextTurnInstruction.recent()
         val turnDistance = route.distanceToNextTurnText.recent()
-            ?.takeIf { it.source == turn?.source }
+            ?.takeIf { it.source == turn?.source &&
+                it.capturedAtElapsedRealtimeMs == turn.capturedAtElapsedRealtimeMs }
         val street = route.currentOrTargetStreet.recent()
         val alert = route.routeAlertText.recent()
         val hasLiveData = listOf(eta, distance, turn, street, alert).any { it != null }

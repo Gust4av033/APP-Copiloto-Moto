@@ -27,6 +27,7 @@ internal fun NavigationContext.hasRecentObservedRouteData(nowElapsed: Long): Boo
 
 /** Reads only the sources already granted and observed in this trip. */
 internal object TripContextCollector {
+    private const val CURRENT_NOTICE_MAX_AGE_MS = 15_000L
     @Volatile var latestLocation: LocationSample? = null
         private set
     fun recordLocation(sample: LocationSample) {
@@ -53,11 +54,18 @@ internal object TripContextCollector {
                 if (sample.packageName == WazeNotificationExtractor.MAPS_PACKAGE) ContextSource.GOOGLE_MAPS_NOTIFICATION
                 else ContextSource.WAZE_NOTIFICATION, sample.observedAtMs, sample.observedAtElapsedMs)
         }
-        val selectedNotification = selectNavigationNotification(parsedNotifications.filter {
+        val currentNotifications = parsedNotifications.filter { it.first.isRecent(nowEpoch) }
+        val selectedNotification = selectNavigationNotification(currentNotifications.filter {
             it.second.hasRecentObservedRouteData(nowElapsed) }.map { it.first }, nowElapsed, visiblePackage)
         val activePackage = visiblePackage ?: selectedNotification?.packageName
-        val notification = parsedNotifications.firstOrNull { it.first === selectedNotification }
-            ?.second ?: NavigationContext()
+        // Several active notices from one navigator can carry complementary fields. Keep
+        // their provenance and TTL, and never mix them with the other navigator.
+        val notification = currentNotifications.asSequence().filter { (sample, _) ->
+            sample.packageName == activePackage && sample.observedAtElapsedMs > 0 &&
+                nowElapsed - sample.observedAtElapsedMs in 0L until CURRENT_NOTICE_MAX_AGE_MS
+        }.map { it.second }.fold(NavigationContext()) { merged, part ->
+            fuseNavigation(merged, part, nowElapsed)
+        }
         val lastNotificationSample = selectNavigationNotification(parsedNotifications.filter {
             it.second.remainingMinutes != null && it.first.sourcePostTimeMs > 0 &&
                 nowEpoch >= it.first.sourcePostTimeMs &&

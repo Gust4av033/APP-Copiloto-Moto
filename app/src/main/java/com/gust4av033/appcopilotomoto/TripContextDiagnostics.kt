@@ -14,6 +14,7 @@ object TripContextDiagnostics {
         appendLine("Movimiento: $state · $samples muestras · $events eventos")
         appendLine("Capa 3 · destino")
         line("Objetivo", snapshot.target)
+        line("Geometría propia", snapshot.ownTargetGeometry(nowElapsed))
         appendLine("Distancia lineal: ${snapshot.straightLineMeters(nowElapsed)?.toInt() ?: "sin dato"} m")
         appendLine("Rumbo al destino: ${snapshot.targetBearingDegrees(nowElapsed)?.toInt() ?: "sin dato"}°")
         appendLine("Capa 4 · navegador observado")

@@ -7,7 +7,7 @@ import kotlin.math.sqrt
 
 enum class ContextSource { ANDROID_GPS, WAZE_NOTIFICATION, WAZE_ACCESSIBILITY,
     GOOGLE_MAPS_NOTIFICATION, GOOGLE_MAPS_ACCESSIBILITY, SAVED_DESTINATION_COORDS,
-    APP_SESSION, APP_ROAD_ROUTE, MEDIA_SESSION, DEVICE_STATUS, REPLAY_FIXTURE }
+    APP_SESSION, APP_STRAIGHT_LINE, APP_ROAD_ROUTE, MEDIA_SESSION, DEVICE_STATUS, REPLAY_FIXTURE }
 enum class Freshness { FRESH, STALE, EXPIRED }
 
 /** All ages use the same monotonic clock domain, including replay fixtures. */
@@ -100,19 +100,32 @@ data class MediaTripContext(val track: ContextValue<String>?, val artist: Contex
     val app: ContextValue<String>?, val playback: ContextValue<String>?)
 data class DeviceTripContext(val batteryPercent: ContextValue<Int>?, val charging: ContextValue<Boolean>?,
     val bluetoothAudioConfirmed: ContextValue<Boolean>?)
+/** Geometry to an explicit coordinate, independent of roads and external navigation. */
+data class OwnTargetGeometry(val distanceMeters: Double, val bearingDegrees: Double)
 data class TripContextSnapshot(val navigation: NavigationContext = NavigationContext(),
     val location: ContextValue<LocationSample>? = null, val target: ContextValue<TargetDestination>? = null,
     val media: MediaTripContext? = null, val device: DeviceTripContext? = null,
     val sessionDurationMs: ContextValue<Long>? = null,
     val lastObservedEta: LastObservedEta? = null) {
+    fun ownTargetGeometry(now: Long): ContextValue<OwnTargetGeometry>? {
+        val gps = location?.takeIf { it.source == ContextSource.ANDROID_GPS && !it.isSimulated &&
+            it.freshness(now) != Freshness.EXPIRED && it.value.usableForTripContext(now) } ?: return null
+        val destination = target?.takeIf { !it.isSimulated &&
+            it.freshness(now) != Freshness.EXPIRED } ?: return null
+        val remainingMs = minOf(gps.ttlMs - gps.ageMs(now), destination.ttlMs - destination.ageMs(now))
+        if (remainingMs <= 0) return null
+        val point = gps.value
+        val goal = destination.value
+        return ContextValue(OwnTargetGeometry(
+            distanceMeters(point.latitude, point.longitude, goal.latitude, goal.longitude),
+            bearingDegrees(point.latitude, point.longitude, goal.latitude, goal.longitude)),
+            ContextSource.APP_STRAIGHT_LINE, point.epochMs + (now - point.elapsedRealtimeMs),
+            now, minOf(gps.confidence, destination.confidence), remainingMs)
+    }
     fun straightLineMeters(now: Long): Double? {
-        val point = location?.takeIf { it.freshness(now) != Freshness.EXPIRED }?.value ?: return null
-        val destination = target?.takeIf { it.freshness(now) != Freshness.EXPIRED }?.value ?: return null
-        return distanceMeters(point.latitude, point.longitude, destination.latitude, destination.longitude)
+        return ownTargetGeometry(now)?.value?.distanceMeters
     }
     fun targetBearingDegrees(now: Long): Double? {
-        val point = location?.takeIf { it.freshness(now) != Freshness.EXPIRED }?.value ?: return null
-        val destination = target?.takeIf { it.freshness(now) != Freshness.EXPIRED }?.value ?: return null
-        return bearingDegrees(point.latitude, point.longitude, destination.latitude, destination.longitude)
+        return ownTargetGeometry(now)?.value?.bearingDegrees
     }
 }

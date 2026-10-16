@@ -15,7 +15,8 @@ object BriefTripContextTtsFormatter {
             ?.takeIf { it.freshness(nowElapsed) != Freshness.EXPIRED }
             ?: return "No tengo un próximo giro verificable. Seguí la indicación del navegador."
         val distance = snapshot.navigation.distanceToNextTurnText
-            ?.takeIf { it.freshness(nowElapsed) != Freshness.EXPIRED && it.source == turn.source }
+            ?.takeIf { it.freshness(nowElapsed) != Freshness.EXPIRED && it.source == turn.source &&
+                it.capturedAtElapsedRealtimeMs == turn.capturedAtElapsedRealtimeMs }
         return "Según ${navigator(turn.source)}, próximo giro: ${turn.value}." +
             (distance?.let { " A ${it.value}." } ?: "")
     }
@@ -24,27 +25,32 @@ object BriefTripContextTtsFormatter {
         val eta = snapshot.navigation.remainingMinutes
             ?.takeIf { it.freshness(nowElapsed) != Freshness.EXPIRED }
         if (eta != null) return "Según ${navigator(eta.source)}, faltan ${eta.value} minutos."
+        val ownDistance = ownDistance(snapshot, nowElapsed)
         snapshot.lastObservedEta?.takeIf { it.valid(nowElapsed) }?.let { last ->
             val minutesAgo = last.ageMs(nowElapsed) / 60_000
             val age = if (minutesAgo == 0L) "menos de un minuto" else
                 "$minutesAgo ${if (minutesAgo == 1L) "minuto" else "minutos"}"
             val provider = if (last.source == EtaSource.GOOGLE_MAPS) "Google Maps" else "Waze"
             return "El último dato de $provider, hace $age, indicaba ${last.remainingMinutes} minutos. " +
-                "Ese tiempo puede haber cambiado; no tengo una ETA actual."
+                "Ese tiempo puede haber cambiado; no tengo una ETA actual." +
+                (ownDistance?.let { " $it" } ?: "")
         }
-        val meters = snapshot.straightLineMeters(nowElapsed)
+        if (ownDistance != null) return "No tengo tiempo de ruta. $ownDistance"
         val target = snapshot.target?.takeIf { it.freshness(nowElapsed) != Freshness.EXPIRED }?.value
-        if (meters != null && target != null) {
-            val distance = when {
-                meters < 100 -> "menos de 100 metros"
-                meters < 2_000 -> "unos ${(meters / 100).roundToInt() * 100} metros"
-                else -> "unos ${(meters / 1000).roundToInt()} kilómetros"
-            }
-            return "No tengo tiempo de ruta. ${target.label} está a $distance en línea recta."
-        }
         return if (target != null)
             "No tengo un tiempo de ruta reciente. Falta una posición GPS precisa para calcular la distancia a ${target.label}."
         else "No tengo un tiempo de ruta reciente ni coordenadas del destino de este viaje."
+    }
+
+    private fun ownDistance(snapshot: TripContextSnapshot, nowElapsed: Long): String? {
+        val meters = snapshot.straightLineMeters(nowElapsed) ?: return null
+        val target = snapshot.target?.value ?: return null
+        val distance = when {
+            meters < 100 -> "menos de 100 metros"
+            meters < 2_000 -> "unos ${(meters / 100).roundToInt() * 100} metros"
+            else -> "unos ${(meters / 1000).roundToInt()} kilómetros"
+        }
+        return "${target.label} está a $distance en línea recta."
     }
 
     fun status(snapshot: TripContextSnapshot, nowElapsed: Long, movingMs: Long,

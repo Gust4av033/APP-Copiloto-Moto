@@ -123,6 +123,9 @@ class TripContextTest {
         val own = TripContextSnapshot(location = location, target = target)
         assertTrue(BriefTripContextTtsFormatter.remaining(own, 150).contains("Casa está a"))
         assertTrue(BriefTripContextTtsFormatter.remaining(own, 150).contains("en línea recta"))
+        assertEquals(ContextSource.APP_STRAIGHT_LINE, own.ownTargetGeometry(150)?.source)
+        assertEquals(.9f, own.ownTargetGeometry(150)?.confidence ?: 0f, .001f)
+        assertNull(own.copy(location = location.copy(isSimulated = true)).ownTargetGeometry(150))
         assertFalse(BriefTripContextTtsFormatter.remaining(own, 150).contains("minutos"))
         assertTrue(BriefTripContextTtsFormatter.remaining(own, 11_000).contains("No tengo un tiempo"))
         assertTrue(BriefTripContextTtsFormatter.remaining(TripContextSnapshot(target = target), 150)
@@ -221,6 +224,24 @@ class TripContextTest {
         assertTrue(answer.contains("No tengo tiempo de ruta"))
         assertTrue(answer.contains("en línea recta"))
         assertFalse(answer.contains("faltan 11 minutos"))
+        val last = snapshot.copy(lastObservedEta = LastObservedEta(EtaSource.WAZE, 12, 100))
+        val combined = BriefTripContextTtsFormatter.remaining(last, 200)
+        assertTrue(combined.contains("último dato de Waze"))
+        assertTrue(combined.contains("en línea recta"))
+        assertTrue(combined.contains("no tengo una ETA actual"))
+    }
+
+    @Test fun turnDistanceMustComeFromTheSameObservation() {
+        val turn = ContextValue("Gira a la derecha", ContextSource.WAZE_NOTIFICATION,
+            100, 100, .65f, 15_000)
+        val unrelatedDistance = ContextValue("300 m", ContextSource.WAZE_NOTIFICATION,
+            200, 200, .65f, 15_000)
+        val snapshot = TripContextSnapshot(navigation = NavigationContext(
+            nextTurnInstruction = turn, distanceToNextTurnText = unrelatedDistance))
+        assertFalse(BriefTripContextTtsFormatter.nextTurn(snapshot, 300).contains("300 m"))
+        assertTrue(BriefTripContextTtsFormatter.nextTurn(snapshot.copy(navigation =
+            snapshot.navigation.copy(distanceToNextTurnText = unrelatedDistance.copy(
+                capturedAtElapsedRealtimeMs = 100))), 300).contains("300 m"))
     }
 
     @Test fun navigationParserKeepsProvenanceAndValidEta() {

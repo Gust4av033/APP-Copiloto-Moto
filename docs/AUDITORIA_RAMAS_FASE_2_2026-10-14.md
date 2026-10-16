@@ -60,6 +60,19 @@ Estado reservado, no aprobado para implementar; relacionado con Fase 9 historial
 
 En el S22+ de San Salvador, con casco y Waze al frente: activar GPS desde Privacidad, conceder ubicación precisa, recorrer un tramo conocido y pedir «próximo giro», «cuánto falta» y «estado del viaje». Comparar giro/ETA con la pantalla real, exportar GPX y JSON, comprobar el recorte de 300 m y los eventos de lentitud/parada en Diagnóstico, medir batería y repetir con permiso revocado, pantalla bloqueada y variante `playstore`. Validar que micrófono, botón, SCO, burbuja y notificación mantienen su comportamiento. No integrar a `main` antes de esta prueba.
 
+### Contexto 3 · 16 de octubre de 2026
+
+La rama `feature/ui-storm-refined` suma los avisos vigentes de un mismo proveedor,
+descarta avisos antiguos reentregados como dato actual y conserva la última ETA
+con su edad. APP deriva geometría en línea recta del GPS y un destino explícito
+con procedencia y vigencia propias; la voz puede combinar esa distancia con
+una última ETA claramente histórica. No se infiere destino ni ruta vial de
+notificaciones Waze. Código 16, sin permisos nuevos. Las suites `fullDebug` y
+`playstoreDebug` aprobaron 280 casos cada una, cero fallos; lint de ambas
+variantes, cero errores. Se compilaron Full Campo y Play release; este último
+necesita firma de publicación. Falta el contraste físico de Waze con los
+avisos simultáneos que publique el S22+.
+
 ### Validación parcial del 15 de octubre de 2026
 
 El usuario confirmó en el S22+ que, con Google Maps visible, «cuánto falta» lee el tiempo mostrado. El diagnóstico posterior identificó una ETA de 7 minutos en una notificación de Maps. Al poner otra app al frente, APP respondía sin contexto; Waze tampoco aportó una ETA útil fuera de su pantalla. Esta observación no valida continuidad de ruta en segundo plano.

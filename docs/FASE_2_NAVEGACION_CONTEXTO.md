@@ -253,3 +253,42 @@ Playstore Debug (cero fallos, tres omitidas). `assembleFullFieldTest`,
 compilado tiene SHA-256
 `EC2AE6A86AA828B6D23F400CCC9C1627170765A1801EFE5A4000AD668436D222`.
 No se probó una ruta propia en el S22+ porque todavía no hay motor conectado.
+
+### Contexto 3 · complementar observaciones escasas
+
+Versión `1.1.0-f2-context3` (código 16). El lector ahora une campos de varios
+avisos **vigentes del mismo navegador**. Una notificación genérica no borra la
+ETA o calle de otro aviso activo de ese proveedor; la selección del proveedor
+continúa aislando Waze de Maps. Una notificación publicada hace demasiado
+tiempo no se convierte en dato actual solo porque Android la entregó de nuevo
+al reconectar el lector. Cada campo conserva origen y caducidad propios.
+La distancia a un giro solo acompaña su instrucción si procede de la misma
+observación, tanto en voz como en la tarjeta existente.
+
+La geometría propia entre GPS autorizado y destino con coordenadas ahora es
+un valor tipado `APP_STRAIGHT_LINE` con confianza, tiempo monotónico, caducidad
+y rechazo de muestras simuladas. Conserva **distancia y rumbo en línea recta**;
+no representa una carretera. Si la ETA del navegador solo es histórica, la
+respuesta hablada puede dar ese dato con su antigüedad y añadir la distancia
+lineal actual de APP, sin descontar minutos ni fabricar ETA. Esta geometría
+queda disponible para el futuro seguidor de ruta propia.
+
+No es posible deducir las coordenadas del destino de Waze a partir del aviso
+«En ejecución», una calle o la posición del teléfono. Sin un destino explícito
+en APP, no hay distancia restante propia. Sin mapa vial tampoco hay ETA,
+maniobras o distancia por carretera propias. No se añadió permiso, sondeo
+continuo, red ni lectura adicional de pantalla. Queda pendiente contrastar en
+el S22+ varios avisos reales de Waze, la voz por botón y el comportamiento al
+vencer o retirar avisos antes de declarar cerrada la Fase 2.
+
+Las suites `fullDebug` y `playstoreDebug` ejecutaron 280 casos cada una,
+sin fallos (dos y tres omitidos). Incluyen notificaciones múltiples de un
+proveedor, aislamiento de Maps/Waze, rechazo de avisos publicados hace tiempo,
+distancia propia simulada y asociación correcta de giro/distancia. La variante
+`fullFieldTest` pasó 29 pruebas dirigidas a observación y contexto, sin fallos.
+`lintFullDebug` y `lintPlaystoreDebug` terminaron sin errores; Play release
+compiló sin la firma privada de publicación. El APK
+`fullFieldTest` firmado conserva el identificador `.pruebas`, usa código 16 y
+SHA-256 `3074d2cd889c9a9d54194a0e6ef05f3ca9f57a458229b6140334d4bf6a4f19a9`.
+La prueba real en Samsung sigue pendiente; los fixtures Android JVM no prueban
+qué texto publica Waze en una ruta concreta.
