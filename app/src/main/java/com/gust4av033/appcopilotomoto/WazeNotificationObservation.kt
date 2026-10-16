@@ -33,17 +33,23 @@ data class WazeObservationSnapshot(
     val readFailed: Boolean = false,
     val samples: Map<String, WazeNotificationSample> = emptyMap()
 ) {
-    fun record(session: String?, value: WazeNotificationSample): WazeObservationSnapshot =
-        if (sessionId != null && session == sessionId) copy(sample = value, readFailed = false,
-            samples = samples + (value.packageName to value)) else this
+    fun record(session: String?, value: WazeNotificationSample): WazeObservationSnapshot {
+        if (sessionId == null || session != sessionId) return this
+        // Distinct active notices from one navigator can carry different route fields.
+        val retained = ((samples - value.key).values + value).groupBy { it.packageName }
+            .values.flatMap { group -> group.takeLast(8) }
+            .associateBy { it.key }
+        return copy(sample = value, readFailed = false, samples = retained)
+    }
 
     fun report(nowMs: Long): String = buildString {
         appendLine("Fuentes: notificaciones de Waze y Google Maps (no confirman una ruta)")
         appendLine("Conectado=$connected; fallo de lectura=$readFailed; sesión activa=${sessionId != null}")
         val allSamples = samples.ifEmpty { sample?.let { mapOf(it.packageName to it) }.orEmpty() }
         if (allSamples.isEmpty()) appendLine("Sin muestras de navegación en esta sesión.")
-        allSamples.toSortedMap().forEach { (packageName, value) ->
-            appendLine("Paquete=$packageName; publicado=${value.sourcePostTimeMs}; observado=${value.observedAtMs}; reciente=${value.isRecent(nowMs)}; categoría=${value.category}")
+        allSamples.values.sortedWith(compareBy<WazeNotificationSample> { it.packageName }
+            .thenByDescending { it.observedAtElapsedMs }).forEach { value ->
+            appendLine("Paquete=${value.packageName}; publicado=${value.sourcePostTimeMs}; observado=${value.observedAtMs}; reciente=${value.isRecent(nowMs)}; categoría=${value.category}")
             value.fields.forEach { (name, text) -> appendLine("$name: $text") }
         }
     }
@@ -105,7 +111,7 @@ object WazeNotificationObservation {
         samples = emptyMap(), readFailed = false) }
     internal fun record(sessionId: String?, value: WazeNotificationSample) { snapshot = snapshot.record(sessionId, value) }
     internal fun removed(key: String) {
-        val remaining = snapshot.samples.filterValues { it.key != key }
+        val remaining = snapshot.samples - key
         if (remaining.size != snapshot.samples.size) snapshot = snapshot.copy(samples = remaining,
             sample = remaining.values.maxByOrNull { it.observedAtElapsedMs })
     }
@@ -128,7 +134,9 @@ class WazeNavigationObservationService : NotificationListenerService() {
         runCatching {
             activeNotifications.filter { it.packageName in setOf(WazeNotificationExtractor.PACKAGE,
                 WazeNotificationExtractor.MAPS_PACKAGE) }.groupBy { it.packageName }.values
-                .mapNotNull { entries -> entries.maxByOrNull { it.postTime } }.forEach(::onNotificationPosted)
+                .flatMap { entries -> entries.sortedByDescending { it.postTime }.take(8) }
+                .sortedBy { it.postTime }
+                .forEach(::onNotificationPosted)
         }.onFailure { WazeNotificationObservation.readFailed() }
     }
     override fun onNotificationPosted(sbn: StatusBarNotification) {

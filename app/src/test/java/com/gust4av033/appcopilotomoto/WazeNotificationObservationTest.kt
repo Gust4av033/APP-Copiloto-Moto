@@ -164,7 +164,28 @@ class WazeNotificationObservationTest {
             WazeNotificationExtractor.PACKAGE, 7_000))
         val wazeWithoutEta = TripContextCollector.snapshot(app, 1_700_000_008_000, 8_000)
         assertEquals("Waze", wazeWithoutEta.navigation.activeProvider?.value)
-        assertNull(wazeWithoutEta.lastObservedEta)
+        assertEquals(4, wazeWithoutEta.lastObservedEta?.remainingMinutes)
+    }
+
+    @Test fun genericNoticeFromSameNavigatorCannotReplaceAnActiveRouteNotice() {
+        TripNavigationState.beginSession()
+        UserSettingsStore(app).setDeveloperEnabled(BuildConfig.DEBUG, true)
+        WazeObservationAccess.setEnabled(app, true)
+        Settings.Secure.putString(app.contentResolver, "enabled_notification_listeners", permission())
+        val session = TripNavigationState.context.sessionId
+        val route = WazeNotificationSample("waze-route", Notification.CATEGORY_NAVIGATION,
+            1_700_000_001_000, 1_700_000_001_000,
+            mapOf(Notification.EXTRA_TEXT to "4 min para llegar"), WazeNotificationExtractor.PACKAGE, 1_000)
+        WazeNotificationObservation.record(session, route)
+        WazeNotificationObservation.record(session, WazeNotificationSample("waze-generic", "",
+            1_700_000_002_000, 1_700_000_002_000,
+            mapOf(Notification.EXTRA_TEXT to "Waze en ejecución"), WazeNotificationExtractor.PACKAGE, 2_000))
+        assertEquals(2, WazeNotificationObservation.snapshot.samples.size)
+        assertEquals(4, TripContextCollector.navigationSnapshot(app, 1_700_000_003_000, 3_000)
+            .navigation.remainingMinutes?.value)
+        WazeNotificationObservation.removed(route.key)
+        assertNull(TripContextCollector.navigationSnapshot(app, 1_700_000_004_000, 4_000)
+            .navigation.remainingMinutes)
     }
 
     @Test fun expiredWazeRouteCannotHideARecentlyObservedMapsEta() {

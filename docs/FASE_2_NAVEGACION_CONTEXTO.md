@@ -217,3 +217,19 @@ La verificación local de esta corrección terminó con 273 pruebas Full Debug
 `assembleFullFieldTest`, `lintFullDebug` y `lintPlaystoreDebug` completaron sin
 errores. El APK Full FieldTest generado tiene SHA-256
 `691CECE3101D74DE8E4860471C5F9D44CB9A129327CCECBBE73D42D3F98BF9A6`.
+
+Las capturas aportadas después muestran resultados distintos: con Waze en
+segundo plano no aparece ningún campo de navegación; con Maps y una ruta
+activa sí se observan 7 min, 2,7 km y llegada a las 12:14 desde
+`GOOGLE_MAPS_NOTIFICATION`. La captura de Waze no incluye el texto bruto de
+sus avisos, así que todavía no permite concluir si Waze publica una ETA que
+APP omite. Una inspección adicional encontró que el lector reemplazaba todos
+los avisos del mismo navegador por el último. Ahora conserva hasta ocho avisos
+activos por paquete y selecciona solo contenido reciente con datos de ruta;
+el reporte diagnóstico permite verlos por separado. Queda pendiente la prueba
+en el S22+ con el opt-in interno activo y el APK actualizado.
+
+Esta revisión completó 274 pruebas Full Debug (cero fallos, dos omitidas) y
+274 Playstore Debug (cero fallos, tres omitidas). `assembleFullFieldTest`,
+`lintFullDebug` y `lintPlaystoreDebug` completaron sin errores. SHA-256 del APK:
+`473110D23847E42C7CED64F262444BAFC26AF96A6113CC004984BFBED2AB1622`.
