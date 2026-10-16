@@ -124,7 +124,9 @@ recuperación musical y exportación queda pendiente en el Samsung.
 
 Queda para fases posteriores una ruta vial propia, geocodificación de
 direcciones, lectura documentada del destino de apps externas, tráfico, POI y
-conversación contextual. Sin esas fuentes, APP declara el dato ausente.
+conversación contextual. La [base de navegación propia](NAVEGACION_PROPIA_PLAN.md)
+define cómo separar esa futura ruta de las observaciones externas. Sin esas
+fuentes, APP declara el dato ausente.
 
 ### Verificación de Context 2
 
