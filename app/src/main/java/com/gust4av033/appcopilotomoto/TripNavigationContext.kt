@@ -3,6 +3,7 @@ package com.gust4av033.appcopilotomoto
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import android.os.SystemClock
 import java.util.UUID
 
 enum class NavigationRequestKind { FAVORITE, SEARCH }
@@ -19,7 +20,8 @@ data class NavigationDispatch(
 
 data class TripNavigationContext(
     val sessionId: String? = null,
-    val lastDispatch: NavigationDispatch? = null
+    val lastDispatch: NavigationDispatch? = null,
+    val startedAtElapsedRealtimeMs: Long = 0L
 ) {
     fun record(session: String?, dispatch: NavigationDispatch): TripNavigationContext =
         if (sessionId != null && session == sessionId) copy(lastDispatch = dispatch) else this
@@ -31,7 +33,8 @@ object TripNavigationState {
         private set
 
     fun beginSession() {
-        context = TripNavigationContext(sessionId = UUID.randomUUID().toString())
+        context = TripNavigationContext(sessionId = UUID.randomUUID().toString(),
+            startedAtElapsedRealtimeMs = SystemClock.elapsedRealtime())
         WazeNotificationObservation.beginSession(context.sessionId)
         WazeScreenState.session(context.sessionId)
     }

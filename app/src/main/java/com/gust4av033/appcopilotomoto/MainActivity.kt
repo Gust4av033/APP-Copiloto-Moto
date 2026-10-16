@@ -1352,11 +1352,14 @@ class MainActivity : ComponentActivity() {
                                 onFailure = { it.message ?: "No se encontró la aplicación." }
                             )
                             TestIntent.SEARCH_PLACE -> "Búsqueda interpretada; se confirma en el viaje. No se abrió ningún navegador."
-                            TestIntent.NEXT_TURN -> actions.nextTurnAnswer()
-                            TestIntent.HOW_LONG -> BriefTripContextTtsFormatter.timeRemaining(
+                            TestIntent.NEXT_TURN -> BriefTripContextTtsFormatter.nextTurn(
+                                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime())
+                            TestIntent.HOW_LONG -> BriefTripContextTtsFormatter.remaining(
                                 TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime())
                             TestIntent.TRIP_STATUS -> BriefTripContextTtsFormatter.status(
-                                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime(), 0)
+                                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime(),
+                                TripRecordingState.movingMs,
+                                TripRecordingState.movement.takeIf { TripRecordingState.samples > 0 })
                             TestIntent.NAVIGATION_REQUEST_STATUS -> actions.navigationRequestAnswer()
                             TestIntent.NAVIGATE -> "Destino interpretado; la ruta y su confirmación se prueban durante el viaje. No se abrió ningún navegador."
                             TestIntent.OPEN_CONTACT_CHAT -> "Escuché: ‘$heard’. Los chats con confirmación por voz se prueban en la sesión de viaje."

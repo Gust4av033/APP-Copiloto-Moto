@@ -7,6 +7,8 @@ object TripContextDiagnostics {
             appendLine("$label: ${value?.let { "${it.value} · ${it.source} · ${it.ageMs(nowElapsed) / 1000}s · ${it.freshness(nowElapsed)}" } ?: "sin dato"}")
         }
         appendLine("Capa 1 · teléfono")
+        line("Sesión APP", snapshot.sessionDurationMs?.let { ContextValue("${it.value / 1000} s",
+            it.source, it.capturedAtEpochMs, it.capturedAtElapsedRealtimeMs, it.confidence, it.ttlMs) })
         line("GPS", snapshot.location?.let { ContextValue("${it.value.latitude},${it.value.longitude}; ${it.value.speedMetersPerSec} m/s; precisión ${it.value.horizontalAccuracyMeters} m",
             it.source, it.capturedAtEpochMs, it.capturedAtElapsedRealtimeMs, it.confidence, it.ttlMs) })
         appendLine("Movimiento: $state · $samples muestras · $events eventos")

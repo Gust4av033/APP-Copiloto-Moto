@@ -23,6 +23,8 @@ class NavigationProviderChoiceTest {
         NavigationPreferences.select(context, NavigationApp.WAZE)
         NavigationPreferences.saveAddress(context, NavigationDestination.HOME, "")
         NavigationPreferences.saveAddress(context, NavigationDestination.WORK, "")
+        NavigationPreferences.saveCoordinates(context, NavigationDestination.HOME, "")
+        NavigationPreferences.saveCoordinates(context, NavigationDestination.WORK, "")
         NavigationRequestStore.forget(context, NavigationApp.GOOGLE_MAPS)
         TripNavigationState.endSession()
     }
@@ -78,6 +80,40 @@ class NavigationProviderChoiceTest {
         assertEquals(launch.data, target.launchIntent.data)
         assertEquals(NavigationDestination.HOME, target.navigationDestination)
         assertNull(target.navigationSearchQuery)
+    }
+
+    @Test fun coordinateDispatchCarriesItsTargetForMapsAndWaze() {
+        NavigationPreferences.saveCoordinates(context, NavigationDestination.HOME, "13.7,-89.2")
+        val coordinates = TargetDestination("Casa", 13.7, -89.2)
+        val mapsIntent = googleMapsNavigationIntent("13.7,-89.2")
+        val mapsResolved = ResolveInfo().apply {
+            activityInfo = ActivityInfo().apply {
+                packageName = NavigationApp.GOOGLE_MAPS.packageName
+                name = "NavigationActivity"
+            }
+        }
+        Shadows.shadowOf(context.packageManager).addResolveInfoForIntent(mapsIntent, mapsResolved)
+        val maps = GoogleMapsNavigationProvider(context).prepare(NavigationDestination.HOME).getOrThrow()
+        assertEquals(coordinates, maps.navigationTarget)
+        assertTrue(maps.launchIntent.dataString!!.contains("%2C"))
+        TripNavigationState.beginSession()
+        NavigationRequestStore.recordDispatched(context, maps)
+        assertEquals(coordinates, TripNavigationState.context.lastDispatch?.target)
+
+        val wazeIntent = android.content.Intent(android.content.Intent.ACTION_VIEW,
+            android.net.Uri.parse("waze://?ll=13.7,-89.2&navigate=yes"))
+            .setPackage(NavigationApp.WAZE.packageName)
+        val wazeResolved = ResolveInfo().apply {
+            activityInfo = ActivityInfo().apply {
+                packageName = NavigationApp.WAZE.packageName
+                name = "NavigationActivity"
+            }
+        }
+        Shadows.shadowOf(context.packageManager).addResolveInfoForIntent(wazeIntent, wazeResolved)
+        val waze = WazeNavigationProvider(context).prepare(NavigationDestination.HOME).getOrThrow()
+        assertEquals(coordinates, waze.navigationTarget)
+        NavigationRequestStore.recordDispatched(context, waze)
+        assertEquals(coordinates, TripNavigationState.context.lastDispatch?.target)
     }
 
     @Test fun mapsUrisEncodeQueriesAndStayWithinTheMapsPackageAtDispatch() {

@@ -9,7 +9,7 @@ import android.os.Build
 data class LaunchableApp(val label: String, val packageName: String, val activityName: String)
 data class AppTarget(val label: String, val launchIntent: Intent, val spokenLabel: String = label,
     val draftText: String? = null, val navigationDestination: NavigationDestination? = null,
-    val navigationSearchQuery: String? = null)
+    val navigationSearchQuery: String? = null, val navigationTarget: TargetDestination? = null)
 
 sealed interface AppMatch {
     data class Found(val app: LaunchableApp) : AppMatch
