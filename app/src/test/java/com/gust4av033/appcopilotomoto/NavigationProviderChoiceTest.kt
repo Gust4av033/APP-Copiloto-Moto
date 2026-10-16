@@ -20,6 +20,7 @@ class NavigationProviderChoiceTest {
 
     @Before fun prepare() = clean()
     @After fun clean() {
+        NavigationPreferences.planNextTripDestination(context, null)
         NavigationPreferences.select(context, NavigationApp.WAZE)
         NavigationPreferences.saveAddress(context, NavigationDestination.HOME, "")
         NavigationPreferences.saveAddress(context, NavigationDestination.WORK, "")
@@ -27,6 +28,21 @@ class NavigationProviderChoiceTest {
         NavigationPreferences.saveCoordinates(context, NavigationDestination.WORK, "")
         NavigationRequestStore.forget(context, NavigationApp.GOOGLE_MAPS)
         TripNavigationState.endSession()
+    }
+
+    @Test fun nextTripDestinationRequiresCoordinatesAndIsConsumedOnce() {
+        assertThrows(IllegalArgumentException::class.java) {
+            NavigationPreferences.planNextTripDestination(context, NavigationDestination.HOME)
+        }
+        NavigationPreferences.saveCoordinates(context, NavigationDestination.HOME, "13.7,-89.2")
+        NavigationPreferences.planNextTripDestination(context, NavigationDestination.HOME)
+        assertEquals(NavigationDestination.HOME, NavigationPreferences.nextTripDestination(context))
+        assertEquals(TargetDestination("Casa", 13.7, -89.2),
+            NavigationPreferences.consumeNextTripDestination(context))
+        assertNull(NavigationPreferences.consumeNextTripDestination(context))
+        NavigationPreferences.planNextTripDestination(context, NavigationDestination.HOME)
+        NavigationPreferences.saveCoordinates(context, NavigationDestination.HOME, "")
+        assertNull(NavigationPreferences.nextTripDestination(context))
     }
 
     @Test fun mapsLocalAddressesRemainOptionalAndValidated() {

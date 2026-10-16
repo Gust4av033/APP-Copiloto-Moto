@@ -134,12 +134,14 @@ class MainActivity : ComponentActivity() {
     private var navigationWorkAddress by mutableStateOf("")
     private var navigationHomeCoordinates by mutableStateOf("")
     private var navigationWorkCoordinates by mutableStateOf("")
+    private var nextTripDestination by mutableStateOf<NavigationDestination?>(null)
     private var tripContextReport by mutableStateOf("")
     private fun refreshSavedCoordinates() {
         navigationHomeCoordinates = NavigationPreferences.coordinates(this, NavigationDestination.HOME)
             ?.let { "${it.latitude},${it.longitude}" }.orEmpty()
         navigationWorkCoordinates = NavigationPreferences.coordinates(this, NavigationDestination.WORK)
             ?.let { "${it.latitude},${it.longitude}" }.orEmpty()
+        nextTripDestination = NavigationPreferences.nextTripDestination(this)
     }
     private var tripLocationEnabled by mutableStateOf(false)
     private var tripLocationAvailable by mutableStateOf(false)
@@ -151,7 +153,6 @@ class MainActivity : ComponentActivity() {
     private var assistantMessage by mutableStateOf("Opcional: probá el botón del Y12 como acceso a una orden corta.")
     private var audioDiagnostic by mutableStateOf("Actualizá los niveles con la moto detenida y la sesión activa.")
     private var overlayEnabled by mutableStateOf(false)
-    private var overlayObserverEnabled by mutableStateOf(false)
     private var overlayPermission by mutableStateOf(false)
     private var overlayMessage by mutableStateOf("")
     private var tripButtonBinding by mutableStateOf(TripButtonBinding.NONE)
@@ -409,7 +410,6 @@ class MainActivity : ComponentActivity() {
             buttonProbeLog = buttonProbeLog,
             buttonProbeMessage = buttonProbeMessage,
             overlayEnabled = overlayEnabled,
-            overlayObserverEnabled = overlayObserverEnabled,
             overlayPermissionGranted = overlayPermission,
             overlayHidden = TripTestState.overlayHidden,
             overlayMessage = overlayMessage.ifBlank { TripTestState.overlayMessage },
@@ -431,6 +431,7 @@ class MainActivity : ComponentActivity() {
             navigationWorkAddress = navigationWorkAddress,
             navigationHomeCoordinates = navigationHomeCoordinates,
             navigationWorkCoordinates = navigationWorkCoordinates,
+            nextTripDestination = nextTripDestination,
             tripLocationEnabled = tripLocationEnabled,
             tripLocationAvailable = tripLocationAvailable,
             tripContextReport = tripContextReport,
@@ -664,6 +665,17 @@ class MainActivity : ComponentActivity() {
                         }.onSuccess { refreshSavedCoordinates() }
                     }
                 },
+                onTripDestinationChange = { destination ->
+                    val chosen = destination?.let { NavigationPreferences.coordinates(this@MainActivity, it) }
+                    if (destination != null && chosen == null) {
+                        configurationNotice = getString(R.string.trip_destination_missing_coordinates)
+                    } else if (TripTestState.running) {
+                        TripNavigationState.chooseOwnDestination(TripNavigationState.context.sessionId, chosen)
+                    } else runCatching {
+                        NavigationPreferences.planNextTripDestination(this@MainActivity, destination)
+                    }.onSuccess { nextTripDestination = destination }
+                        .onFailure { configurationNotice = it.message.orEmpty() }
+                },
                 onTripLocationChange = { enabled ->
                     if (!audioBusy()) {
                         if (!enabled) {
@@ -729,10 +741,6 @@ class MainActivity : ComponentActivity() {
                         overlayEnabled = enabled
                         overlayMessage = ""
                     }
-                },
-                onOverlayObserverChange = { enabled ->
-                    TripOverlayPreferences.setObserverEnabled(this@MainActivity, enabled)
-                    overlayObserverEnabled = enabled
                 },
                 onOverlayPermission = ::requestOverlayPermission,
                 onShowOverlay = {
@@ -925,6 +933,7 @@ class MainActivity : ComponentActivity() {
         navigationProvider = NavigationPreferences.selected(this)
         navigationHomeAddress = NavigationPreferences.address(this, NavigationDestination.HOME)
         navigationWorkAddress = NavigationPreferences.address(this, NavigationDestination.WORK)
+        nextTripDestination = NavigationPreferences.nextTripDestination(this)
         lastNavigationRequest = NavigationRequestStore.last(this, navigationProvider)
         wazeObservationEnabled = WazeObservationAccess.enabled(this)
         wazeObservationGranted = WazeObservationAccess.granted(this)
@@ -936,7 +945,6 @@ class MainActivity : ComponentActivity() {
         manualActivationOnly = if (TripTestState.running) TripTestState.manualActivationOnly else
             prefs.getBoolean(TripActivationPolicy.PREFERENCE, false)
         overlayEnabled = TripOverlayPreferences.enabled(this)
-        overlayObserverEnabled = TripOverlayPreferences.observerEnabled(this)
         tripAudioMode = if (TripTestState.running) TripTestState.audioMode else runCatching {
             WakeAudioMode.valueOf(prefs.getString("trip_audio_mode", tripAudioMode.name).orEmpty())
         }.getOrDefault(tripAudioMode)
@@ -1265,6 +1273,7 @@ class MainActivity : ComponentActivity() {
     private fun stopTripTest() {
         runCatching {
             startService(Intent(this, TripVoiceService::class.java).setAction(TripVoiceService.ACTION_STOP))
+            refreshSavedCoordinates()
         }.onFailure {
             TripTestState.status = "No se pudo detener la sesión: ${it.message ?: it.javaClass.simpleName}"
         }

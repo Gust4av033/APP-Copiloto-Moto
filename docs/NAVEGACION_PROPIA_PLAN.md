@@ -21,12 +21,13 @@ ofrecer una ruta. No se conectó todavía ninguno.
 un navegador externo. `roadRouteRequest` solo prepara una solicitud si la
 sesión tiene destino propio y una muestra de GPS real, reciente y precisa;
 rechaza replay y datos simulados. No deduce el destino desde las notificaciones
-ni convierte los números de Maps/Waze en una ruta. La selección de destino
-propio aún no tiene control de UI; esta base no cambia la tarjeta Mi ruta,
-los comandos de voz ni el APK visible para el conductor. Antes de activar
-planificación real habrá que añadir selección segura del destino con la moto
-detenida, gestión del mapa, seguimiento, recálculo y estados compartidos con
-Inicio, Viaje, voz, burbuja y notificación.
+ni convierte los números de Maps/Waze en una ruta. Desde `assistant1`, Mi ruta
+permite fijar para el próximo viaje Casa o Trabajo si APP tiene sus coordenadas;
+la selección se consume al iniciar la sesión y también puede cambiarse al
+comienzo del viaje. Una solicitud a un navegador externo nunca crea por sí
+sola un destino propio. Todavía no hay cálculo vial, mapa, seguimiento ni recálculo.
+Antes de activar planificación real habrá que conectar un motor de rutas y
+compartir su estado con Inicio, Viaje, voz, burbuja y notificación.
 
 Navigation Connect encaja como **otro adaptador de observación externa** con
 consentimiento, backend y presupuesto propios. No implementa el grafo vial de

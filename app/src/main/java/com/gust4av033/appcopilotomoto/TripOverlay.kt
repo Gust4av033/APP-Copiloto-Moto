@@ -35,16 +35,11 @@ object TripOverlayPreferences {
     fun setEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("enabled", enabled).apply()
     }
-    fun observerEnabled(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-        .getBoolean("observer_enabled", false)
-    fun setObserverEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("observer_enabled", enabled).apply()
-    }
 }
 
 data class TripOverlaySnapshot(val mode: WakeAudioMode, val phase: TripInteractionPhase,
     val call: TripCallPhase, val ready: Boolean, val manualActivationOnly: Boolean = false,
-    val observerEnabled: Boolean = false, val routeSummary: OverlayRouteSummary? = null)
+    val routeSummary: OverlayRouteSummary? = null)
 
 /** Una sola ventana del servicio de viaje. No posee ni inicia micrófonos o detectores. */
 class TripOverlay(
@@ -141,7 +136,7 @@ class TripOverlay(
             context.resources.configuration.fontScale)
     }
 
-    private fun observerVisible() = snapshot?.let { it.observerEnabled && it.routeSummary != null } == true
+    private fun observerVisible() = snapshot?.routeSummary != null
 
     private fun buildContent() {
         val root = view ?: return

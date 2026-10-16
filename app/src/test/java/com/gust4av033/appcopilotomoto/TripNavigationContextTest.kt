@@ -46,6 +46,39 @@ class TripNavigationContextTest {
         assertEquals(NavigationDestination.HOME, NavigationRequestStore.last(app))
     }
 
+    @Test fun ownDestinationSurvivesMinimizationButNotTheEndOfTheTrip() {
+        val home = TargetDestination("Casa", 13.7, -89.2)
+        TripNavigationState.beginSession(home)
+        val session = TripNavigationState.context.sessionId
+        assertEquals(home, TripNavigationState.context.ownDestination)
+        assertTrue(TripNavigationState.context.ownDestinationSetAtElapsedMs >= 0)
+        TripNavigationState.chooseOwnDestination("another-session", TargetDestination("Trabajo", 13.8, -89.3))
+        assertEquals(home, TripNavigationState.context.ownDestination)
+        TripNavigationState.chooseOwnDestination(session, TargetDestination("Trabajo", 13.8, -89.3))
+        assertEquals("Trabajo", TripNavigationState.context.ownDestination?.label)
+        TripNavigationState.endSession()
+        assertNull(TripNavigationState.context.ownDestination)
+    }
+
+    @Test fun externalDispatchNeverInventsAnAppDestinationAndClearsAConflictingChoice() {
+        TripNavigationState.beginSession(TargetDestination("Casa", 13.7, -89.2))
+        val work = TargetDestination("Trabajo", 13.8, -89.3)
+        val session = TripNavigationState.context.sessionId
+        TripNavigationState.record(session, NavigationDispatch("waze", NavigationRequestKind.FAVORITE,
+            "Trabajo", 1_000, work, 1_000))
+        assertNull(TripNavigationState.context.ownDestination)
+        TripNavigationState.record(session, NavigationDispatch("google_maps", NavigationRequestKind.SEARCH,
+            "gasolinera", 2_000, null, 2_000))
+        assertNull(TripNavigationState.context.ownDestination)
+        TripNavigationState.chooseOwnDestination(session, work)
+        TripNavigationState.record(session, NavigationDispatch("waze", NavigationRequestKind.FAVORITE,
+            "Trabajo", 2_500, work, 2_500))
+        assertEquals(work, TripNavigationState.context.ownDestination)
+        TripNavigationState.record(session, NavigationDispatch("waze", NavigationRequestKind.FAVORITE,
+            "Casa", 3_000, null, 3_000))
+        assertNull(TripNavigationState.context.ownDestination)
+    }
+
     @Test fun oldSessionCannotChangeNewTripOrPersistentFavorite() {
         TripNavigationState.beginSession()
         val old = TripNavigationState.context.sessionId

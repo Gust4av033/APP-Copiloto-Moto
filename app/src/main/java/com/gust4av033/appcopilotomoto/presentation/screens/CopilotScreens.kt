@@ -80,9 +80,12 @@ fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onO
     }
 
     if (state.tripActive) item(key = "trip_navigation_context") {
-        com.gust4av033.appcopilotomoto.presentation.components.TripNavigationCard(
-            state.navigationContext, state.observedRoute, state.observedRouteAtElapsedMs,
-            state.navigationNoticesReady)
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            com.gust4av033.appcopilotomoto.presentation.components.TripDestinationCard(state, actions)
+            com.gust4av033.appcopilotomoto.presentation.components.TripNavigationCard(
+                state.navigationContext, state.observedRoute, state.observedRouteAtElapsedMs,
+                state.navigationNoticesReady)
+        }
     }
 
 }

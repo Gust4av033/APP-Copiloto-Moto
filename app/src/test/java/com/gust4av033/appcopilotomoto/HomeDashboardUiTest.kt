@@ -47,6 +47,32 @@ class HomeDashboardUiTest {
             CopilotApp(state,CopilotScreen.HOME,navigate,actions)
         } }
     }
+    @Test fun riderCanSetNextTripDestinationWithoutStartingAudio() {
+        var chosen: NavigationDestination? = null
+        var starts = 0
+        app(state = CopilotUiState(navigationHomeCoordinates = "13.7,-89.2"),
+            actions = CopilotActions(onTripDestinationChange = { chosen = it }, onToggleTrip = { starts++ }))
+        compose.onNodeWithTag("home_tab_2").performClick()
+        compose.onNodeWithText("Fijar Casa en APP").performClick()
+        assertEquals(NavigationDestination.HOME, chosen)
+        assertEquals(0, starts)
+        render("route-next-trip-destination")
+    }
+    @Test fun nextTripDestinationIsReachableAtLargeFont() {
+        app(state = CopilotUiState(navigationHomeCoordinates = "13.7,-89.2"), scale = 2f)
+        compose.onNodeWithTag("home_tab_2").performClick()
+        val action = compose.onNodeWithText("Fijar Casa en APP")
+        repeat(12) {
+            if (!action.isDisplayed()) compose.onNodeWithTag("settings_content").performTouchInput {
+                swipeUp(startY=height*.75f,endY=height*.5f,durationMillis=600)
+            }
+        }
+        action.assertIsDisplayed()
+        compose.onNodeWithTag("settings_content").performTouchInput {
+            swipeUp(startY=height*.75f,endY=height*.5f,durationMillis=600)
+        }
+        render("route-next-trip-destination-large-font")
+    }
     @Test fun horizontalSwipesShowActualEquipmentAndRouteWithoutInvokingAudio() {
         var captures=0
         app(actions=CopilotActions(onToggleTrip={captures++},onManualTripCommand={captures++},onToggleListening={captures++},onToggleWake={captures++}))

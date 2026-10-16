@@ -81,6 +81,7 @@ enum class NavigationApp(val id: String, val label: String, val packageName: Str
 /** User choice and addresses remain on this installation. No route state is persisted. */
 object NavigationPreferences {
     private const val PREFS = "navigation_preferences"
+    private const val NEXT_TRIP_DESTINATION = "next_trip_destination"
     fun validAddress(address: String): Boolean = address.trim().let { it.isEmpty() || PlaceSearchParser.valid(it) }
     fun selected(context: Context): NavigationApp = NavigationApp.fromId(
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("provider", null))
@@ -105,8 +106,31 @@ object NavigationPreferences {
         require(value.isEmpty() || parseCoordinates(destination.label, value) != null) {
             "Escribí coordenadas válidas como latitud,longitud."
         }
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit().putString("${destination.name.lowercase()}_coords", value).apply()
+        if (value.isEmpty() && nextTripDestination(context) == destination)
+            prefs.edit().remove(NEXT_TRIP_DESTINATION).apply()
+    }
+
+    /** One-trip choice; it is consumed when the foreground trip starts. */
+    fun nextTripDestination(context: Context): NavigationDestination? =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(NEXT_TRIP_DESTINATION, null)?.let { saved ->
+                NavigationDestination.entries.firstOrNull { it.name == saved }
+            }
+
+    fun planNextTripDestination(context: Context, destination: NavigationDestination?) {
+        require(destination == null || coordinates(context, destination) != null) {
+            "Guardá coordenadas para fijar este destino en APP."
+        }
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString("${destination.name.lowercase()}_coords", value).apply()
+            .putString(NEXT_TRIP_DESTINATION, destination?.name).apply()
+    }
+
+    fun consumeNextTripDestination(context: Context): TargetDestination? {
+        val destination = nextTripDestination(context)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(NEXT_TRIP_DESTINATION).apply()
+        return destination?.let { coordinates(context, it) }
     }
 }
 

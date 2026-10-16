@@ -112,13 +112,15 @@ internal object TripContextCollector {
                     in 10f..25f -> .85f
                     else -> .6f
                 }, 10_000) }
-        val target = TripNavigationState.context.lastDispatch?.takeIf {
-            it.dispatchedAtElapsedRealtimeMs > 0
-        }?.let { dispatch -> dispatch.target?.let {
-            ContextValue(it, ContextSource.SAVED_DESTINATION_COORDS, dispatch.dispatchedAtEpochMs,
-                dispatch.dispatchedAtElapsedRealtimeMs, 1f, 86_400_000)
-        }
-        }
+        val trip = TripNavigationState.context
+        val target = trip.ownDestination
+            ?.let { ContextValue(it, ContextSource.SAVED_DESTINATION_COORDS,
+                trip.ownDestinationSetAtEpochMs, trip.ownDestinationSetAtElapsedMs, 1f, 86_400_000) }
+            ?: trip.lastDispatch?.takeIf { it.dispatchedAtElapsedRealtimeMs > 0 }
+                ?.let { dispatch -> dispatch.target?.let { destination ->
+                    ContextValue(destination, ContextSource.SAVED_DESTINATION_COORDS, dispatch.dispatchedAtEpochMs,
+                        dispatch.dispatchedAtElapsedRealtimeMs, 1f, 86_400_000)
+                } }
         val session = TripNavigationState.context.takeIf { it.sessionId != null &&
             nowElapsed >= it.startedAtElapsedRealtimeMs }?.let {
             ContextValue(nowElapsed - it.startedAtElapsedRealtimeMs, ContextSource.APP_SESSION,

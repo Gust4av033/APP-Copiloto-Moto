@@ -157,7 +157,7 @@ class TripVoiceService : Service() {
             val visible = TripOverlayPreferences.enabled(this@TripVoiceService) &&
                 !TripTestState.overlayHidden && !TripTestState.appVisible &&
                 !getSystemService(KeyguardManager::class.java).isKeyguardLocked
-            val observerEnabled = visible && TripOverlayPreferences.observerEnabled(this@TripVoiceService)
+            val observerEnabled = visible
             val now = SystemClock.elapsedRealtime()
             if (observerEnabled && (lastOverlayRouteReadAt == 0L || now - lastOverlayRouteReadAt >= 2_000L)) {
                 cachedOverlayRouteSummary = overlayRouteSummary(
@@ -169,7 +169,7 @@ class TripVoiceService : Service() {
             }
             overlay.render(visible, TripOverlaySnapshot(wakeAudioMode, TripTestState.interactionPhase,
                 TripTestState.callPhase, armed && !TripTestState.switchingMode && !callPending,
-                manualActivationOnly, observerEnabled, cachedOverlayRouteSummary))
+                manualActivationOnly, cachedOverlayRouteSummary))
             mainHandler.postDelayed(this, 400L)
         }
     }
@@ -353,7 +353,7 @@ class TripVoiceService : Service() {
         mainHandler.removeCallbacks(overlayTick)
         mainHandler.post(overlayTick)
         TripTestState.running = true
-        TripNavigationState.beginSession()
+        TripNavigationState.beginSession(NavigationPreferences.consumeNextTripDestination(this))
         TripRecordingState.clear()
         TripRecordingState.locationStatus = if (UserSettingsStore(this).tripLocationEnabled())
             if (locationReadyForSession) "AVAILABLE" else "UNAVAILABLE" else "OFF"

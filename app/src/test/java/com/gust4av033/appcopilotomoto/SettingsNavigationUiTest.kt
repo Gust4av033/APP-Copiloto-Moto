@@ -116,6 +116,17 @@ class SettingsNavigationUiTest {
         compose.onNodeWithText("Casa está a 1,1 km en línea recta, según GPS de APP.").assertExists()
         compose.onNodeWithText("Sin datos recientes de navegación de Waze o Maps.").assertExists()
     }
+    @Test fun activeTripShowsItsExplicitAppDestinationSeparatelyFromNavigatorData() {
+        val trip = TripNavigationContext(sessionId="session",
+            ownDestination=TargetDestination("Casa", 13.7, -89.2))
+        app(state=CopilotUiState(tripActive=true, navigationContext=trip,
+            navigationHomeCoordinates="13.7,-89.2"), screen=CopilotScreen.TRIP)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Destino fijado en APP: Casa."))
+        compose.onNodeWithText("Destino fijado en APP: Casa.").assertExists()
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Destino propio de este viaje: Casa."))
+        compose.onNodeWithText("Destino propio de este viaje: Casa.").assertExists()
+        compose.onNodeWithText("Sin datos recientes de navegación de Waze o Maps.").assertExists()
+    }
     @Test fun tripExplainsMissingNavigationNoticeAccess() {
         app(state = CopilotUiState(tripActive = true, navigationNoticesReady = false),
             screen = CopilotScreen.TRIP)
@@ -140,15 +151,13 @@ class SettingsNavigationUiTest {
         compose.onNodeWithText("Recomendamos Google Maps", substring = true).assertExists()
         saveRender("phase2-waze-context-warning-night")
     }
-    @Test fun observerModeIsSeparateFromTheBubbleAndRequiresAnExplicitToggle() {
-        var chosen: Boolean? = null
+    @Test fun bubbleExplainsItsAutomaticObserverBehaviorWithoutAnotherToggle() {
         app(state=CopilotUiState(overlayEnabled=true, overlayPermissionGranted=true),
-            section=SettingsSection.APPEARANCE, scale=2f,
-            actions=CopilotActions(onOverlayObserverChange={ chosen=it }))
-        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Mostrar contexto observado junto a la burbuja"))
-        compose.onNodeWithText("Mostrar contexto observado junto a la burbuja").performClick()
-        assertEquals(true, chosen)
-        saveRender("phase2-observer-setting-large-font")
+            section=SettingsSection.APPEARANCE, scale=2f)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("La burbuja es el observador", substring = true))
+        compose.onNodeWithText("La burbuja es el observador", substring = true).assertExists()
+        compose.onNodeWithText("Mostrar contexto observado junto a la burbuja").assertDoesNotExist()
+        saveRender("phase2-bubble-observer-large-font")
     }
     @Test fun playstoreCanReenableWazeNoticesWithoutOpeningTheMicrophone() {
         assumeTrue(BuildConfig.IS_PLAYSTORE_BUILD)

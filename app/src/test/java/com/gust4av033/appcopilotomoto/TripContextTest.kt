@@ -182,6 +182,22 @@ class TripContextTest {
         } finally { TripNavigationState.endSession() }
     }
 
+    @Test fun chosenSessionDestinationFeedsSharedContextWhileAppIsMinimized() {
+        val home = TargetDestination("Casa", 13.7, -89.2)
+        TripNavigationState.endSession()
+        try {
+            TripNavigationState.beginSession(home)
+            val now = SystemClock.elapsedRealtime()
+            val current = TripContextCollector.routeCardSnapshot(RuntimeEnvironment.getApplication(),
+                System.currentTimeMillis(), now)
+            assertEquals(home, current.target?.value)
+            assertEquals(ContextSource.SAVED_DESTINATION_COORDS, current.target?.source)
+            TripNavigationState.endSession()
+            assertNull(TripContextCollector.routeCardSnapshot(RuntimeEnvironment.getApplication(),
+                System.currentTimeMillis(), now).target)
+        } finally { TripNavigationState.endSession() }
+    }
+
     @Test fun recordedDistanceRejectsDriftAndImpossibleJumps() {
         val start = fix(1000, -89.2, speed = 8f)
         val next = fix(2000, -89.1999, speed = 8f)

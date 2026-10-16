@@ -16,6 +16,7 @@ import kotlin.math.roundToInt
 fun TripNavigationCard(context: TripNavigationContext, observed: TripContextSnapshot = TripContextSnapshot(),
     nowElapsed: Long = 0L, noticesReady: Boolean = true) {
     SectionCard(stringResource(R.string.trip_navigation_title)) {
+        context.ownDestination?.let { SupportingText(stringResource(R.string.trip_navigation_own_destination, it.label)) }
         val request = context.lastDispatch
         if (request == null) SupportingText(stringResource(R.string.trip_navigation_empty))
         else {

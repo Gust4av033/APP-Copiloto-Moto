@@ -348,3 +348,56 @@ se revisaron; el chip nativo sobre un navegador real no pudo verse en
 este entorno sin dispositivo. APK Campo firmado con la misma clave de pruebas
 anterior, código 17, SHA-256
 `696bb341d424c3aa433127358b1893412662a2b4ba3c013c857920f43ecc1cf4`.
+
+### Assistant1 · APP trabaja minimizada · 16 de octubre
+
+Versión `1.1.0-f2-assistant1` (código 18) en `feature/ui-storm-refined`.
+Durante el viaje, APP funciona como servicio y asistente sobre la aplicación
+que el conductor tenga al frente. La burbuja visible **ya es su modo
+observador**: el chip aparece automáticamente cuando APP recibe una lectura
+reciente mediante permisos ya concedidos. Se retiró el segundo interruptor
+«modo observador» de `observer1`. El control de burbuja y los permisos de
+avisos y accesibilidad siguen siendo independientes. La burbuja no captura
+píxeles, toca controles ajenos ni necesita que la ruta se haya abierto desde
+APP; puede acompañar Maps, Waze o una app de reparto al frente. APP no observa
+el contenido de esa app de reparto.
+
+Antes de salir, Inicio → Mi ruta permite elegir **Casa** o **Trabajo** para el
+próximo viaje si sus coordenadas están guardadas en APP. La elección se
+consume una sola vez al iniciar el servicio: `TripNavigationContext` conserva
+el destino y su momento de selección mientras dura la sesión, incluso con APP
+minimizada. Viaje permite corregirlo con la moto detenida. Una solicitud a
+Maps/Waze no crea una ruta propia de APP. Si la solicitud apunta a otro lugar,
+APP invalida su destino anterior; una búsqueda no lo reemplaza. Al terminar
+el viaje se limpia el
+destino de sesión. La distancia lineal de GPS, la voz y la burbuja comparten
+este destino; `RoadRouteEngine` puede usarlo cuando exista un adaptador vial.
+
+APP **no puede importar automáticamente** el destino ni la geometría de una
+ruta elegida dentro de Maps/Waze mediante sus APIs públicas actuales. Sus
+avisos observados aportan giros, ETA y distancias solo cuando los publican y
+durante su vigencia. El destino fijado en APP tampoco confirma que Maps/Waze
+naveguen hacia él. Para clima a lo largo de una ruta harán falta un trazado
+propio fiable o una fuente autorizada que lo comparta, además de pronóstico y
+reglas de aviso de inicio, mitad y final; no se generan todavía avisos
+meteorológicos espontáneos.
+
+Prueba física propuesta con la moto detenida: guardar coordenadas de Casa,
+fijar Casa en Inicio → Mi ruta, iniciar viaje y poner Maps al frente. La
+burbuja debe mostrar automáticamente los datos recientes disponibles y la
+voz debe poder usar la distancia lineal de APP cuando no haya ETA externa.
+Volver a APP debe mostrar «Destino fijado en APP: Casa»; al detener y comenzar
+otro viaje, esa elección ya no debe quedar activa. Repetir con Waze y observar
+que un aviso genérico no se convierte en ETA ni maniobra. Probar además la
+burbuja sobre una app de reparto: APP permanece disponible, sin leer esa app.
+
+Verificación local: 292 tests Full Debug y 292 Playstore Debug, sin fallos
+(dos y tres omisiones esperadas, respectivamente). Compilaron `fullFieldTest`
+y `playstoreRelease`; `lintFullDebug` y `lintPlaystoreDebug` pasaron. Capturas
+Robolectric revisadas: [destino en oscuro](images/fase_2_destino_app_proximo_viaje.png),
+[destino con fuente al 200 %](images/fase_2_destino_app_200.png) y
+[aviso de burbuja en claro al 200 %](images/fase_2_burbuja_observador_200.png).
+Sin dispositivo conectado no se pudo comprobar el chip nativo encima de Maps,
+Waze o una app de reparto, ni la fluidez del equipo. APK Campo código 18,
+firmado con la misma clave de pruebas anterior; SHA-256
+`383ed63a7455d162fdb63f876b3adc27ed04ac157c7de7cd518ab319cfeb3871`.
