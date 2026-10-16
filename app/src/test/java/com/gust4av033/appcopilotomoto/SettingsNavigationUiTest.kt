@@ -127,6 +127,29 @@ class SettingsNavigationUiTest {
         app(section=SettingsSection.NAVIGATION)
         compose.onNodeWithText("Notificaciones de Waze y Maps · experimental").assertDoesNotExist()
     }
+    @Test fun wazeChoiceExplainsObservedCompatibilityAndRecommendsMaps() {
+        app(section=SettingsSection.NAVIGATION)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Recomendamos Google Maps", substring = true))
+        compose.onNodeWithText("Recomendamos Google Maps", substring = true).assertExists()
+        saveRender("phase2-waze-context-warning")
+    }
+    @Test @Config(sdk = [35], qualifiers = "w360dp-h800dp-night")
+    fun wazeCompatibilityWarningIsReadableInNightMode() {
+        app(section=SettingsSection.NAVIGATION, scale=1.5f)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Recomendamos Google Maps", substring = true))
+        compose.onNodeWithText("Recomendamos Google Maps", substring = true).assertExists()
+        saveRender("phase2-waze-context-warning-night")
+    }
+    @Test fun observerModeIsSeparateFromTheBubbleAndRequiresAnExplicitToggle() {
+        var chosen: Boolean? = null
+        app(state=CopilotUiState(overlayEnabled=true, overlayPermissionGranted=true),
+            section=SettingsSection.APPEARANCE, scale=2f,
+            actions=CopilotActions(onOverlayObserverChange={ chosen=it }))
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Mostrar contexto observado junto a la burbuja"))
+        compose.onNodeWithText("Mostrar contexto observado junto a la burbuja").performClick()
+        assertEquals(true, chosen)
+        saveRender("phase2-observer-setting-large-font")
+    }
     @Test fun playstoreCanReenableWazeNoticesWithoutOpeningTheMicrophone() {
         assumeTrue(BuildConfig.IS_PLAYSTORE_BUILD)
         var enabled: Boolean? = null

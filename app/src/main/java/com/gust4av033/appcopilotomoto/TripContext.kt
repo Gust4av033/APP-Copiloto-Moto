@@ -80,7 +80,8 @@ data class NavigationContext(
     val remainingMinutes: ContextValue<Int>? = null,
     val remainingDistanceText: ContextValue<String>? = null,
     val routeAlertText: ContextValue<String>? = null,
-    val etaObservation: EtaObservation? = null
+    val etaObservation: EtaObservation? = null,
+    val arrivalClockText: ContextValue<String>? = null
 )
 
 private fun <T> best(a: ContextValue<T>?, b: ContextValue<T>?, now: Long): ContextValue<T>? =
@@ -94,7 +95,8 @@ fun fuseNavigation(a: NavigationContext, b: NavigationContext, now: Long): Navig
     best(a.currentOrTargetStreet,b.currentOrTargetStreet,now), best(a.etaText,b.etaText,now),
     best(a.remainingMinutes,b.remainingMinutes,now), best(a.remainingDistanceText,b.remainingDistanceText,now),
     best(a.routeAlertText,b.routeAlertText,now),
-    listOfNotNull(a.etaObservation,b.etaObservation).filter { it.valid(now) }.maxByOrNull { it.capturedAtElapsedRealtimeMs })
+    listOfNotNull(a.etaObservation,b.etaObservation).filter { it.valid(now) }.maxByOrNull { it.capturedAtElapsedRealtimeMs },
+    best(a.arrivalClockText,b.arrivalClockText,now))
 
 data class MediaTripContext(val track: ContextValue<String>?, val artist: ContextValue<String>?,
     val app: ContextValue<String>?, val playback: ContextValue<String>?)

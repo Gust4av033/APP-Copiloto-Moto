@@ -22,7 +22,7 @@ internal fun selectNavigationNotification(samples: Collection<WazeNotificationSa
 
 /** A generic persistent notification does not identify the navigator supplying route data. */
 internal fun NavigationContext.hasRecentObservedRouteData(nowElapsed: Long): Boolean = listOfNotNull(
-    nextTurnInstruction, remainingMinutes, remainingDistanceText, currentOrTargetStreet,
+    nextTurnInstruction, remainingMinutes, remainingDistanceText, arrivalClockText, currentOrTargetStreet,
     routeAlertText).any { it.freshness(nowElapsed) != Freshness.EXPIRED }
 
 /** Reads only the sources already granted and observed in this trip. */

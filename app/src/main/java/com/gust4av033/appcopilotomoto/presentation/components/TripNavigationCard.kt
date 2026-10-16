@@ -32,19 +32,21 @@ fun TripNavigationCard(context: TripNavigationContext, observed: TripContextSnap
         val route = observed.navigation
         val eta = route.remainingMinutes.recent()
         val distance = route.remainingDistanceText.recent()
+        val arrival = route.arrivalClockText.recent()
         val turn = route.nextTurnInstruction.recent()
         val turnDistance = route.distanceToNextTurnText.recent()
             ?.takeIf { it.source == turn?.source &&
                 it.capturedAtElapsedRealtimeMs == turn.capturedAtElapsedRealtimeMs }
         val street = route.currentOrTargetStreet.recent()
         val alert = route.routeAlertText.recent()
-        val hasLiveData = listOf(eta, distance, turn, street, alert).any { it != null }
+        val hasLiveData = listOf(eta, distance, arrival, turn, street, alert).any { it != null }
         val lastEta = observed.lastObservedEta?.takeIf { nowElapsed > 0 && it.valid(nowElapsed) }
         if (hasLiveData) {
             val provider = route.activeProvider.recent()?.value.orEmpty()
             SupportingText(stringResource(R.string.trip_navigation_observed_source, provider))
             eta?.let { SupportingText(stringResource(R.string.trip_navigation_eta, it.value)) }
             distance?.let { SupportingText(stringResource(R.string.trip_navigation_remaining_distance, it.value)) }
+            arrival?.let { SupportingText(stringResource(R.string.trip_navigation_arrival_clock, it.value)) }
             turn?.let { SupportingText(stringResource(R.string.trip_navigation_next_turn, it.value)) }
             turnDistance?.let { SupportingText(stringResource(R.string.trip_navigation_turn_distance, it.value)) }
             street?.let { SupportingText(stringResource(R.string.trip_navigation_street, it.value)) }

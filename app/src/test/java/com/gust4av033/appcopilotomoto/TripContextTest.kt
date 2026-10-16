@@ -256,6 +256,33 @@ class TripContextTest {
         assertNull(fuseNavigation(maps, NavigationContext(), 16_000).etaObservation)
     }
 
+    @Test fun mapsArrivalClockAndCompactObserverRemainObservedAndExpire() {
+        val maps = NavigationObservationParser.parse(listOf("7 min · 2.7 km · Llegada: 12:14"),
+            ContextSource.GOOGLE_MAPS_NOTIFICATION, 1_000, 1_000)
+        assertEquals("12:14", maps.arrivalClockText?.value)
+        assertEquals("Google Maps", overlayRouteSummary(TripContextSnapshot(navigation = maps), 2_000)?.provider)
+        assertTrue(overlayRouteSummary(TripContextSnapshot(navigation = maps), 2_000)
+            ?.detail.orEmpty().contains("Llegada 12:14"))
+        assertNull(overlayRouteSummary(TripContextSnapshot(navigation = maps), 9_000))
+        assertNull(fuseNavigation(maps, NavigationContext(), 16_000).arrivalClockText)
+    }
+
+    @Test fun compactObserverDoesNotPresentGenericWazeOrStaleGpsAsRoute() {
+        val generic = NavigationObservationParser.parse(listOf("Waze en ejecución", "Sigue la ruta destacada"),
+            ContextSource.WAZE_NOTIFICATION, 1_000, 1_000)
+        assertNull(overlayRouteSummary(TripContextSnapshot(navigation = generic), 2_000))
+        val turn = NavigationObservationParser.parse(listOf("Gira a la derecha", "300 m"),
+            ContextSource.WAZE_ACCESSIBILITY, 1_000, 1_000)
+        assertEquals("Waze", overlayRouteSummary(TripContextSnapshot(navigation = turn), 2_000)?.provider)
+        val gps = fix(1_000, -89.2)
+        val own = TripContextSnapshot(location = ContextValue(gps, ContextSource.ANDROID_GPS,
+            gps.epochMs, 1_000, .95f, 10_000), target = ContextValue(
+            TargetDestination("Casa", 13.7, -89.19), ContextSource.SAVED_DESTINATION_COORDS,
+            1_000, 1_000, 1f, 86_400_000))
+        assertTrue(overlayRouteSummary(own, 2_000)?.ownGps == true)
+        assertNull(overlayRouteSummary(own, 9_000))
+    }
+
     @Test fun wazeFieldSampleDoesNotTurnGenericGuidanceIntoAManeuver() {
         val waze = NavigationObservationParser.parse(listOf(
             "No hay señal GPS. Se muestra tu ubicación aproximada.",

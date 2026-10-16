@@ -151,6 +151,7 @@ class MainActivity : ComponentActivity() {
     private var assistantMessage by mutableStateOf("Opcional: probá el botón del Y12 como acceso a una orden corta.")
     private var audioDiagnostic by mutableStateOf("Actualizá los niveles con la moto detenida y la sesión activa.")
     private var overlayEnabled by mutableStateOf(false)
+    private var overlayObserverEnabled by mutableStateOf(false)
     private var overlayPermission by mutableStateOf(false)
     private var overlayMessage by mutableStateOf("")
     private var tripButtonBinding by mutableStateOf(TripButtonBinding.NONE)
@@ -408,6 +409,7 @@ class MainActivity : ComponentActivity() {
             buttonProbeLog = buttonProbeLog,
             buttonProbeMessage = buttonProbeMessage,
             overlayEnabled = overlayEnabled,
+            overlayObserverEnabled = overlayObserverEnabled,
             overlayPermissionGranted = overlayPermission,
             overlayHidden = TripTestState.overlayHidden,
             overlayMessage = overlayMessage.ifBlank { TripTestState.overlayMessage },
@@ -728,6 +730,10 @@ class MainActivity : ComponentActivity() {
                         overlayMessage = ""
                     }
                 },
+                onOverlayObserverChange = { enabled ->
+                    TripOverlayPreferences.setObserverEnabled(this@MainActivity, enabled)
+                    overlayObserverEnabled = enabled
+                },
                 onOverlayPermission = ::requestOverlayPermission,
                 onShowOverlay = {
                     if (TripTestState.running) runCatching {
@@ -930,6 +936,7 @@ class MainActivity : ComponentActivity() {
         manualActivationOnly = if (TripTestState.running) TripTestState.manualActivationOnly else
             prefs.getBoolean(TripActivationPolicy.PREFERENCE, false)
         overlayEnabled = TripOverlayPreferences.enabled(this)
+        overlayObserverEnabled = TripOverlayPreferences.observerEnabled(this)
         tripAudioMode = if (TripTestState.running) TripTestState.audioMode else runCatching {
             WakeAudioMode.valueOf(prefs.getString("trip_audio_mode", tripAudioMode.name).orEmpty())
         }.getOrDefault(tripAudioMode)

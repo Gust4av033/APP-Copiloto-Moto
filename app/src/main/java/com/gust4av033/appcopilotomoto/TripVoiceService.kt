@@ -149,14 +149,27 @@ class TripVoiceService : Service() {
             onHide = { TripTestState.overlayHidden = true },
             onFailure = { TripTestState.overlayMessage = getString(R.string.overlay_error) })
     }
+    private var lastOverlayRouteReadAt = 0L
+    private var cachedOverlayRouteSummary: OverlayRouteSummary? = null
     private val overlayTick = object : Runnable {
         override fun run() {
             if (!active) return
             val visible = TripOverlayPreferences.enabled(this@TripVoiceService) &&
                 !TripTestState.overlayHidden && !TripTestState.appVisible &&
                 !getSystemService(KeyguardManager::class.java).isKeyguardLocked
+            val observerEnabled = visible && TripOverlayPreferences.observerEnabled(this@TripVoiceService)
+            val now = SystemClock.elapsedRealtime()
+            if (observerEnabled && (lastOverlayRouteReadAt == 0L || now - lastOverlayRouteReadAt >= 2_000L)) {
+                cachedOverlayRouteSummary = overlayRouteSummary(
+                    TripContextCollector.routeCardSnapshot(this@TripVoiceService, nowElapsed = now), now)
+                lastOverlayRouteReadAt = now
+            } else if (!observerEnabled) {
+                cachedOverlayRouteSummary = null
+                lastOverlayRouteReadAt = 0L
+            }
             overlay.render(visible, TripOverlaySnapshot(wakeAudioMode, TripTestState.interactionPhase,
-                TripTestState.callPhase, armed && !TripTestState.switchingMode && !callPending, manualActivationOnly))
+                TripTestState.callPhase, armed && !TripTestState.switchingMode && !callPending,
+                manualActivationOnly, observerEnabled, cachedOverlayRouteSummary))
             mainHandler.postDelayed(this, 400L)
         }
     }

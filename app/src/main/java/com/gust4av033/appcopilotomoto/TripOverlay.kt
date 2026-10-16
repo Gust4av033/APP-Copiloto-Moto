@@ -11,6 +11,7 @@ import android.hardware.display.DisplayManager
 import android.os.Build
 import android.provider.Settings
 import android.text.TextUtils
+import android.util.TypedValue
 import android.view.Display
 import android.view.Gravity
 import android.view.MotionEvent
@@ -34,10 +35,16 @@ object TripOverlayPreferences {
     fun setEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("enabled", enabled).apply()
     }
+    fun observerEnabled(context: Context): Boolean = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        .getBoolean("observer_enabled", false)
+    fun setObserverEnabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("observer_enabled", enabled).apply()
+    }
 }
 
 data class TripOverlaySnapshot(val mode: WakeAudioMode, val phase: TripInteractionPhase,
-    val call: TripCallPhase, val ready: Boolean, val manualActivationOnly: Boolean = false)
+    val call: TripCallPhase, val ready: Boolean, val manualActivationOnly: Boolean = false,
+    val observerEnabled: Boolean = false, val routeSummary: OverlayRouteSummary? = null)
 
 /** Una sola ventana del servicio de viaje. No posee ni inicia micrófonos o detectores. */
 class TripOverlay(
@@ -60,6 +67,9 @@ class TripOverlay(
     private var orbHandle: FrameLayout? = null
     private var orbIcon: ImageView? = null
     private var orbIndicator: View? = null
+    private var observerBadge: TextView? = null
+    private var observerShown = false
+    private var observerOnRight = true
     private var lastOrbIcon = 0
     private var lastOrbIndicator = 0
     private var status: TextView? = null
@@ -83,7 +93,8 @@ class TripOverlay(
         runCatching {
             snapshot = state
             if (view == null) attach()
-            else if (lastConfiguration != context.resources.configuration) buildContent()
+            else if (lastConfiguration != context.resources.configuration ||
+                (!expanded && (observerShown != observerVisible() || observerOnRight != anchor.right))) buildContent()
             updateState()
             if (!draggingWindow) position()
         }.onFailure {
@@ -130,6 +141,8 @@ class TripOverlay(
             context.resources.configuration.fontScale)
     }
 
+    private fun observerVisible() = snapshot?.let { it.observerEnabled && it.routeSummary != null } == true
+
     private fun buildContent() {
         val root = view ?: return
         root.removeAllViews()
@@ -139,9 +152,11 @@ class TripOverlay(
         root.clipToOutline = expanded
         root.setPadding(if (expanded) dp(12) else 0, if (expanded) dp(8) else 0,
             if (expanded) dp(12) else 0, if (expanded) dp(10) else 0)
-        badge = null; status = null; request = null; contentScroll = null
+        badge = null; status = null; request = null; contentScroll = null; observerBadge = null
         orbHandle = null; orbIcon = null; orbIndicator = null
         lastOrbIcon = 0; lastOrbIndicator = 0
+        observerShown = !expanded && observerVisible()
+        observerOnRight = anchor.right
         val header = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -149,6 +164,26 @@ class TripOverlay(
         }
         root.addView(header, LinearLayout.LayoutParams(-1, if (expanded) -2 else dp(64)))
         if (!expanded) {
+            fun addObserverBadge() {
+                if (!observerShown) return
+                observerBadge = TextView(context).apply {
+                    textSize = 12f
+                    includeFontPadding = false
+                    setAutoSizeTextTypeUniformWithConfiguration(10, 12, 1, TypedValue.COMPLEX_UNIT_SP)
+                    setTextColor(contentColor)
+                    maxLines = 2
+                    ellipsize = TextUtils.TruncateAt.END
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(10), dp(4), dp(10), dp(4))
+                    background = OverlayGlassStyle.panel(context, night())
+                    isClickable = true
+                    isFocusable = true
+                    setOnClickListener { expanded = true; buildContent(); updateState(); position() }
+                }.also { header.addView(it, LinearLayout.LayoutParams(0, dp(56), 1f).apply {
+                    if (anchor.right) marginEnd = dp(4) else marginStart = dp(4)
+                }) }
+            }
+            if (anchor.right) addObserverBadge()
             orbHandle = FrameLayout(context).apply {
                 minimumHeight = dp(64)
                 minimumWidth = dp(64)
@@ -168,6 +203,7 @@ class TripOverlay(
                         .apply { bottomMargin = dp(12) }) }
                 header.addView(handle, LinearLayout.LayoutParams(dp(64), dp(64)))
             }
+            if (!anchor.right) addObserverBadge()
             return
         }
 
@@ -323,6 +359,15 @@ class TripOverlay(
             context.getString(if (state.mode == WakeAudioMode.BUTTON || state.manualActivationOnly)
                 R.string.overlay_wait_button_compact else R.string.overlay_wait_voice_compact) else label
         status?.let { if (it.text.toString() != compactLabel) it.text = compactLabel }
+        observerBadge?.let { labelView ->
+            state.routeSummary?.let { summary ->
+                val title = context.getString(if (summary.ownGps) R.string.overlay_observer_own
+                    else R.string.overlay_observer_source, summary.provider)
+                val shown = "$title\n${summary.detail}"
+                if (labelView.text.toString() != shown) labelView.text = shown
+                labelView.contentDescription = shown.replace('\n', ' ')
+            }
+        }
         request?.isEnabled = state.ready && state.call == TripCallPhase.NONE
     }
 
@@ -351,7 +396,8 @@ class TripOverlay(
             layout.height = root.measuredHeight.coerceIn(1, bounds.maxHeightPx)
             scrollLayout?.let { it.height = 0; it.weight = 1f }
         } else {
-            layout.width = dp(64).coerceAtMost((width - margin * 2).coerceAtLeast(1))
+            layout.width = dp(if (observerShown) 252 else 64)
+                .coerceAtMost((width - margin * 2).coerceAtLeast(1))
             layout.height = dp(64).coerceAtMost((height - margin * 2).coerceAtLeast(1))
         }
         root.measure(View.MeasureSpec.makeMeasureSpec(layout.width, View.MeasureSpec.EXACTLY),
@@ -401,6 +447,7 @@ class TripOverlay(
                         anchor = OverlayAnchor(layout.x + layout.width / 2 >= width / 2,
                             ((layout.y - margin).toFloat() / (maxY - margin).coerceAtLeast(1)).coerceIn(0f, 1f))
                         prefs.edit().putBoolean("right", anchor.right).putFloat("vertical", anchor.verticalFraction).apply()
+                        if (!expanded && observerShown && observerOnRight != anchor.right) buildContent()
                         position()
                     } else handle.performClick()
                     true
@@ -421,7 +468,7 @@ class TripOverlay(
         view?.let { root -> if (root.isAttachedToWindow) runCatching { manager.removeViewImmediate(root) } }
         view = null; params = null; badge = null; status = null; request = null
         contentScroll = null
-        orbHandle = null; orbIcon = null; orbIndicator = null
+        orbHandle = null; orbIcon = null; orbIndicator = null; observerBadge = null
         lastOrbIcon = 0; lastOrbIndicator = 0
         expanded = false
         draggingWindow = false

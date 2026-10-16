@@ -9,6 +9,7 @@ internal object NavigationObservationParser {
     private val gpsUnavailable = Regex("(?i)\\b(?:no hay se[nñ]al gps|sin se[nñ]al gps|no gps signal|gps signal lost|gps signal unavailable)\\b")
     private val remainingLabel = Regex("(?i)\\b(?:restante|destino|remaining)\\b")
     private val road = Regex("(?i)\\b(?:calle|avenida|bulevar|autopista|carretera|street|road|ave|highway)\\b|\\bRN\\s*\\d+\\b")
+    private val arrivalClock = Regex("(?i)\\b(?:llegada|arrival|arrive)\\s*(?::|a las|at)?\\s*(\\d{1,2}:\\d{2})\\b")
     fun parse(lines: List<String>, source: ContextSource, epoch: Long, elapsed: Long,
         confidence: Float = if (source in setOf(ContextSource.WAZE_ACCESSIBILITY,
                 ContextSource.GOOGLE_MAPS_ACCESSIBILITY)) .85f else .65f): NavigationContext {
@@ -36,11 +37,13 @@ internal object NavigationObservationParser {
             (duration.containsMatchIn(it) || remainingLabel.containsMatchIn(it)) }
             ?.let { distance.find(it)?.value }
         val street = texts.firstOrNull { road.containsMatchIn(it) }
+        val arrival = if (locationUnknown || provider != "Google Maps") null else
+            texts.firstNotNullOfOrNull { arrivalClock.find(it)?.groupValues?.get(1) }
         return NavigationContext(value(provider), value(instruction), value(turnDistance), value(meters),
             value(street), value(etaLine), value(minutes), value(remainingDistance),
             value(texts.firstOrNull { alert.containsMatchIn(it) }),
             minutes?.let { EtaObservation(if (provider == "Waze") EtaSource.WAZE else EtaSource.GOOGLE_MAPS,
-                it, epoch, elapsed, 15_000) })
+                it, epoch, elapsed, 15_000) }, value(arrival))
     }
     fun parseDistanceMeters(text: String): Int? {
         val match = distance.find(text) ?: return null

@@ -38,7 +38,7 @@
     <string name="disclosure_notifications_title">Acceso a notificaciones</string>
     <string name="disclosure_notifications_body">Android concede acceso a las notificaciones del dispositivo. APP observa las de Waze y Google Maps para intentar identificar indicaciones, y usa el estado multimedia para controlar el audio del casco. Solo guarda ETA del viaje si activaste el historial GPS; no guarda ni transmite mensajes personales. Podés retirar el acceso en Ajustes.</string>
     <string name="disclosure_overlay_title">Burbuja sobre otras aplicaciones</string>
-    <string name="disclosure_overlay_body">APP dibuja una burbuja de control rápido sobre el mapa durante el viaje. No lee la pantalla ni modifica otras aplicaciones. Podés ocultarla o retirar el permiso en Ajustes.</string>
+    <string name="disclosure_overlay_body">APP dibuja una burbuja de control rápido sobre el mapa durante el viaje. Si activás el modo observador, puede mostrar datos recientes de navegación obtenidos con los accesos que autorizaste. La burbuja no captura la pantalla ni modifica otras aplicaciones. Podés ocultarla o retirar el permiso en Ajustes.</string>
     <string name="disclosure_microphone_title">Micrófono y reconocimiento local</string>
     <string name="disclosure_microphone_body">APP usa el micrófono durante la sesión para detectar la palabra de activación y reconocer órdenes en el dispositivo. El reconocimiento requiere el servicio local de Android; el audio no se guarda ni se envía a servidores de APP.</string>
     <string name="disclosure_contacts_title">Acceso a contactos</string>

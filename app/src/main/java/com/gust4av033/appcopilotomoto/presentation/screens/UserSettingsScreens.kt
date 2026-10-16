@@ -295,6 +295,12 @@ private fun LazyListScope.AppearanceSettings(state: CopilotUiState, actions: Cop
                     ToggleSettingRow(stringResource(R.string.overlay_settings_toggle),
                         checked = state.overlayEnabled, onCheckedChange = actions.onOverlayEnabledChange)
                     SupportingText(stringResource(R.string.overlay_settings_hint))
+                    if (state.overlayEnabled) {
+                        ToggleSettingRow(stringResource(R.string.overlay_observer_toggle),
+                            checked = state.overlayObserverEnabled,
+                            onCheckedChange = actions.onOverlayObserverChange)
+                        SupportingText(stringResource(R.string.overlay_observer_hint))
+                    }
                     if (state.overlayEnabled && !state.overlayPermissionGranted) {
                         SupportingText(stringResource(R.string.overlay_permission_hint))
                         ActionButton(stringResource(R.string.overlay_permission_button), iconRes = R.drawable.ic_display,

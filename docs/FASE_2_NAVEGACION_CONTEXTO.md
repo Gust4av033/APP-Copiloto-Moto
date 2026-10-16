@@ -292,3 +292,59 @@ compiló sin la firma privada de publicación. El APK
 SHA-256 `3074d2cd889c9a9d54194a0e6ef05f3ca9f57a458229b6140334d4bf6a4f19a9`.
 La prueba real en Samsung sigue pendiente; los fixtures Android JVM no prueban
 qué texto publica Waze en una ruta concreta.
+
+### Observador de ruta compacto · 16 de octubre
+
+Versión `1.1.0-f2-observer1` (código 17), en `feature/ui-storm-refined`.
+Ajustes → Navegación muestra un aviso basado en las pruebas de campo: Waze ha
+expuesto pocos datos a APP y se recomienda Google Maps para contexto observado.
+Waze continúa disponible para abrir destinos. No se generaliza la limitación a
+todas las versiones de Waze ni se afirma que Maps confirme una ruta.
+
+La burbuja ahora ofrece un **modo observador optativo**, separado de «Mostrar
+sobre otras aplicaciones». Con viaje activo, permiso de superposición y
+teléfono desbloqueado, un chip de 252 dp como máximo queda junto al borde si
+APP tiene un giro, tiempo o distancia de Maps/Waze con menos de media vida de
+su TTL de 15 segundos. El chip dice «observado» y muestra la fuente. Si falta
+esa observación pero APP dispone de destino con coordenadas y GPS autorizado y
+preciso, dice «APP · línea recta» con la distancia geométrica. Una notificación
+genérica «Waze en ejecución» no produce chip. El conductor puede tocarlo para
+abrir los controles, arrastrar la burbuja o apagar el modo en Ajustes. La
+ventana conserva el mapa visible y solo ocupa su rectángulo acotado; no lee
+píxeles ni interactúa con controles de otra app. La variante Playstore usa
+avisos autorizados y la Full puede usar además el texto accesible con su
+permiso específico de desarrollador.
+
+La lectura para el chip reutiliza `routeCardSnapshot` cada dos segundos como
+máximo mientras está visible, sin sondear batería o multimedia. Maps puede
+aportar la hora de llegada **explícita** de una línea «Llegada: 12:14»; APP la
+muestra con fuente en Viaje y en el chip. No calcula esa hora, no deduce
+coordenadas de destino y no cambia la ETA de voz. La burbuja aún no detecta si
+su posición tapa un control concreto del navegador: se coloca en el borde y
+requiere comprobación y ajuste manual en el S22+ con Maps, Waze y letra grande.
+No se añadió clima: falta elegir una fuente, política de actualización y
+momentos de aviso que no distraigan.
+
+Prueba pendiente en el S22+: actualizar APP · Campo F2 (paquete `.pruebas`),
+habilitar burbuja, modo observador y acceso a avisos; iniciar viaje y fijar una
+ruta real en Maps. Con Maps al frente y pantalla desbloqueada, comprobar la
+fuente y el dato del chip, tocar para abrir controles y arrastrar hacia un
+borde libre. Repetir con Waze; si solo aparece «En ejecución», el chip debe
+volver a la burbuja sola. Comprobar letra del sistema al 200 %, giro del
+teléfono, bloqueo, fin de viaje y que el mapa reciba toques fuera de la
+pequeña ventana. Luego medir fluidez en el equipo físico. Con un destino
+guardado por coordenadas y GPS preciso, verificar que el fallback indica
+«línea recta» y desaparece al perder frescura. No realizar estas interacciones
+con la moto en movimiento.
+
+Verificación local: 285 tests Full Debug y 285 Playstore Debug, sin fallos
+(dos y tres omisiones esperadas, respectivamente). Compilaron `fullFieldTest`
+y `playstoreRelease`; `lintFullDebug` y `lintPlaystoreDebug` pasaron. Las
+capturas Robolectric de la advertencia de Waze en
+[claro](images/fase_2_waze_aviso_observador_claro.png) y
+[oscuro](images/fase_2_waze_aviso_observador_oscuro.png), y del
+[ajuste del observador al 200 %](images/fase_2_ajuste_observador_200.png)
+se revisaron; el chip nativo sobre un navegador real no pudo verse en
+este entorno sin dispositivo. APK Campo firmado con la misma clave de pruebas
+anterior, código 17, SHA-256
+`696bb341d424c3aa433127358b1893412662a2b4ba3c013c857920f43ecc1cf4`.

@@ -295,6 +295,10 @@
     <string name="overlay_settings_title">Burbuja del copiloto</string>
     <string name="overlay_settings_toggle">Mostrar sobre otras aplicaciones</string>
     <string name="overlay_settings_hint">Opcional. Aparece durante el viaje al usar Waze u otra app, con el teléfono desbloqueado, y evita el apagado automático mientras esté visible. Arrastrala hacia un borde. Mostrarla no abre el micrófono ni cambia el modo de activación.</string>
+    <string name="overlay_observer_toggle">Mostrar contexto observado junto a la burbuja</string>
+    <string name="overlay_observer_hint">Opcional. Durante el viaje, APP muestra un chip pequeño junto al borde cuando recibe un giro, tiempo o distancia reciente de Maps/Waze. Si hay coordenadas y GPS, puede mostrar distancia en línea recta. Tocá el chip para abrir los controles o arrastrá la burbuja para moverlo. No confirma ruta ni lee una captura de pantalla; requiere los accesos de navegación que hayas habilitado.</string>
+    <string name="overlay_observer_source">%1$s · observado</string>
+    <string name="overlay_observer_own">%1$s · línea recta</string>
     <string name="overlay_permission_hint">Para mostrar la burbuja, habilitá el permiso de superposición en Android. Si no lo concedés, podés seguir usando APP con el casco y la notificación.</string>
     <string name="overlay_permission_button">Permitir mostrar sobre otras apps</string>
     <string name="overlay_permission_error">No se pudo abrir el permiso. Buscá APP en Ajustes de Android → Mostrar sobre otras aplicaciones.</string>
@@ -371,6 +375,8 @@
     <string name="navigation_ready">%1$s disponible para recibir solicitudes.</string>
     <string name="navigation_missing">%1$s no está disponible. Instalalo y actualizá las integraciones.</string>
     <string name="navigation_setup">Guardá Casa y Trabajo en Waze antes del viaje. APP usa esos favoritos; no necesita conocer tu dirección.</string>
+    <string name="navigation_waze_limited_context">Aviso: en las pruebas actuales Waze expone pocos datos de viaje a APP. Recomendamos Google Maps para el contexto observado; Waze sigue disponible para abrir destinos. APP no puede garantizar giro, distancia ni ETA desde Waze.</string>
+    <string name="trip_navigation_arrival_clock">Llegada indicada por Maps: %1$s</string>
     <string name="navigation_maps_setup">La dirección aquí es opcional. Si el campo está vacío, APP abrirá la búsqueda de Casa o Trabajo en Maps; elegí tu lugar guardado con la moto detenida. Con una dirección aquí, APP solicita la ruta directa.</string>
     <string name="navigation_maps_home">Dirección de Casa para Google Maps</string>
     <string name="navigation_maps_work">Dirección de Trabajo para Google Maps</string>

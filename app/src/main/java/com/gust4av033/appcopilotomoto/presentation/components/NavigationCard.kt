@@ -29,6 +29,8 @@ fun NavigationCard(state: CopilotUiState, actions: CopilotActions) {
                 state.navigationProvider.label))
         SupportingText(stringResource(if (state.navigationProvider == NavigationApp.WAZE)
             R.string.navigation_setup else R.string.navigation_maps_setup))
+        if (state.navigationProvider == NavigationApp.WAZE)
+            SupportingText(stringResource(R.string.navigation_waze_limited_context))
         if (state.navigationProvider == NavigationApp.GOOGLE_MAPS) {
             NavigationAddressEditor(state, actions, NavigationDestination.HOME, state.navigationHomeAddress)
             NavigationAddressEditor(state, actions, NavigationDestination.WORK, state.navigationWorkAddress)
