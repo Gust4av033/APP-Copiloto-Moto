@@ -529,13 +529,13 @@
     <string name="waze_screen_permission">Configurar Accesibilidad para navegación</string>
     <string name="waze_screen_granted">Accesibilidad concedida a esta instalación.</string>
     <string name="waze_screen_missing">Falta activar APP · lectura de pantalla de navegación en Accesibilidad.</string>
-    <string name="waze_screen_command">Consultas: «¿Cuál es el próximo giro?», «¿Cuánto falta?» o «Estado del viaje». Mantené el navegador al frente con la ruta iniciada; si no hay lectura reciente, APP lo explica.</string>
+    <string name="waze_screen_command">Consultas: «¿Cuál es el próximo giro?», «¿Cuánto falta?» o «Estado del viaje». Con el navegador al frente APP intenta leer sus indicaciones. Al cambiar de app, puede citar un último tiempo observado en pantalla o en un aviso de hasta dos minutos, marcado como no actual.</string>
     <string name="waze_screen_empty">Todavía no hay texto de pantalla de navegación en este viaje.</string>
     <string name="waze_screen_sample">Hay una muestra de pantalla. Puedes copiarla para comprobar la interpretación.</string>
     <string name="waze_screen_copy">Copiar estado de pantalla de navegación</string>
     <string name="command_next_turn">Consultar próximo giro</string>
     <string name="waze_screen_last">Última indicación observada: %1$s. %2$s</string>
-    <string name="waze_screen_last_scope">Lectura experimental de pantalla; puede haber cambiado. La consulta por voz requiere Waze o Maps visible y una lectura reciente. ETA y distancia total solo se anuncian si fueron observadas y siguen vigentes.</string>
+    <string name="waze_screen_last_scope">Lectura experimental de pantalla; puede haber cambiado. El próximo giro requiere el navegador visible y una lectura reciente. «Cuánto falta» distingue un tiempo actual de un último dato observado y avisa si ya no está actualizado.</string>
 </resources>
 
 

@@ -108,6 +108,28 @@ class WazeNotificationObservationTest {
         assertNull(WazeNotificationObservation.snapshot.sample)
     }
 
+    @Test fun oldNotificationEtaIsLabeledLastSeenAndExpiresOrClearsOnRemoval() {
+        TripNavigationState.beginSession()
+        UserSettingsStore(app).setDeveloperEnabled(BuildConfig.DEBUG, true)
+        WazeObservationAccess.setEnabled(app, true)
+        Settings.Secure.putString(app.contentResolver, "enabled_notification_listeners", permission())
+        val sample = WazeNotificationSample("maps-eta", Notification.CATEGORY_NAVIGATION, 1_700_000_001_000,
+            1_700_000_001_000, mapOf(Notification.EXTRA_TEXT to "14 min para llegar"),
+            WazeNotificationExtractor.MAPS_PACKAGE, 1000)
+        WazeNotificationObservation.record(TripNavigationState.context.sessionId, sample)
+        val observed = TripContextCollector.snapshot(app, 1_700_000_020_000, 20_000)
+        assertNull(observed.navigation.remainingMinutes)
+        assertEquals(14, observed.lastObservedEta?.remainingMinutes)
+        assertTrue(BriefTripContextTtsFormatter.timeRemaining(observed, 20_000).contains("no tengo una ETA actual"))
+        assertNull(TripContextCollector.snapshot(app, 1_700_000_121_000, 121_000).lastObservedEta)
+        WazeNotificationObservation.removed(sample.key)
+        assertNull(TripContextCollector.snapshot(app, 1_700_000_021_000, 21_000).lastObservedEta)
+        WazeNotificationObservation.record(TripNavigationState.context.sessionId,
+            sample.copy(key = "old-maps-eta", sourcePostTimeMs = 1_699_999_000_000,
+                observedAtElapsedMs = 20_000))
+        assertNull(TripContextCollector.snapshot(app, 1_700_000_021_000, 21_000).lastObservedEta)
+    }
+
     @Test fun notificationCallbacksAreGatedAndUnrelatedAppsCannotReplaceSample() {
         val service = Robolectric.buildService(WazeNavigationObservationService::class.java).create().get()
         TripNavigationState.beginSession()

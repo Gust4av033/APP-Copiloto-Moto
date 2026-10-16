@@ -3,6 +3,27 @@ package com.gust4av033.appcopilotomoto
 import kotlin.math.roundToInt
 
 object BriefTripContextTtsFormatter {
+    fun timeRemaining(snapshot: TripContextSnapshot, nowElapsed: Long): String {
+        snapshot.navigation.remainingMinutes?.takeIf { it.freshness(nowElapsed) != Freshness.EXPIRED }
+            ?.let { return "Faltan ${it.value} minutos según ${if (it.source in setOf(ContextSource.GOOGLE_MAPS_NOTIFICATION,
+                    ContextSource.GOOGLE_MAPS_ACCESSIBILITY)) "Google Maps" else "Waze"}." }
+        snapshot.lastObservedEta?.takeIf { it.valid(nowElapsed) }?.let { last ->
+            val ageMinutes = last.ageMs(nowElapsed) / 60_000
+            val age = if (ageMinutes == 0L) "menos de un minuto" else
+                "$ageMinutes ${if (ageMinutes == 1L) "minuto" else "minutos"}"
+            val provider = if (last.source == EtaSource.GOOGLE_MAPS) "Google Maps" else "Waze"
+            return "El último dato de $provider, hace $age, indicaba ${last.remainingMinutes} minutos. " +
+                "Ese tiempo puede haber cambiado; no tengo una ETA actual."
+        }
+        snapshot.straightLineMeters(nowElapsed)?.let { meters ->
+            val distance = if (meters < 1_000) "${((meters / 100).roundToInt().coerceAtLeast(1)) * 100} metros"
+                else "${((meters / 1_000 * 10).roundToInt() / 10.0).toString().replace('.', ',')} kilómetros"
+            return "No tengo un tiempo de llegada actual. El destino guardado está a unos $distance en línea recta; " +
+                "no es la distancia de la ruta."
+        }
+        return "No tengo un tiempo de llegada actual de Waze o Maps. Revisá el navegador al detenerte."
+    }
+
     fun route(snapshot: TripContextSnapshot, nowElapsed: Long): String {
         val nav = snapshot.navigation
         val turn = nav.nextTurnInstruction?.takeIf { it.freshness(nowElapsed) != Freshness.EXPIRED }

@@ -55,3 +55,11 @@ Estado reservado, no aprobado para implementar; relacionado con Fase 9 historial
 ### Comprobación física pendiente
 
 En el S22+ de San Salvador, con casco y Waze al frente: activar GPS desde Privacidad, conceder ubicación precisa, recorrer un tramo conocido y pedir «próximo giro», «cuánto falta» y «estado del viaje». Comparar giro/ETA con la pantalla real, exportar GPX y JSON, comprobar el recorte de 300 m y los eventos de lentitud/parada en Diagnóstico, medir batería y repetir con permiso revocado, pantalla bloqueada y variante `playstore`. Validar que micrófono, botón, SCO, burbuja y notificación mantienen su comportamiento. No integrar a `main` antes de esta prueba.
+
+### Validación parcial del 15 de octubre de 2026
+
+El usuario confirmó en el S22+ que, con Google Maps visible, «cuánto falta» lee el tiempo mostrado. Al poner otra app al frente, APP respondía sin contexto; Waze tampoco aportó una ETA útil fuera de su pantalla. Esta observación valida solo la lectura visible de Maps, no la continuidad de ruta en segundo plano.
+
+Se añadió una respuesta honesta de último dato: tras salir de Maps o Waze, «cuánto falta» puede citar durante un máximo de dos minutos la ETA observada en pantalla o en una notificación, con antigüedad explícita y aviso de que ya no es actual. No conserva giros para anunciarlos fuera de pantalla. Si existe GPS autorizado y destino guardado con coordenadas, responde con distancia en línea recta, nunca como tiempo o distancia vial. La muestra se invalida al vencer, cambiar sesión o retirar el acceso correspondiente; bloquear el dispositivo invalida la lectura de pantalla. Las notificaciones recientes pueden actualizar la ETA mientras otra app está al frente, pero su contenido real en el S22+ aún debe inspeccionarse.
+
+Esta mejora no crea una ETA en vivo fuera del navegador. Para ofrecerla durante todo el trayecto hará falta una ruta propia calculada desde las coordenadas del destino y actualizada con GPS, o una fuente externa de navegación que publique datos verificables. Mantener el PR #22 en borrador hasta repetir la prueba con la nueva APK y registrar qué datos exponen las notificaciones de Maps y Waze.

@@ -820,7 +820,9 @@ class TripVoiceService : Service() {
                 TripTestState.save(this)
                 val now = SystemClock.elapsedRealtime()
                 val reply = when (intent) {
-                    TestIntent.NEXT_TURN, TestIntent.HOW_LONG -> BriefTripContextTtsFormatter.route(
+                    TestIntent.NEXT_TURN -> BriefTripContextTtsFormatter.route(
+                        TripContextCollector.snapshot(this), now)
+                    TestIntent.HOW_LONG -> BriefTripContextTtsFormatter.timeRemaining(
                         TripContextCollector.snapshot(this), now)
                     TestIntent.TRIP_STATUS -> BriefTripContextTtsFormatter.status(
                         TripContextCollector.snapshot(this), now, TripRecordingState.movingMs)

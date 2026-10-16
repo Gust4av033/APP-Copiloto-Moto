@@ -110,6 +110,31 @@ class TripContextTest {
         assertTrue(BriefTripContextTtsFormatter.route(snapshot, 1100).contains("No tengo una ruta"))
     }
 
+    @Test fun timeRemainingDistinguishesCurrentLastSeenAndUnknownEta() {
+        val current = ContextValue(11, ContextSource.GOOGLE_MAPS_NOTIFICATION, 100, 100, .65f, 15_000)
+        val last = LastObservedEta(EtaSource.GOOGLE_MAPS, 12, 100)
+        val snapshot = TripContextSnapshot(navigation = NavigationContext(remainingMinutes = current), lastObservedEta = last)
+        assertTrue(BriefTripContextTtsFormatter.timeRemaining(snapshot, 200).contains("Faltan 11 minutos según Google Maps"))
+        val hidden = snapshot.copy(navigation = NavigationContext())
+        val lastAnswer = BriefTripContextTtsFormatter.timeRemaining(hidden, 60_100)
+        assertTrue(lastAnswer.contains("último dato de Google Maps, hace 1 minuto"))
+        assertTrue(lastAnswer.contains("no tengo una ETA actual"))
+        assertFalse(BriefTripContextTtsFormatter.route(hidden, 60_100).contains("12 minutos"))
+        assertTrue(BriefTripContextTtsFormatter.timeRemaining(hidden, 120_100).contains("No tengo un tiempo de llegada actual"))
+    }
+
+    @Test fun timeRemainingCanGiveOnlyStraightLineDistanceWhenGpsAndTargetAreKnown() {
+        val snapshot = TripContextSnapshot(
+            location = ContextValue(fix(100, -89.2), ContextSource.ANDROID_GPS, 100, 100, .9f, 10_000),
+            target = ContextValue(TargetDestination("Casa", 13.7, -89.19),
+                ContextSource.SAVED_DESTINATION_COORDS, 100, 100, 1f, 86_400_000))
+        val answer = BriefTripContextTtsFormatter.timeRemaining(snapshot, 200)
+        assertTrue(answer.contains("No tengo un tiempo de llegada actual"))
+        assertTrue(answer.contains("en línea recta"))
+        assertTrue(answer.contains("no es la distancia de la ruta"))
+        assertFalse(answer.contains("minutos según"))
+    }
+
     @Test fun navigationParserKeepsProvenanceAndValidEta() {
         val maps = NavigationObservationParser.parse(listOf("Gira a la derecha", "250 m",
             "12 min para llegar", "5 km", "Avenida Los Próceres"),

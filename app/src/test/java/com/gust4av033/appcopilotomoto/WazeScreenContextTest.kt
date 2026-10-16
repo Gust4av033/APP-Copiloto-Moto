@@ -54,6 +54,27 @@ class WazeScreenContextTest {
         WazeScreenState.update(old,listOf(ScreenText("Gira a la derecha",10,30)),2000)
         assertNull(WazeScreenState.snapshot.turn)
     }
+    @Test fun leavingNavigatorKeepsOnlyABoundedLastSeenEtaInTheSameSession() {
+        val app=RuntimeEnvironment.getApplication()
+        TripNavigationState.beginSession()
+        WazeScreenAccess.setEnabled(app,true)
+        UserSettingsStore(app).setDeveloperEnabled(BuildConfig.DEBUG,true)
+        Settings.Secure.putString(app.contentResolver,Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES,
+            ComponentName(app,WazeScreenService::class.java).flattenToString())
+        val session=TripNavigationState.context.sessionId
+        WazeScreenState.update(session,listOf(ScreenText("12 min para llegar",100,130)),1000,
+            WazeNotificationExtractor.MAPS_PACKAGE)
+        WazeScreenState.update(session,null,3000)
+        val hidden=TripContextCollector.snapshot(app,1_700_000_004_000,4000)
+        if (BuildConfig.ALLOW_ACCESSIBILITY_WAZE) {
+            assertNull(hidden.navigation.remainingMinutes)
+            assertEquals(12,hidden.lastObservedEta?.remainingMinutes)
+            assertEquals(EtaSource.GOOGLE_MAPS,hidden.lastObservedEta?.source)
+            assertNull(TripContextCollector.snapshot(app,1_700_000_121_000,121_000).lastObservedEta)
+        } else assertNull(hidden.lastObservedEta)
+        WazeScreenAccess.setEnabled(app,false)
+        assertNull(TripContextCollector.snapshot(app,1_700_000_005_000,5000).lastObservedEta)
+    }
     @Test fun accessNeedsSeparateConsentAndReleaseCannotRead() {
         val app=RuntimeEnvironment.getApplication()
         clean()

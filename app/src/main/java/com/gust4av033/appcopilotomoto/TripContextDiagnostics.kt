@@ -22,6 +22,9 @@ object TripContextDiagnostics {
         line("ETA", snapshot.navigation.etaText)
         line("Alerta", snapshot.navigation.routeAlertText)
         appendLine("ETA observado: ${snapshot.navigation.etaObservation?.takeIf { it.valid(nowElapsed) } ?: "sin dato vigente"}")
+        appendLine("Última ETA: ${snapshot.lastObservedEta?.takeIf { it.valid(nowElapsed) }?.let {
+            "${it.source} · ${it.remainingMinutes} min · hace ${it.ageMs(nowElapsed) / 1000}s · no actual"
+        } ?: "sin dato"}")
         appendLine("Multimedia y dispositivo")
         line("Pista", snapshot.media?.track)
         line("Artista", snapshot.media?.artist)

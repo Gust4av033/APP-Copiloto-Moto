@@ -52,6 +52,15 @@ data class EtaObservation(val source: EtaSource, val remainingMinutes: Int,
         nowElapsedMs - capturedAtElapsedRealtimeMs < ttlMs
 }
 
+/** A previous navigator observation is useful context, but never a current ETA. */
+data class LastObservedEta(val source: EtaSource, val remainingMinutes: Int,
+    val observedAtElapsedMs: Long) {
+    companion object { const val MAX_AGE_MS = 120_000L }
+    fun valid(nowElapsedMs: Long) = observedAtElapsedMs > 0 && nowElapsedMs >= observedAtElapsedMs &&
+        nowElapsedMs - observedAtElapsedMs < MAX_AGE_MS
+    fun ageMs(nowElapsedMs: Long) = (nowElapsedMs - observedAtElapsedMs).coerceAtLeast(0)
+}
+
 data class NavigationContext(
     val activeProvider: ContextValue<String>? = null,
     val nextTurnInstruction: ContextValue<String>? = null,
@@ -84,7 +93,8 @@ data class DeviceTripContext(val batteryPercent: ContextValue<Int>?, val chargin
     val bluetoothAudioConfirmed: ContextValue<Boolean>?)
 data class TripContextSnapshot(val navigation: NavigationContext = NavigationContext(),
     val location: ContextValue<LocationSample>? = null, val target: ContextValue<TargetDestination>? = null,
-    val media: MediaTripContext? = null, val device: DeviceTripContext? = null) {
+    val media: MediaTripContext? = null, val device: DeviceTripContext? = null,
+    val lastObservedEta: LastObservedEta? = null) {
     fun straightLineMeters(now: Long): Double? {
         val point = location?.takeIf { it.freshness(now) != Freshness.EXPIRED }?.value ?: return null
         val destination = target?.value ?: return null

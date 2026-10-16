@@ -1353,7 +1353,7 @@ class MainActivity : ComponentActivity() {
                             )
                             TestIntent.SEARCH_PLACE -> "Búsqueda interpretada; se confirma en el viaje. No se abrió ningún navegador."
                             TestIntent.NEXT_TURN -> actions.nextTurnAnswer()
-                            TestIntent.HOW_LONG -> BriefTripContextTtsFormatter.route(
+                            TestIntent.HOW_LONG -> BriefTripContextTtsFormatter.timeRemaining(
                                 TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime())
                             TestIntent.TRIP_STATUS -> BriefTripContextTtsFormatter.status(
                                 TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime(), 0)
