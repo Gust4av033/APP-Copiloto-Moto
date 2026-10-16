@@ -21,10 +21,15 @@ data class NavigationDispatch(
 data class TripNavigationContext(
     val sessionId: String? = null,
     val lastDispatch: NavigationDispatch? = null,
-    val startedAtElapsedRealtimeMs: Long = 0L
+    val startedAtElapsedRealtimeMs: Long = 0L,
+    /** APP's chosen destination; an external dispatch is not a route of APP. */
+    val ownDestination: TargetDestination? = null
 ) {
     fun record(session: String?, dispatch: NavigationDispatch): TripNavigationContext =
         if (sessionId != null && session == sessionId) copy(lastDispatch = dispatch) else this
+
+    fun chooseOwnDestination(session: String?, destination: TargetDestination?): TripNavigationContext =
+        if (sessionId != null && session == sessionId) copy(ownDestination = destination) else this
 }
 
 /** Main-thread session state, observed by UI. Not persisted as a live route across process death. */
@@ -40,4 +45,7 @@ object TripNavigationState {
     }
     fun endSession() { context = TripNavigationContext(); WazeNotificationObservation.endSession(); WazeScreenState.session(null) }
     fun record(session: String?, dispatch: NavigationDispatch) { context = context.record(session, dispatch) }
+    fun chooseOwnDestination(session: String?, destination: TargetDestination?) {
+        context = context.chooseOwnDestination(session, destination)
+    }
 }

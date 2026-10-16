@@ -1,9 +1,38 @@
 # Camino hacia navegación propia de APP
 
-Estado: propuesta de arquitectura registrada el 15 de octubre de 2026 para entregas
-posteriores. No activa un motor de rutas, una cuenta de Google Cloud ni un
-backend en Fase 2. El trabajo continúa en `feature/ui-storm-refined`; `main`
-permanece estable hasta la validación física del PR #22.
+Estado: arquitectura y contrato mínimo de código registrados el 15 de octubre
+de 2026 para entregas posteriores. No activa un motor de rutas, una cuenta de
+Google Cloud ni un backend en Fase 2. El trabajo continúa en
+`feature/ui-storm-refined`; `main` permanece estable hasta la validación física
+del PR #22.
+
+## Cimientos implementados sin servicio de pago
+
+`RoadRouteEngine` define una entrada con sesión, GPS propio, destino elegido en
+APP y perfil de moto, y una salida con geometría vial, distancia, duración,
+maniobras, motor y versión del mapa. La salida lleva hora de cálculo,
+confianza, caducidad y bandera de simulación, y se presenta como
+`APP_ROAD_ROUTE`, nunca como una observación de Maps o Waze. Un adaptador local
+con OSM o uno alojado por el proyecto podrán implementar el mismo contrato;
+el perfil de moto debe estar soportado y validado por cada adaptador antes de
+ofrecer una ruta. No se conectó todavía ninguno.
+
+`TripNavigationContext` separa `ownDestination` del último destino enviado a
+un navegador externo. `roadRouteRequest` solo prepara una solicitud si la
+sesión tiene destino propio y una muestra de GPS real, reciente y precisa;
+rechaza replay y datos simulados. No deduce el destino desde las notificaciones
+ni convierte los números de Maps/Waze en una ruta. La selección de destino
+propio aún no tiene control de UI; esta base no cambia la tarjeta Mi ruta,
+los comandos de voz ni el APK visible para el conductor. Antes de activar
+planificación real habrá que añadir selección segura del destino con la moto
+detenida, gestión del mapa, seguimiento, recálculo y estados compartidos con
+Inicio, Viaje, voz, burbuja y notificación.
+
+Navigation Connect encaja como **otro adaptador de observación externa** con
+consentimiento, backend y presupuesto propios. No implementa el grafo vial de
+APP ni se mezcla con `RoadRouteEngine`. Si más adelante deja de convenir por
+costo o disponibilidad, el motor de ruta propia y el lector local de avisos
+siguen separados.
 
 ## Decisión de producto
 

@@ -235,3 +235,21 @@ Esta revisión completó 274 pruebas Full Debug (cero fallos, dos omitidas) y
 274 Playstore Debug (cero fallos, tres omitidas). `assembleFullFieldTest`,
 `lintFullDebug` y `lintPlaystoreDebug` completaron sin errores. SHA-256 del APK:
 `473110D23847E42C7CED64F262444BAFC26AF96A6113CC004984BFBED2AB1622`.
+
+### Base de rutas propias preparada · 15 de octubre
+
+Se añadió un contrato de motor vial independiente de Maps/Waze y una selección
+de destino propia, separada de los despachos a navegadores externos. La
+solicitud del motor exige destino elegido en la sesión y GPS autorizado, real,
+reciente y preciso. El resultado futuro tendrá geometría, maniobras y
+procedencia con caducidad. El detalle y las alternativas gratuitas están en
+`docs/NAVEGACION_PROPIA_PLAN.md`. Aún no hay motor ni control de selección de
+destino: Inicio, Viaje, voz, burbuja y notificación conservan su comportamiento
+actual y no anuncian ETA o giros calculados por APP.
+
+Verificación: 277 pruebas Full Debug (cero fallos, dos omitidas) y 277
+Playstore Debug (cero fallos, tres omitidas). `assembleFullFieldTest`,
+`lintFullDebug` y `lintPlaystoreDebug` completaron sin errores. El APK de campo
+compilado tiene SHA-256
+`EC2AE6A86AA828B6D23F400CCC9C1627170765A1801EFE5A4000AD668436D222`.
+No se probó una ruta propia en el S22+ porque todavía no hay motor conectado.

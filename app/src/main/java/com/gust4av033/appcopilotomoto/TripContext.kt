@@ -7,7 +7,7 @@ import kotlin.math.sqrt
 
 enum class ContextSource { ANDROID_GPS, WAZE_NOTIFICATION, WAZE_ACCESSIBILITY,
     GOOGLE_MAPS_NOTIFICATION, GOOGLE_MAPS_ACCESSIBILITY, SAVED_DESTINATION_COORDS,
-    APP_SESSION, MEDIA_SESSION, DEVICE_STATUS, REPLAY_FIXTURE }
+    APP_SESSION, APP_ROAD_ROUTE, MEDIA_SESSION, DEVICE_STATUS, REPLAY_FIXTURE }
 enum class Freshness { FRESH, STALE, EXPIRED }
 
 /** All ages use the same monotonic clock domain, including replay fixtures. */
