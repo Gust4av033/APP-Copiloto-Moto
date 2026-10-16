@@ -339,9 +339,10 @@ class MainActivity : ComponentActivity() {
                 delay(5_000)
             }
         }
-        val routeNow = routeRefresh.takeIf { it > 0L } ?: SystemClock.elapsedRealtime()
+        // The tick requests recomposition; observation age must use the clock at this render.
+        val routeNow = maxOf(SystemClock.elapsedRealtime(), routeRefresh)
         val observedRoute = if (TripTestState.running)
-            TripContextCollector.navigationSnapshot(this@MainActivity, nowElapsed = routeNow)
+            TripContextCollector.routeCardSnapshot(this@MainActivity, nowElapsed = routeNow)
         else TripContextSnapshot()
         pendingDisclosure?.let { kind ->
             ProminentDisclosureDialog(kind, onContinue = {
@@ -440,6 +441,7 @@ class MainActivity : ComponentActivity() {
             navigationContext = TripNavigationState.context,
             observedRoute = observedRoute,
             observedRouteAtElapsedMs = routeNow,
+            navigationNoticesReady = WazeObservationAccess.allowed(this@MainActivity),
             lastNavigationRequest = lastNavigationRequest?.label.orEmpty(),
             chatCapabilities = chatCapabilities,
             chatContactsGranted = chatContactsGranted,

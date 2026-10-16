@@ -10,10 +10,11 @@ import com.gust4av033.appcopilotomoto.TripContextSnapshot
 import com.gust4av033.appcopilotomoto.ContextValue
 import com.gust4av033.appcopilotomoto.Freshness
 import com.gust4av033.appcopilotomoto.EtaSource
+import kotlin.math.roundToInt
 
 @Composable
 fun TripNavigationCard(context: TripNavigationContext, observed: TripContextSnapshot = TripContextSnapshot(),
-    nowElapsed: Long = 0L) {
+    nowElapsed: Long = 0L, noticesReady: Boolean = true) {
     SectionCard(stringResource(R.string.trip_navigation_title)) {
         val request = context.lastDispatch
         if (request == null) SupportingText(stringResource(R.string.trip_navigation_empty))
@@ -57,7 +58,23 @@ fun TripNavigationCard(context: TripNavigationContext, observed: TripContextSnap
             SupportingText(stringResource(R.string.trip_navigation_last_eta, provider,
                 lastEta.remainingMinutes, lastEta.ageMs(nowElapsed) / 1000))
         } else {
-            SupportingText(stringResource(R.string.trip_navigation_data_unavailable))
+            SupportingText(stringResource(if (noticesReady) R.string.trip_navigation_data_unavailable
+                else R.string.trip_navigation_notice_access_missing))
+        }
+        observed.sessionDurationMs.recent()?.value?.takeIf { it >= 60_000 }?.let {
+            SupportingText(stringResource(R.string.trip_navigation_app_duration, it / 60_000))
+        }
+        if (distance == null) {
+            val target = observed.target.recent()?.value
+            if (target != null) {
+                val meters = observed.straightLineMeters(nowElapsed)
+                if (meters != null) {
+                    val shown = if (meters < 1_000)
+                        "${((meters / 100).roundToInt().coerceAtLeast(1)) * 100} m"
+                    else "${((meters / 100).roundToInt() / 10.0).toString().replace('.', ',')} km"
+                    SupportingText(stringResource(R.string.trip_navigation_own_distance, target.label, shown))
+                } else SupportingText(stringResource(R.string.trip_navigation_gps_unavailable, target.label))
+            }
         }
         SupportingText(stringResource(if (hasLiveData || lastEta != null)
             R.string.trip_navigation_observed_scope else R.string.trip_navigation_route_unknown))

@@ -116,3 +116,9 @@ muestra por separado y la tarjeta aclara que la lectura no confirma destino
 ni ruta activa. Se comprobaron tarjetas sintéticas de Maps y Waze a fuente
 150 % en Android JVM; la comparación visual y funcional en el S22+ sigue
 pendiente.
+
+La tarjeta aclara cuándo falta el acceso interno a las notificaciones, en
+lugar de atribuir la ausencia de datos al navegador. Como respaldo no vial,
+presenta tiempo de sesión y distancia lineal al favorito solo con GPS preciso
+y coordenadas conocidas; ambos datos se distinguen de la información observada
+de Maps o Waze.

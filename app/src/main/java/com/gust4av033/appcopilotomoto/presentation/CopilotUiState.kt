@@ -158,6 +158,7 @@ data class CopilotUiState(
     val navigationContext: com.gust4av033.appcopilotomoto.TripNavigationContext = com.gust4av033.appcopilotomoto.TripNavigationContext(),
     val observedRoute: com.gust4av033.appcopilotomoto.TripContextSnapshot = com.gust4av033.appcopilotomoto.TripContextSnapshot(),
     val observedRouteAtElapsedMs: Long = 0L,
+    val navigationNoticesReady: Boolean = true,
     val lastNavigationRequest: String = "",
     val chatCapabilities: List<ContactChatCapability> = emptyList(),
     val chatContactsGranted: Boolean = false,

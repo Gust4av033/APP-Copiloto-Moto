@@ -100,6 +100,29 @@ class SettingsNavigationUiTest {
         compose.onNodeWithText("La lectura no confirma el destino ni que la ruta siga activa.").assertExists()
         saveRender("phase2-trip-maps-observed-large-font")
     }
+    @Test fun tripUsesOwnGpsOnlyAsClearlyLabeledFallback() {
+        val location = LocationSample(1_000, 1_000, 13.7, -89.2, null, null,
+            null, null, null, 5f, "gps", false)
+        val own = TripContextSnapshot(
+            location = ContextValue(location, ContextSource.ANDROID_GPS, 1_000, 1_000, .95f, 10_000),
+            target = ContextValue(TargetDestination("Casa", 13.7, -89.19),
+                ContextSource.SAVED_DESTINATION_COORDS, 1_000, 1_000, 1f, 86_400_000),
+            sessionDurationMs = ContextValue(12 * 60_000L, ContextSource.APP_SESSION,
+                2_000, 2_000, 1f, 5_000))
+        app(state = CopilotUiState(tripActive = true, observedRoute = own,
+            observedRouteAtElapsedMs = 2_000), screen = CopilotScreen.TRIP)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Viaje en APP: 12 min"))
+        compose.onNodeWithText("Viaje en APP: 12 min").assertExists()
+        compose.onNodeWithText("Casa está a 1,1 km en línea recta, según GPS de APP.").assertExists()
+        compose.onNodeWithText("Sin datos recientes de navegación de Waze o Maps.").assertExists()
+    }
+    @Test fun tripExplainsMissingNavigationNoticeAccess() {
+        app(state = CopilotUiState(tripActive = true, navigationNoticesReady = false),
+            screen = CopilotScreen.TRIP)
+        compose.onNodeWithTag("settings_content").performScrollToNode(
+            hasText("Sin acceso a avisos de Maps/Waze.", substring = true))
+        compose.onNodeWithText("Sin acceso a avisos de Maps/Waze.", substring = true).assertExists()
+    }
     @Test fun wazeObservationIsHiddenFromOrdinaryNavigation() {
         app(section=SettingsSection.NAVIGATION)
         compose.onNodeWithText("Notificaciones de Waze y Maps · experimental").assertDoesNotExist()

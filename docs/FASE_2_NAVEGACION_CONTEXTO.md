@@ -189,3 +189,31 @@ fallos, dos y tres omitidos. `assembleFullFieldTest`, `lintFullDebug` y
 SHA-256 `FC0902C35CF614838C92345C29BB9D442B560FF96E88A4CD8B36090A85126803`.
 Falta comparar la tarjeta con notificaciones y pantalla reales del S22+ cuando
 Maps y Waze están al frente y en segundo plano.
+
+### Corrección de lectura y contexto propio · 15 de octubre
+
+En la instalación `APP de pruebas` conectada del S22+ se comprobó que Android
+concedía el acceso a notificaciones y que el modo desarrollador estaba activo,
+pero faltaba la preferencia local de opt-in para observar avisos de navegación.
+En Full ese interruptor inicia apagado; sin activarlo, APP no recibe datos de
+Maps/Waze aunque el permiso de Android figure concedido. Mi ruta ahora explica
+la falta de acceso y remite a Ajustes → Navegación. No se habilita el opt-in
+automáticamente.
+
+Además se corrigieron dos regresiones de la tarjeta: el reloj de refresco ya
+no puede ser anterior a una muestra recién llegada, y una notificación de Waze
+cuyo contenido de ruta venció no desplaza una ETA reciente de Maps. La copia
+diagnóstica de avisos incluye por separado las muestras de ambos paquetes;
+antes solo mostraba la última y podía ocultar la de Maps.
+
+Cuando falta distancia vial, Mi ruta puede mostrar la duración de la sesión
+propia de APP y, si hay un favorito con coordenadas y GPS preciso autorizado,
+la distancia en línea recta claramente etiquetada. No se convierte en una
+distancia de carretera ni en una ETA. La prueba física tras activar el opt-in
+interno y comparar ambos navegadores continúa pendiente.
+
+La verificación local de esta corrección terminó con 273 pruebas Full Debug
+(cero fallos, dos omitidas) y 273 Playstore Debug (cero fallos, tres omitidas).
+`assembleFullFieldTest`, `lintFullDebug` y `lintPlaystoreDebug` completaron sin
+errores. El APK Full FieldTest generado tiene SHA-256
+`691CECE3101D74DE8E4860471C5F9D44CB9A129327CCECBBE73D42D3F98BF9A6`.

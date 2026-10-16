@@ -38,12 +38,12 @@ data class WazeObservationSnapshot(
             samples = samples + (value.packageName to value)) else this
 
     fun report(nowMs: Long): String = buildString {
-        appendLine("Fuente: notificación de com.waze (experimental; no confirma una ruta)")
+        appendLine("Fuentes: notificaciones de Waze y Google Maps (no confirman una ruta)")
         appendLine("Conectado=$connected; fallo de lectura=$readFailed; sesión activa=${sessionId != null}")
-        val value = sample
-        if (value == null) appendLine("Sin muestra de Waze en esta sesión.")
-        else {
-            appendLine("Publicado=${value.sourcePostTimeMs}; observado=${value.observedAtMs}; reciente=${value.isRecent(nowMs)}; categoría=${value.category}")
+        val allSamples = samples.ifEmpty { sample?.let { mapOf(it.packageName to it) }.orEmpty() }
+        if (allSamples.isEmpty()) appendLine("Sin muestras de navegación en esta sesión.")
+        allSamples.toSortedMap().forEach { (packageName, value) ->
+            appendLine("Paquete=$packageName; publicado=${value.sourcePostTimeMs}; observado=${value.observedAtMs}; reciente=${value.isRecent(nowMs)}; categoría=${value.category}")
             value.fields.forEach { (name, text) -> appendLine("$name: $text") }
         }
     }

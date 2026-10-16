@@ -21,9 +21,9 @@ internal fun selectNavigationNotification(samples: Collection<WazeNotificationSa
         .thenBy { it.observedAtElapsedMs })
 
 /** A generic persistent notification does not identify the navigator supplying route data. */
-internal fun NavigationContext.hasObservedRouteData(): Boolean = nextTurnInstruction != null ||
-    remainingMinutes != null || remainingDistanceText != null || currentOrTargetStreet != null ||
-    routeAlertText != null
+internal fun NavigationContext.hasRecentObservedRouteData(nowElapsed: Long): Boolean = listOfNotNull(
+    nextTurnInstruction, remainingMinutes, remainingDistanceText, currentOrTargetStreet,
+    routeAlertText).any { it.freshness(nowElapsed) != Freshness.EXPIRED }
 
 /** Reads only the sources already granted and observed in this trip. */
 internal object TripContextCollector {
@@ -36,7 +36,7 @@ internal object TripContextCollector {
     }
     fun clear() { latestLocation = null }
 
-    /** Lightweight source for Mi ruta; avoids polling media, battery and GPS on every UI refresh. */
+    /** Navigation source shared by voice and UI. */
     fun navigationSnapshot(context: Context, nowEpoch: Long = System.currentTimeMillis(),
         nowElapsed: Long = SystemClock.elapsedRealtime()): TripContextSnapshot {
         val screen = WazeScreenState.snapshot
@@ -54,7 +54,7 @@ internal object TripContextCollector {
                 else ContextSource.WAZE_NOTIFICATION, sample.observedAtMs, sample.observedAtElapsedMs)
         }
         val selectedNotification = selectNavigationNotification(parsedNotifications.filter {
-            it.second.hasObservedRouteData() }.map { it.first }, nowElapsed, visiblePackage)
+            it.second.hasRecentObservedRouteData(nowElapsed) }.map { it.first }, nowElapsed, visiblePackage)
         val activePackage = visiblePackage ?: selectedNotification?.packageName
         val notification = parsedNotifications.firstOrNull { it.first === selectedNotification }
             ?.second ?: NavigationContext()
@@ -93,7 +93,8 @@ internal object TripContextCollector {
         return TripContextSnapshot(navigation = source, lastObservedEta = lastObservedEta)
     }
 
-    fun snapshot(context: Context, nowEpoch: Long = System.currentTimeMillis(),
+    /** Own trip progress plus navigation, without polling media or battery for the route card. */
+    fun routeCardSnapshot(context: Context, nowEpoch: Long = System.currentTimeMillis(),
         nowElapsed: Long = SystemClock.elapsedRealtime()): TripContextSnapshot {
         val observedRoute = navigationSnapshot(context, nowEpoch, nowElapsed)
         val gps = latestLocation?.takeIf { TripLocationAccess.available(context) && it.usableForTripContext(nowElapsed) }
@@ -110,6 +111,17 @@ internal object TripContextCollector {
                 dispatch.dispatchedAtElapsedRealtimeMs, 1f, 86_400_000)
         }
         }
+        val session = TripNavigationState.context.takeIf { it.sessionId != null &&
+            nowElapsed >= it.startedAtElapsedRealtimeMs }?.let {
+            ContextValue(nowElapsed - it.startedAtElapsedRealtimeMs, ContextSource.APP_SESSION,
+                nowEpoch, nowElapsed, 1f, 5_000)
+        }
+        return observedRoute.copy(location = gps, target = target, sessionDurationMs = session)
+    }
+
+    fun snapshot(context: Context, nowEpoch: Long = System.currentTimeMillis(),
+        nowElapsed: Long = SystemClock.elapsedRealtime()): TripContextSnapshot {
+        val route = routeCardSnapshot(context, nowEpoch, nowElapsed)
         fun <T> media(value: T?) = value?.let { ContextValue(it, ContextSource.MEDIA_SESSION,
             nowEpoch, nowElapsed, .9f, 5_000) }
         val mediaContext = runCatching {
@@ -134,14 +146,9 @@ internal object TripContextCollector {
             AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER)
         val bluetoothAudio = audio.isBluetoothA2dpOn || audio.isBluetoothScoOn ||
             (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && audio.communicationDevice?.type in bluetoothTypes)
-        val session = TripNavigationState.context.takeIf { it.sessionId != null &&
-            nowElapsed >= it.startedAtElapsedRealtimeMs }?.let {
-            ContextValue(nowElapsed - it.startedAtElapsedRealtimeMs, ContextSource.APP_SESSION,
-                nowEpoch, nowElapsed, 1f, 5_000)
-        }
-        return TripContextSnapshot(observedRoute.navigation, gps, target, mediaContext,
-            DeviceTripContext(device(if (level >= 0 && scale > 0) level * 100 / scale else null),
+        return route.copy(media = mediaContext,
+            device = DeviceTripContext(device(if (level >= 0 && scale > 0) level * 100 / scale else null),
                 device(status in setOf(BatteryManager.BATTERY_STATUS_CHARGING, BatteryManager.BATTERY_STATUS_FULL)),
-                device(bluetoothAudio)), session, observedRoute.lastObservedEta)
+                device(bluetoothAudio)))
     }
 }

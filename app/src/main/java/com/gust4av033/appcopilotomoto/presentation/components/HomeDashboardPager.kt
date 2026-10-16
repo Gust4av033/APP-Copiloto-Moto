@@ -68,7 +68,7 @@ fun HomeDashboardPager(state: CopilotUiState, actions: CopilotActions, onNavigat
                 1 -> EquipmentPanel(state, actions, onNavigate)
                 else -> Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     TripNavigationCard(state.navigationContext, state.observedRoute,
-                        state.observedRouteAtElapsedMs)
+                        state.observedRouteAtElapsedMs, state.navigationNoticesReady)
                     ActionButton(stringResource(R.string.home_open_trip), iconRes = R.drawable.ic_trip,
                         onClick = { onNavigate(CopilotScreen.TRIP) })
                 }

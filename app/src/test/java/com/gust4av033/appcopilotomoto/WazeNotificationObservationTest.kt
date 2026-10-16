@@ -144,6 +144,9 @@ class WazeNotificationObservationTest {
             1_700_000_003_000, 1_700_000_003_000,
             mapOf(Notification.EXTRA_TEXT to "En ejecución. Toca para abrir"),
             WazeNotificationExtractor.PACKAGE, 3_000))
+        val diagnostic = WazeNotificationObservation.snapshot.report(1_700_000_004_000)
+        assertTrue(diagnostic.contains("Paquete=com.google.android.apps.maps"))
+        assertTrue(diagnostic.contains("Paquete=com.waze"))
         val mapsRoute = TripContextCollector.snapshot(app, 1_700_000_004_000, 4_000).navigation
         assertEquals("Google Maps", mapsRoute.activeProvider?.value)
         assertEquals(7, mapsRoute.remainingMinutes?.value)
@@ -162,6 +165,26 @@ class WazeNotificationObservationTest {
         val wazeWithoutEta = TripContextCollector.snapshot(app, 1_700_000_008_000, 8_000)
         assertEquals("Waze", wazeWithoutEta.navigation.activeProvider?.value)
         assertNull(wazeWithoutEta.lastObservedEta)
+    }
+
+    @Test fun expiredWazeRouteCannotHideARecentlyObservedMapsEta() {
+        TripNavigationState.beginSession()
+        UserSettingsStore(app).setDeveloperEnabled(BuildConfig.DEBUG, true)
+        WazeObservationAccess.setEnabled(app, true)
+        Settings.Secure.putString(app.contentResolver, "enabled_notification_listeners", permission())
+        val session = TripNavigationState.context.sessionId
+        WazeNotificationObservation.record(session, WazeNotificationSample("maps-recent", Notification.CATEGORY_NAVIGATION,
+            1_700_000_002_000, 1_700_000_019_000,
+            mapOf(Notification.EXTRA_TEXT to "7 min · 3.2 km"),
+            WazeNotificationExtractor.MAPS_PACKAGE, 19_000))
+        WazeNotificationObservation.record(session, WazeNotificationSample("waze-expired", Notification.CATEGORY_NAVIGATION,
+            1_700_000_005_000, 1_700_000_005_000,
+            mapOf(Notification.EXTRA_TEXT to "4 min para llegar"),
+            WazeNotificationExtractor.PACKAGE, 1_000))
+        val observed = TripContextCollector.navigationSnapshot(app, 1_700_000_020_000, 20_000)
+        assertEquals("Google Maps", observed.navigation.activeProvider?.value)
+        assertEquals(7, observed.navigation.remainingMinutes?.value)
+        assertEquals(EtaSource.GOOGLE_MAPS, observed.lastObservedEta?.source)
     }
 
     @Test fun notificationCallbacksAreGatedAndUnrelatedAppsCannotReplaceSample() {
