@@ -251,7 +251,7 @@ class TripContextTest {
             "6.1 km", "RN 6 / Carretera a Los Planes", "17 min · 7.1 km"),
             ContextSource.WAZE_ACCESSIBILITY, 200, 200)
         assertEquals(17, withGps.remainingMinutes?.value)
-        assertEquals("17 min · 7.1 km", withGps.remainingDistanceText?.value)
+        assertEquals("7.1 km", withGps.remainingDistanceText?.value)
     }
 
     @Test fun visibleWazeCannotBorrowAMapsEta() {

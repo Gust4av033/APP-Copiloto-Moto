@@ -158,3 +158,34 @@ Verificación posterior a integrar los cambios concurrentes de la misma rama:
 código 15, SHA-256 `A3990C90A8D0C5359B620DCEC1BEFB8B5ADDE49DB3F854906B406CBC9AFB954B`.
 Queda pendiente probar la respuesta en el S22+ con Maps y Waze en segundo
 plano; ninguna API usada garantiza una ETA continua en ese estado.
+
+### Mi ruta con datos observados de Maps o Waze
+
+La tarjeta compartida por Inicio → Mi ruta y Viaje ahora presenta los campos
+recientes que APP realmente pudo observar del navegador: tiempo restante,
+distancia restante, próximo giro y distancia a él, vía y aviso. Indica si la
+fuente es Google Maps o Waze. Un aviso genérico de Waze («En ejecución. Toca
+para abrir») no desplaza una notificación de Maps que sí contiene datos de
+ruta. Cuando hay evidencia reciente de ambos, se elige el paquete de la
+notificación de ruta publicada más recientemente; si un navegador está visible,
+se usa únicamente ese paquete. Nunca se mezcla una ETA de Maps con un giro de
+Waze. La solicitud enviada desde APP continúa separada de la lectura: ninguna
+de las dos confirma por sí sola el destino elegido ni una ruta activa.
+
+Los campos de giro y distancia vial solo aparecen mientras su observación es
+reciente; al vencer desaparecen. Si no hay tiempo actual, la tarjeta puede
+mostrar la última ETA observada del mismo proveedor durante dos minutos,
+marcada con su edad y como dato que pudo cambiar. En la variante Full, Waze
+puede aportar texto accesible de su pantalla mientras está al frente y datos
+de notificación si los publica; con otra app al frente no se inventa un giro
+desde iconos ni se conserva una maniobra antigua. Maps ya aportó físicamente
+una ETA de 7 minutos por notificación; distancia, giro y otros campos quedan
+condicionados a lo que publique en cada ruta y versión.
+
+Se renderizaron las tarjetas de Maps y Waze con datos sintéticos en Android JVM
+a fuente 150 %. Ambas suites debug aprobaron 270 casos por variante, cero
+fallos, dos y tres omitidos. `assembleFullFieldTest`, `lintFullDebug` y
+`lintPlaystoreDebug` terminaron sin errores. APK Full de campo, código 15,
+SHA-256 `FC0902C35CF614838C92345C29BB9D442B560FF96E88A4CD8B36090A85126803`.
+Falta comparar la tarjeta con notificaciones y pantalla reales del S22+ cuando
+Maps y Waze están al frente y en segundo plano.

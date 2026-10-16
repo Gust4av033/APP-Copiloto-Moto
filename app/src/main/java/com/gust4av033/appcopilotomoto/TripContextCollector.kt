@@ -17,7 +17,13 @@ internal fun selectNavigationNotification(samples: Collection<WazeNotificationSa
     .filter { it.observedAtElapsedMs > 0 && nowElapsed >= it.observedAtElapsedMs &&
         nowElapsed - it.observedAtElapsedMs <= maxAgeMs }
     .filter { visiblePackage == null || it.packageName == visiblePackage }
-    .maxByOrNull { it.observedAtElapsedMs }
+    .maxWithOrNull(compareBy<WazeNotificationSample> { it.sourcePostTimeMs }
+        .thenBy { it.observedAtElapsedMs })
+
+/** A generic persistent notification does not identify the navigator supplying route data. */
+internal fun NavigationContext.hasObservedRouteData(): Boolean = nextTurnInstruction != null ||
+    remainingMinutes != null || remainingDistanceText != null || currentOrTargetStreet != null ||
+    routeAlertText != null
 
 /** Reads only the sources already granted and observed in this trip. */
 internal object TripContextCollector {
@@ -30,7 +36,8 @@ internal object TripContextCollector {
     }
     fun clear() { latestLocation = null }
 
-    fun snapshot(context: Context, nowEpoch: Long = System.currentTimeMillis(),
+    /** Lightweight source for Mi ruta; avoids polling media, battery and GPS on every UI refresh. */
+    fun navigationSnapshot(context: Context, nowEpoch: Long = System.currentTimeMillis(),
         nowElapsed: Long = SystemClock.elapsedRealtime()): TripContextSnapshot {
         val screen = WazeScreenState.snapshot
         val screenVisible = screen.visible && screen.recent(nowElapsed) &&
@@ -41,20 +48,24 @@ internal object TripContextCollector {
                 WazeObservationAccess.allowed(context)
         }?.samples?.values.orEmpty()
         val visiblePackage = screen.packageName.takeIf { screenVisible }
-        val notification = selectNavigationNotification(notificationSamples, nowElapsed, visiblePackage)
-            ?.let { sample -> NavigationObservationParser.parse(sample.fields.values.toList(),
+        val parsedNotifications = notificationSamples.map { sample ->
+            sample to NavigationObservationParser.parse(sample.fields.values.toList(),
                 if (sample.packageName == WazeNotificationExtractor.MAPS_PACKAGE) ContextSource.GOOGLE_MAPS_NOTIFICATION
                 else ContextSource.WAZE_NOTIFICATION, sample.observedAtMs, sample.observedAtElapsedMs)
-        } ?: NavigationContext()
-        val lastNotificationEta = selectNavigationNotification(notificationSamples, nowElapsed,
-            visiblePackage, LastObservedEta.MAX_AGE_MS)?.takeIf { sample ->
-            sample.sourcePostTimeMs > 0 && nowEpoch >= sample.sourcePostTimeMs &&
-                nowEpoch - sample.sourcePostTimeMs < LastObservedEta.MAX_AGE_MS
-        }?.let { sample ->
-            NavigationObservationParser.parse(sample.fields.values.toList(),
-                if (sample.packageName == WazeNotificationExtractor.MAPS_PACKAGE) ContextSource.GOOGLE_MAPS_NOTIFICATION
-                else ContextSource.WAZE_NOTIFICATION, sample.observedAtMs, sample.observedAtElapsedMs)
-                .remainingMinutes?.value?.let { LastObservedEta(
+        }
+        val selectedNotification = selectNavigationNotification(parsedNotifications.filter {
+            it.second.hasObservedRouteData() }.map { it.first }, nowElapsed, visiblePackage)
+        val activePackage = visiblePackage ?: selectedNotification?.packageName
+        val notification = parsedNotifications.firstOrNull { it.first === selectedNotification }
+            ?.second ?: NavigationContext()
+        val lastNotificationSample = selectNavigationNotification(parsedNotifications.filter {
+            it.second.remainingMinutes != null && it.first.sourcePostTimeMs > 0 &&
+                nowEpoch >= it.first.sourcePostTimeMs &&
+                nowEpoch - it.first.sourcePostTimeMs < LastObservedEta.MAX_AGE_MS
+        }.map { it.first }, nowElapsed, activePackage, LastObservedEta.MAX_AGE_MS)
+        val lastNotificationEta = lastNotificationSample?.let { sample ->
+            parsedNotifications.first { it.first === sample }.second.remainingMinutes?.value
+                ?.let { LastObservedEta(
                     if (sample.packageName == WazeNotificationExtractor.MAPS_PACKAGE) EtaSource.GOOGLE_MAPS else EtaSource.WAZE,
                     it, sample.observedAtElapsedMs) }
         }
@@ -65,6 +76,7 @@ internal object TripContextCollector {
                 nowEpoch - (nowElapsed - screen.observedAtMs), screen.observedAtMs) else NavigationContext()
         val lastScreenEta = screen.takeIf { it.sessionId != null &&
             it.sessionId == TripNavigationState.context.sessionId && WazeScreenAccess.allowed(context) &&
+            (activePackage == null || it.packageName == activePackage) &&
             it.observedAtMs > 0 && nowElapsed >= it.observedAtMs &&
             nowElapsed - it.observedAtMs < LastObservedEta.MAX_AGE_MS }?.let { observed ->
             NavigationObservationParser.parse(observed.texts.map(ScreenText::text),
@@ -78,6 +90,12 @@ internal object TripContextCollector {
         val lastObservedEta = listOfNotNull(lastNotificationEta, lastScreenEta)
             .maxByOrNull { it.observedAtElapsedMs }
         val source = fuseNavigation(notification, accessible, nowElapsed)
+        return TripContextSnapshot(navigation = source, lastObservedEta = lastObservedEta)
+    }
+
+    fun snapshot(context: Context, nowEpoch: Long = System.currentTimeMillis(),
+        nowElapsed: Long = SystemClock.elapsedRealtime()): TripContextSnapshot {
+        val observedRoute = navigationSnapshot(context, nowEpoch, nowElapsed)
         val gps = latestLocation?.takeIf { TripLocationAccess.available(context) && it.usableForTripContext(nowElapsed) }
             ?.let { fix -> ContextValue(fix, ContextSource.ANDROID_GPS, fix.epochMs, fix.elapsedRealtimeMs,
                 when (fix.horizontalAccuracyMeters ?: Float.POSITIVE_INFINITY) {
@@ -121,9 +139,9 @@ internal object TripContextCollector {
             ContextValue(nowElapsed - it.startedAtElapsedRealtimeMs, ContextSource.APP_SESSION,
                 nowEpoch, nowElapsed, 1f, 5_000)
         }
-        return TripContextSnapshot(source, gps, target, mediaContext,
+        return TripContextSnapshot(observedRoute.navigation, gps, target, mediaContext,
             DeviceTripContext(device(if (level >= 0 && scale > 0) level * 100 / scale else null),
                 device(status in setOf(BatteryManager.BATTERY_STATUS_CHARGING, BatteryManager.BATTERY_STATUS_FULL)),
-                device(bluetoothAudio)), session, lastObservedEta)
+                device(bluetoothAudio)), session, observedRoute.lastObservedEta)
     }
 }

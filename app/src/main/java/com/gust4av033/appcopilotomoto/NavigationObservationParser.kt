@@ -34,6 +34,7 @@ internal object NavigationObservationParser {
         // An unlabeled distance beside a turn icon is not the distance to the destination.
         val remainingDistance = texts.firstOrNull { !locationUnknown && it != turnDistance && distance.containsMatchIn(it) &&
             (duration.containsMatchIn(it) || remainingLabel.containsMatchIn(it)) }
+            ?.let { distance.find(it)?.value }
         val street = texts.firstOrNull { road.containsMatchIn(it) }
         return NavigationContext(value(provider), value(instruction), value(turnDistance), value(meters),
             value(street), value(etaLine), value(minutes), value(remainingDistance),

@@ -106,3 +106,13 @@ esta revisión con las ramas históricas retiradas de UI.
 - `docs/UI_BASE.md`
 - `docs/UI_TORMENTA_REFINADA_V3.md`
 - `docs/images/glass-v3/`: marca vectorial y trece capturas Compose.
+
+## Mi ruta con observaciones (actualización de Fase 2)
+
+La misma tarjeta de vidrio de Inicio y Viaje muestra proveedor y campos de
+navegación observados con etiquetas explícitas. Cada campo ausente se omite;
+un tiempo anterior aparece con su antigüedad. La última solicitud de APP se
+muestra por separado y la tarjeta aclara que la lectura no confirma destino
+ni ruta activa. Se comprobaron tarjetas sintéticas de Maps y Waze a fuente
+150 % en Android JVM; la comparación visual y funcional en el S22+ sigue
+pendiente.

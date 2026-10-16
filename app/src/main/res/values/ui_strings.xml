@@ -493,7 +493,16 @@
     <string name="trip_navigation_search_sent">Búsqueda enviada a %1$s: %2$s</string>
     <string name="trip_navigation_search_unconfirmed">El lugar elegido en el navegador no está confirmado en APP.</string>
     <string name="trip_navigation_route_unknown">Estado de ruta no disponible.</string>
-    <string name="trip_navigation_data_unavailable">ETA, distancia y próximo giro todavía no disponibles.</string>
+    <string name="trip_navigation_observed_scope">La lectura no confirma el destino ni que la ruta siga activa.</string>
+    <string name="trip_navigation_data_unavailable">Sin datos recientes de navegación de Waze o Maps.</string>
+    <string name="trip_navigation_observed_source">Datos recientes de %1$s</string>
+    <string name="trip_navigation_eta">Tiempo restante observado: %1$d min</string>
+    <string name="trip_navigation_remaining_distance">Distancia restante observada: %1$s</string>
+    <string name="trip_navigation_next_turn">Próximo giro observado: %1$s</string>
+    <string name="trip_navigation_turn_distance">Distancia al giro: %1$s</string>
+    <string name="trip_navigation_street">Vía indicada: %1$s</string>
+    <string name="trip_navigation_alert">Aviso observado: %1$s</string>
+    <string name="trip_navigation_last_eta">Última ETA de %1$s: %2$d min, observada hace %3$d s. Puede haber cambiado.</string>
     <string name="navigation_request_command">Durante el viaje: «¿Qué destino pedí?» consulta la última solicitud enviada por APP; no confirma una ruta activa.</string>
     <string name="navigation_request_no_trip">No hay un viaje activo de APP. No puedo confirmar una ruta del navegador.</string>
     <string name="navigation_request_empty">Todavía no enviaste un destino o búsqueda desde APP en este viaje.</string>

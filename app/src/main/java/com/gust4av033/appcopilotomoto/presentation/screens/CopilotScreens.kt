@@ -80,7 +80,8 @@ fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onO
     }
 
     if (state.tripActive) item(key = "trip_navigation_context") {
-        com.gust4av033.appcopilotomoto.presentation.components.TripNavigationCard(state.navigationContext, state.wazeScreen)
+        com.gust4av033.appcopilotomoto.presentation.components.TripNavigationCard(
+            state.navigationContext, state.observedRoute, state.observedRouteAtElapsedMs)
     }
 
 }

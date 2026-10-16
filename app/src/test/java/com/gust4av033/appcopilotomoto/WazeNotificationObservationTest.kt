@@ -129,6 +129,41 @@ class WazeNotificationObservationTest {
         assertNull(TripContextCollector.snapshot(app, 1_700_000_021_000, 21_000).lastObservedEta)
     }
 
+    @Test fun genericWazeNoticeCannotHideMapsRouteDataAndNewWazeRouteCanTakeOver() {
+        TripNavigationState.beginSession()
+        UserSettingsStore(app).setDeveloperEnabled(BuildConfig.DEBUG, true)
+        WazeObservationAccess.setEnabled(app, true)
+        Settings.Secure.putString(app.contentResolver, "enabled_notification_listeners", permission())
+        val session = TripNavigationState.context.sessionId
+        val maps = WazeNotificationSample("maps-route", Notification.CATEGORY_NAVIGATION,
+            1_700_000_002_000, 1_700_000_002_000,
+            mapOf(Notification.EXTRA_TEXT to "7 min · 3.2 km"),
+            WazeNotificationExtractor.MAPS_PACKAGE, 2_000)
+        WazeNotificationObservation.record(session, maps)
+        WazeNotificationObservation.record(session, WazeNotificationSample("waze-running", "",
+            1_700_000_003_000, 1_700_000_003_000,
+            mapOf(Notification.EXTRA_TEXT to "En ejecución. Toca para abrir"),
+            WazeNotificationExtractor.PACKAGE, 3_000))
+        val mapsRoute = TripContextCollector.snapshot(app, 1_700_000_004_000, 4_000).navigation
+        assertEquals("Google Maps", mapsRoute.activeProvider?.value)
+        assertEquals(7, mapsRoute.remainingMinutes?.value)
+        assertEquals("3.2 km", mapsRoute.remainingDistanceText?.value)
+        WazeNotificationObservation.record(session, WazeNotificationSample("waze-route", Notification.CATEGORY_NAVIGATION,
+            1_700_000_005_000, 1_700_000_005_000,
+            mapOf(Notification.EXTRA_TEXT to "4 min para llegar"),
+            WazeNotificationExtractor.PACKAGE, 5_000))
+        val wazeRoute = TripContextCollector.snapshot(app, 1_700_000_006_000, 6_000).navigation
+        assertEquals("Waze", wazeRoute.activeProvider?.value)
+        assertEquals(4, wazeRoute.remainingMinutes?.value)
+        WazeNotificationObservation.record(session, WazeNotificationSample("waze-street", Notification.CATEGORY_NAVIGATION,
+            1_700_000_007_000, 1_700_000_007_000,
+            mapOf(Notification.EXTRA_TEXT to "Carretera a Los Planes"),
+            WazeNotificationExtractor.PACKAGE, 7_000))
+        val wazeWithoutEta = TripContextCollector.snapshot(app, 1_700_000_008_000, 8_000)
+        assertEquals("Waze", wazeWithoutEta.navigation.activeProvider?.value)
+        assertNull(wazeWithoutEta.lastObservedEta)
+    }
+
     @Test fun notificationCallbacksAreGatedAndUnrelatedAppsCannotReplaceSample() {
         val service = Robolectric.buildService(WazeNavigationObservationService::class.java).create().get()
         TripNavigationState.beginSession()

@@ -27,3 +27,14 @@ En Maps2 se ejecutaron 18 pruebas de proveedor, contexto y comandos y 19 pruebas
 Historial de Maps1: las pruebas JVM y `assembleDebug` terminaron sin errores (232 casos aprobados y uno omitido) y la selección Waze/Maps se renderizó al 150 % de fuente. En ese entorno JitPack no respondió y se usó temporalmente un stub de compilación; aquel APK no era instalable para pruebas de producto. El APK de Maps2 descrito arriba sí incorpora la dependencia real.
 
 La prueba física queda pendiente. Los Intents prueban despacho a un paquete, no inicio de navegación ni interpretación del destino por el proveedor.
+
+## Actualización posterior de la rama UI integrada · 15 de octubre de 2026
+
+El alcance descrito arriba corresponde a Maps2. La rama funcional actual
+`feature/ui-storm-refined` observa notificaciones de Maps durante el viaje y
+texto de su pantalla en la variante Full autorizada. El usuario confirmó una
+ETA de 7 minutos en una notificación real. Inicio → Mi ruta y Viaje muestran
+ahora los campos recientes que el parser pueda obtener, con fuente Google
+Maps y sin afirmar que APP confirmó el destino o la ruta. Un aviso genérico
+de Waze no tapa una observación útil de Maps. Véase
+[contexto de navegación de Fase 2](FASE_2_NAVEGACION_CONTEXTO.md).

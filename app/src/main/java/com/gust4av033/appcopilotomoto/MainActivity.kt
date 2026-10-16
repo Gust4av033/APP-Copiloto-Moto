@@ -31,8 +31,11 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import com.gust4av033.appcopilotomoto.presentation.CopilotActions
 import com.gust4av033.appcopilotomoto.presentation.AudioDeviceUi
 import com.gust4av033.appcopilotomoto.presentation.AudioDevicesUi
@@ -328,6 +331,18 @@ class MainActivity : ComponentActivity() {
     /** Único puente entre el runtime de fase 1 y las pantallas Compose. */
     @Composable
     private fun AppUi() {
+        var routeRefresh by remember { mutableLongStateOf(0L) }
+        LaunchedEffect(TripTestState.running) {
+            if (!TripTestState.running) routeRefresh = 0L
+            while (TripTestState.running) {
+                routeRefresh = SystemClock.elapsedRealtime()
+                delay(5_000)
+            }
+        }
+        val routeNow = routeRefresh.takeIf { it > 0L } ?: SystemClock.elapsedRealtime()
+        val observedRoute = if (TripTestState.running)
+            TripContextCollector.navigationSnapshot(this@MainActivity, nowElapsed = routeNow)
+        else TripContextSnapshot()
         pendingDisclosure?.let { kind ->
             ProminentDisclosureDialog(kind, onContinue = {
                 val action = pendingDisclosureAction
@@ -423,6 +438,8 @@ class MainActivity : ComponentActivity() {
             wazeScreenGranted = wazeScreenGranted,
             wazeScreen = WazeScreenState.snapshot,
             navigationContext = TripNavigationState.context,
+            observedRoute = observedRoute,
+            observedRouteAtElapsedMs = routeNow,
             lastNavigationRequest = lastNavigationRequest?.label.orEmpty(),
             chatCapabilities = chatCapabilities,
             chatContactsGranted = chatContactsGranted,

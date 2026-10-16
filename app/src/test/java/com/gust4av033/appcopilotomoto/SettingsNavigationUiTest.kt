@@ -80,8 +80,25 @@ class SettingsNavigationUiTest {
         compose.onNodeWithText("Búsqueda enviada a Waze: gasolinera").assertExists()
         compose.onNodeWithText("El lugar elegido en el navegador no está confirmado en APP.").assertExists()
         compose.onNodeWithText("Estado de ruta no disponible.").assertExists()
-        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("ETA, distancia y próximo giro todavía no disponibles."))
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Sin datos recientes de navegación de Waze o Maps."))
         saveRender("phase2-trip-search-large-font")
+    }
+    @Test fun tripShowsObservedMapsFieldsWithoutTreatingThemAsAConfirmedRoute() {
+        val source = ContextSource.GOOGLE_MAPS_NOTIFICATION
+        fun <T> field(value: T) = ContextValue(value, source, 1_000, 1_000, .65f, 15_000)
+        val observed = TripContextSnapshot(navigation = NavigationContext(
+            activeProvider = field("Google Maps"), remainingMinutes = field(7),
+            remainingDistanceText = field("3.2 km"), nextTurnInstruction = field("Gira a la derecha"),
+            currentOrTargetStreet = field("Avenida Los Próceres")))
+        app(state = CopilotUiState(tripActive = true, observedRoute = observed,
+            observedRouteAtElapsedMs = 2_000), screen = CopilotScreen.TRIP, scale = 1.5f)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Datos recientes de Google Maps"))
+        compose.onNodeWithText("Tiempo restante observado: 7 min").assertExists()
+        compose.onNodeWithText("Distancia restante observada: 3.2 km").assertExists()
+        compose.onNodeWithText("Próximo giro observado: Gira a la derecha").assertExists()
+        compose.onNodeWithText("Vía indicada: Avenida Los Próceres").assertExists()
+        compose.onNodeWithText("La lectura no confirma el destino ni que la ruta siga activa.").assertExists()
+        saveRender("phase2-trip-maps-observed-large-font")
     }
     @Test fun wazeObservationIsHiddenFromOrdinaryNavigation() {
         app(section=SettingsSection.NAVIGATION)
@@ -138,13 +155,18 @@ class SettingsNavigationUiTest {
         assertNull(saved)
         assertEquals(0,trips)
     }
-    @Test fun screenTurnIsShownAsALastObservationInStormGlass() {
-        app(state=CopilotUiState(tripActive=true,wazeScreen=WazeScreenSnapshot("s",true,false,1000,
-            turn=WazeTurn("Gira a la izquierda","300 m"))),screen=CopilotScreen.TRIP,scale=1.5f)
-        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Última indicación observada: Gira a la izquierda. 300 m"))
-        compose.onNodeWithText("Última indicación observada: Gira a la izquierda. 300 m").assertExists()
-        compose.onNodeWithText("Estado de ruta no disponible.").assertExists()
-        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Lectura experimental de pantalla; puede haber cambiado.",substring=true))
+    @Test fun recentWazeTurnIsShownAsObservedData() {
+        val source = ContextSource.WAZE_ACCESSIBILITY
+        val route = TripContextSnapshot(navigation = NavigationContext(
+            activeProvider = ContextValue("Waze", source, 1_000, 1_000, .85f, 15_000),
+            nextTurnInstruction = ContextValue("Gira a la izquierda", source, 1_000, 1_000, .85f, 15_000),
+            distanceToNextTurnText = ContextValue("300 m", source, 1_000, 1_000, .85f, 15_000)))
+        app(state=CopilotUiState(tripActive=true, observedRoute=route,
+            observedRouteAtElapsedMs=2_000),screen=CopilotScreen.TRIP,scale=1.5f)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Próximo giro observado: Gira a la izquierda"))
+        compose.onNodeWithText("Próximo giro observado: Gira a la izquierda").assertExists()
+        compose.onNodeWithText("Distancia al giro: 300 m").assertExists()
+        compose.onNodeWithText("La lectura no confirma el destino ni que la ruta siga activa.").assertExists()
         saveRender("phase2-screen-turn-storm-150")
     }
     @Test fun wazeObservationShowsBoundedSampleAndCopyIsExplicit() {
