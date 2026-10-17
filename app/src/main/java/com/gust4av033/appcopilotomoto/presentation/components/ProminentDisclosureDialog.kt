@@ -12,7 +12,8 @@ enum class DisclosureKind(@param:StringRes val title: Int, @param:StringRes val 
     NOTIFICATIONS(R.string.disclosure_notifications_title, R.string.disclosure_notifications_body),
     OVERLAY(R.string.disclosure_overlay_title, R.string.disclosure_overlay_body),
     MICROPHONE(R.string.disclosure_microphone_title, R.string.disclosure_microphone_body),
-    CONTACTS(R.string.disclosure_contacts_title, R.string.disclosure_contacts_body)
+    CONTACTS(R.string.disclosure_contacts_title, R.string.disclosure_contacts_body),
+    LOCATION(R.string.disclosure_location_title, R.string.disclosure_location_body)
 }
 
 @Composable

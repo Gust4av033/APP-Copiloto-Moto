@@ -699,8 +699,10 @@ class MainActivity : ComponentActivity() {
                                 settingsStore.setTripLocationEnabled(true)
                                 tripLocationEnabled = true
                                 tripLocationAvailable = TripLocationAccess.available(this@MainActivity)
-                            } else tripLocationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION))
+                            } else disclose(DisclosureKind.LOCATION) {
+                                tripLocationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION))
+                            }
                         }
                     }
                 },

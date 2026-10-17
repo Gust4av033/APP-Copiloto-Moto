@@ -77,3 +77,5 @@ Todo dato del contexto lleva `source`, captura monotónica, confianza entre 0 y 
 - Solo usa `playFromSearch` si la sesión anuncia esa acción; Poweramp conserva su receptor directo y el intent estándar exige APP visible y teléfono desbloqueado. Enviar búsqueda o controles no confirma reproducción. No infieras la app al frente sin un acceso específico.
 
 - La búsqueda de POI registra una solicitud despachada, nunca un resultado o ruta confirmada. Clima y resultados propios quedan bajo `WeatherProvider` y `PlacesProvider` de Fase 7; no inferirlos de pantallas ajenas.
+
+- Antes de cambiar permisos Play, contrastar ambos manifiestos fusionados con `docs/PLAY_STORE_DECLARACIONES.md`. No presentar enlaces a políticas como revisión completada cuando el acceso a esas páginas haya fallado; la variante Play sigue sin Accesibilidad hasta declaración, divulgación separada y evidencia física.

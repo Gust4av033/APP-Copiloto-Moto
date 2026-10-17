@@ -7,6 +7,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.unit.Density
 import com.gust4av033.appcopilotomoto.presentation.*
+import com.gust4av033.appcopilotomoto.presentation.components.DisclosureKind
+import com.gust4av033.appcopilotomoto.presentation.components.ProminentDisclosureDialog
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
@@ -52,6 +54,12 @@ class SettingsNavigationUiTest {
         compose.setContent { CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density,scale)) {
             CopilotApp(state,screen,{},actions,section)
         } }
+    }
+    @Test fun locationDisclosureExplainsTripScopeAndDenial() {
+        compose.setContent { ProminentDisclosureDialog(DisclosureKind.LOCATION, {}, {}) }
+        compose.onNodeWithText("Ubicación durante el viaje").assertExists()
+        compose.onNodeWithText("Si activás el contexto GPS", substring = true).assertExists()
+        compose.onNodeWithText("Ahora no").assertExists()
     }
     @Test fun ordinarySettingsShowThreeGroupsAndNoDeveloperEntry() {
         app()

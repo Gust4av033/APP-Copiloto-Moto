@@ -37,6 +37,8 @@
     <string name="settings_calls_playstore_hint">Habilitá contactos antes del viaje para decir “llama a [nombre]”. APP abrirá el marcador; vos iniciarás la llamada.</string>
     <string name="disclosure_notifications_title">Acceso a notificaciones</string>
     <string name="disclosure_notifications_body">Android concede acceso a las notificaciones del dispositivo. APP observa las de Waze y Google Maps para intentar identificar indicaciones, y usa el estado multimedia para controlar el audio del casco. Solo guarda ETA del viaje si activaste el historial GPS; no guarda ni transmite mensajes personales. Podés retirar el acceso en Ajustes.</string>
+    <string name="disclosure_location_title">Ubicación durante el viaje</string>
+    <string name="disclosure_location_body">Si activás el contexto GPS, APP registra posición, velocidad y movimiento solo mientras hay un viaje activo. El historial queda en este teléfono y podés borrarlo en Ajustes. Sin permiso podés seguir usando voz, música y la burbuja, pero no habrá distancia GPS propia.</string>
     <string name="disclosure_overlay_title">Burbuja sobre otras aplicaciones</string>
     <string name="disclosure_overlay_body">APP dibuja una burbuja de control rápido sobre el mapa durante el viaje. Cuando recibe datos recientes de navegación mediante los accesos que autorizaste, puede mostrarlos junto a la burbuja. No captura la pantalla ni modifica otras aplicaciones. Podés ocultarla o retirar el permiso en Ajustes.</string>
     <string name="disclosure_microphone_title">Micrófono y reconocimiento local</string>
