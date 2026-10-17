@@ -44,6 +44,8 @@ object TripTestState {
     var audioDuring by mutableStateOf("Iniciá una sesión para medir la ruta activa.")
     var audioAfter by mutableStateOf("Detené la sesión para medir la ruta restaurada.")
     var conversationAudioStatus by mutableStateOf("Sin ciclo de orden reciente.")
+    var informationalSpeechStatus by mutableStateOf("Sin saludo ni despedida reciente.")
+    var greetingWarning by mutableStateOf("")
     var musicSearchStatus by mutableStateOf("Sin búsqueda musical reciente.")
     var audioCaptureGeneration = 0L
 
@@ -79,6 +81,8 @@ object TripTestState {
     fun reset(context: Context) {
         pipeline = TripPipelineMetrics()
         conversationAudioStatus = "Sin ciclo de orden reciente."
+        informationalSpeechStatus = "Sin saludo ni despedida reciente."
+        greetingWarning = ""
         musicSearchStatus = "Sin búsqueda musical reciente."
         lastCommandResult = "Aún no hay órdenes en esta sesión."
         lastRoutedCommand = null

@@ -72,3 +72,7 @@ La ejecución dirigida de testReleaseUnitTest con WazeNotificationObservationTes
 La captura muestra datos sintéticos de prueba; se inspeccionó texto, scroll y copia. No es una captura real de Waze. Ambos APK contienen manifiesto y classes.dex. SHA-256 debug: 1841A6D097DA795F97E34FD7675A2DF483B7CB86F33E893FD40964CAD512C9E3. SHA-256 fieldTest: 9389A8CDA5CA53472923BFC94752D145FF3BB71C65E990EB71BA926427D1C757.
 
 Implementación y validación automatizada completadas. No hay teléfono conectado en esta ejecución; la fuente y el contenido reales de Waze quedan pendientes de la prueba anterior. Los ejemplos sintéticos de las pruebas JVM no se presentan como evidencia del navegador.
+
+## Cierre de Fase 2
+
+La voz de saludo y despedida no usa el contenido de pantalla de Waze ni presenta una solicitud de ruta como ruta confirmada. La narración experimental de giros sigue apagada y en Play no está disponible. El contexto propio de batería y música se recoge sin inferir datos de Waze. La comprobación física de audio y búsquedas de lugares continúa pendiente en el S22+.

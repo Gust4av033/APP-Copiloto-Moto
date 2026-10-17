@@ -79,3 +79,7 @@ Estabilización 04 distingue el permiso multimedia de la copia de prueba, abre s
 
 
 
+
+### Fase 2: asistencia en segundo plano
+
+Durante un viaje, APP puede responder qué música suena, leer la batería y despachar búsquedas de lugares a Waze o Google Maps sin iniciar una ruta automáticamente. El saludo y la despedida se configuran en Ajustes → Activación; solo se emiten por una salida Bluetooth confirmada. Los contratos de clima y lugares propios quedan preparados para Fase 7. La narración de giros es experimental y apagada; la variante Play no incluye lectura de pantalla. Ver [alcance y pruebas pendientes](docs/FASE_2_NAVEGACION_CONTEXTO.md) y [matriz Play](docs/PLAY_STORE_DECLARACIONES.md).

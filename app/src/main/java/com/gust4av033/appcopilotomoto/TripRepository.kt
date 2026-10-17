@@ -29,6 +29,8 @@ internal fun tripDistanceDelta(previous: LocationSample, current: LocationSample
     return displacement.takeIf { it <= plausibleMaximum } ?: 0.0
 }
 
+data class TripSummary(val distanceMeters: Double, val durationMs: Long, val sampleCount: Int)
+
 /** Local append-only history. No simulated sample is accepted. */
 class TripRepository(private val filesDir: File) {
     companion object {
@@ -93,17 +95,19 @@ class TripRepository(private val filesDir: File) {
             .put("remainingMinutes", eta.remainingMinutes).put("epochMs", eta.capturedAtEpochMs)
             .put("elapsedMs", eta.capturedAtElapsedRealtimeMs).put("ttlMs", eta.ttlMs).toString()
     }
-    fun finish(epochMs: Long = System.currentTimeMillis()) {
-        val currentId = id ?: return
-        if (samples == 0) { abort(); return }
+    fun finish(epochMs: Long = System.currentTimeMillis()): TripSummary? {
+        val currentId = id ?: return null
+        if (samples == 0) { abort(); return null }
         flush(lastSample?.elapsedRealtimeMs ?: 0L)
+        val summary = TripSummary(distance, (epochMs - startedAt).coerceAtLeast(0), samples)
         val summaries = readIndex()
         summaries.put(JSONObject().put("id", currentId).put("startedAtEpochMs", startedAt)
             .put("endedAtEpochMs", epochMs).put("distanceMeters", distance)
-            .put("durationMs", (epochMs - startedAt).coerceAtLeast(0)).put("stops", stops)
+            .put("durationMs", summary.durationMs).put("stops", stops)
             .put("slows", slows).put("samples", samples).put("events", events))
         index.writeText(summaries.toString())
         id = null; pending.clear(); prune(epochMs)
+        return summary
     }
     fun abort() {
         id?.let { File(directory, "trip_$it.jsonl").delete() }

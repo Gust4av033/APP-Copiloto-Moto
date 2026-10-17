@@ -464,3 +464,13 @@ El ajuste está apagado por defecto. En Play aparece deshabilitado; no hay una f
 ## Puente de contexto a Fase 3
 
 `TripContextSnapshot` incluye `MusicContext` (reproductor, origen de selección, reproducción, título y artista), `BatteryContext` (nivel y carga) y estado del ciclo de audio, cada uno en `ContextValue` con fuente y vigencia. La batería proviene del broadcast persistente de Android, sin permiso nuevo. «¿Qué suena?» y «¿Cuánta batería me queda?» se resuelven con reglas locales y dicen cuando falta dato reciente. La referencia conversacional a «eso» o al último contacto queda para Fase 3.
+
+## Saludo y despedida de viaje
+
+Tras activar la sesión, APP espera como máximo 5 s por una salida Bluetooth válida. En modo voz, detiene la captura del detector antes de decir «Copiloto listo.»; solo agrega batería bajo 20 % sin carga (dato reciente) y una falta de GPS explícitamente confirmada si el contexto GPS está activo. Si la salida no se confirma, no habla por el teléfono: registra la omisión, avisa en Viaje y en la notificación. Un identificador de sesión persistente impide repetir el saludo para el mismo viaje tras reconstruir el servicio.
+
+Al detener voluntariamente y con la moto fuera de `EN_MARCHA`, APP concluye el ciclo de audio, restaura la salida y la música antes de la despedida «Viaje finalizado.». Solo agrega distancia y tiempo del resumen local de `TripRepository` si hubo GPS del viaje, al menos 2 muestras, 0,5 km y 2 minutos. No habla ante fin inesperado, movimiento confirmado ni conversación activa. La locución informativa usa `AUDIOFOCUS_GAIN_TRANSIENT_MAY_DUCK`, no pausa música ni abre captura y tiene un límite de 6 s. «Solo tono» reutiliza las señales READY y CANCELLED del casco. «Silencio» omite ambas. Los estados visuales siguen siendo independientes.
+
+La captura de la selección en Ajustes con fuente al 200 % está en [saludo y despedida](images/fase_2_saludo_activacion_200.png).
+
+Pruebas físicas pendientes en S22+: iniciar y terminar con música, con casco desconectado y con batería baja simulada si Android lo permite. Las pruebas JVM no prueban audibilidad real del casco ni mezcla efectiva con Spotify, Poweramp, Waze o Maps.

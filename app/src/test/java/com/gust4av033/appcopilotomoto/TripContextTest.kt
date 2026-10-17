@@ -94,7 +94,10 @@ class TripContextTest {
             repository.start(start)
             repository.append(fix(1000, -89.2), MovementState.EN_MARCHA)
             repository.append(fix(2000, -89.19), MovementState.EN_MARCHA)
-            repository.finish(start + 3000)
+            val finished = repository.finish(start + 3000)
+            assertEquals(2, finished?.sampleCount)
+            assertEquals(3_000L, finished?.durationMs)
+            assertEquals(0.0, finished?.distanceMeters ?: -1.0, 0.0) // salto imposible, no distancia inventada
             val folder = root.resolve("trips")
             assertEquals(1, folder.listFiles { f -> f.extension == "jsonl" }?.size)
             repository.prune(start + TripRepository.RAW_SAMPLE_RETENTION_MS + 1)

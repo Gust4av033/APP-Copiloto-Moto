@@ -61,6 +61,15 @@ class SettingsNavigationUiTest {
         compose.onNodeWithText("Si activás el contexto GPS", substring = true).assertExists()
         compose.onNodeWithText("Ahora no").assertExists()
     }
+    @Test fun greetingChoicesRemainReadableAtLargeFont() {
+        app(section = SettingsSection.ACTIVATION, scale = 2f)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Saludo y despedida"))
+        compose.onNodeWithText("Saludo y despedida").assertExists()
+        compose.onNodeWithText("Voz corta").assertExists()
+        compose.onNodeWithText("Solo tono").assertExists()
+        compose.onNodeWithText("Silencio").assertExists()
+        saveRender("phase2-greeting-activation-200")
+    }
     @Test fun ordinarySettingsShowThreeGroupsAndNoDeveloperEntry() {
         app()
         compose.onNodeWithText("Casco y Botón Bluetooth").assertExists()

@@ -55,6 +55,7 @@ class TripVoiceService : Service() {
         private const val APP_CHANNEL_ID = "trip_app_selection_v1"
         private const val APP_NOTIFICATION_ID = 104
         private const val DIAL_NOTIFICATION_ID = 105
+        private const val TRIP_END_NOTIFICATION_ID = 106
     }
 
     private val mainHandler = Handler(Looper.getMainLooper())
@@ -143,6 +144,13 @@ class TripVoiceService : Service() {
     private var resumeAfterButtonRoute = false
     private val conversationCycle = ConversationAudioCycle(SystemClock::elapsedRealtime)
     private val informationalSpeaker by lazy { InformationalTripSpeaker(applicationContext) }
+    private val sessionTone by lazy { TripReadyCue(applicationContext, AudioAttributes.USAGE_ASSISTANT) }
+    private val greetingOnce by lazy { TripGreetingOnce(SavedGreetingSessionMarker(applicationContext)) }
+    private var greetingPendingSessionId: String? = null
+    private var greetingTask: Runnable? = null
+    private data class PendingFarewell(val expected: Boolean, val moving: Boolean,
+        val cycleActive: Boolean, val locationEnabled: Boolean, val summary: TripSummary?)
+    private var pendingFarewell: PendingFarewell? = null
     private val navigationSpeech = NavigationSpeechDeduplicator()
     private val conversationFocusRequest by lazy { AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
         .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT)
@@ -379,6 +387,7 @@ class TripVoiceService : Service() {
         mainHandler.post(overlayTick)
         TripTestState.running = true
         TripNavigationState.beginSession(NavigationPreferences.consumeNextTripDestination(this))
+        greetingPendingSessionId = TripNavigationState.context.sessionId
         TripMusicState.beginSession(TripNavigationState.context.sessionId)
         navigationSpeech.reset()
         TripRecordingState.clear()
@@ -641,6 +650,11 @@ class TripVoiceService : Service() {
 
     private fun startDetector(provider: WakeWordProvider) {
         buttonCoordinator?.beforeCapture()
+        if (greetingPendingSessionId != null && TripGreetingSettings.selected(this) == TripGreetingMode.SILENT) {
+            greetingOnce.claim(greetingPendingSessionId)
+            greetingPendingSessionId = null
+            TripTestState.informationalSpeechStatus = "Inicio omitido: ajuste Silencio."
+        }
         if (effectiveAudioMode != WakeAudioMode.BUTTON && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
             !getSystemService(AudioManager::class.java).availableCommunicationDevices.any {
                 it.type == AudioDeviceInfo.TYPE_BLUETOOTH_SCO || it.type == AudioDeviceInfo.TYPE_BLE_HEADSET
@@ -663,12 +677,86 @@ class TripVoiceService : Service() {
                 if (result.isFailure) {
                     stopSession("Falló la escucha: ${result.exceptionOrNull()?.message}")
                 } else {
+                    val pendingGreeting = greetingPendingSessionId
+                    if (pendingGreeting != null) {
+                        greetingPendingSessionId = null
+                        if (effectiveAudioMode == WakeAudioMode.BUTTON) {
+                            greetBeforeArming(provider, cycle, pendingGreeting,
+                                SystemClock.elapsedRealtime() + TripGreetingPolicy.MAX_ROUTE_WAIT_MS)
+                        } else worker.execute {
+                            val paused = runCatching { provider.pause() }
+                            mainHandler.post {
+                                if (!active || detector !== provider || cycle != generation) return@post
+                                if (paused.isFailure) {
+                                    TripTestState.informationalSpeechStatus = "Inicio omitido: no se pudo cerrar la captura antes de hablar."
+                                    startDetector(provider)
+                                } else greetBeforeArming(provider, cycle, pendingGreeting,
+                                    SystemClock.elapsedRealtime() + TripGreetingPolicy.MAX_ROUTE_WAIT_MS)
+                            }
+                        }
+                        return@post
+                    }
                     TripTestState.status = if (effectiveAudioMode == WakeAudioMode.BUTTON) {
                         "Comprobando que la música volvió a su salida normal…"
                     } else "Estabilizando audio; esperá un momento…"
                     schedule(if (effectiveAudioMode == WakeAudioMode.BUTTON) 500L else 1_500L) {
                         armDetector(provider, cycle, 0)
                     }
+                }
+            }
+        }
+    }
+
+    private fun greetBeforeArming(provider: WakeWordProvider, cycle: Int, sessionId: String,
+        deadlineElapsedMs: Long) {
+        if (!active || detector !== provider || generation != cycle || closing) return
+        val now = SystemClock.elapsedRealtime()
+        if (!informationalHeadsetRouteAvailable() && now < deadlineElapsedMs) {
+            greetingTask = Runnable {
+                greetingTask = null
+                greetBeforeArming(provider, cycle, sessionId, deadlineElapsedMs)
+            }.also { mainHandler.postDelayed(it, 400L) }
+            return
+        }
+        if (!greetingOnce.claim(sessionId)) {
+            TripTestState.informationalSpeechStatus = "Inicio omitido: ya emitido para esta sesión."
+            startDetector(provider)
+            return
+        }
+        val context = TripContextCollector.snapshot(this, nowElapsed = now)
+        val decision = TripGreetingPolicy.start(TripGreetingSettings.selected(this),
+            informationalHeadsetRouteAvailable(), conversationCycle.current != null,
+            context.battery, now, UserSettingsStore(this).tripLocationEnabled(),
+            TripRecordingState.locationStatus == "UNAVAILABLE")
+        when (decision.announcement) {
+            TripAnnouncement.NONE -> {
+                TripTestState.informationalSpeechStatus = "Inicio omitido: ${decision.skip}."
+                if (decision.skip == TripGreetingSkip.NO_HEADSET_ROUTE) {
+                    TripTestState.greetingWarning = getString(R.string.trip_greeting_audio_unavailable)
+                    updateNotification(TripTestState.greetingWarning)
+                }
+                startDetector(provider)
+                if (decision.skip == TripGreetingSkip.NO_HEADSET_ROUTE) mainHandler.postDelayed({
+                    if (active) updateNotification(TripTestState.greetingWarning)
+                }, 2_000L)
+            }
+            TripAnnouncement.TONE -> {
+                val tone = sessionTone.play(VoiceCue.READY)
+                TripTestState.informationalSpeechStatus = if (tone.isSuccess) "Inicio: tono del casco solicitado."
+                    else "Inicio omitido: ${tone.exceptionOrNull()?.message}."
+                greetingTask = Runnable { greetingTask = null; if (active && generation == cycle) startDetector(provider) }
+                    .also { mainHandler.postDelayed(it, if (tone.isSuccess) VoiceInteractionTiming.CUE_RELEASE_MS else 0L) }
+            }
+            TripAnnouncement.VOICE -> {
+                val spoken = decision.spokenText(this, starting = true)
+                val started = informationalSpeaker.speak(spoken) { emitted ->
+                    TripTestState.informationalSpeechStatus = if (emitted) "Inicio emitido: $spoken"
+                        else "Inicio cortado por límite o error: $spoken"
+                    if (active && generation == cycle) startDetector(provider)
+                }
+                if (!started) {
+                    TripTestState.informationalSpeechStatus = "Inicio omitido: foco de audio no disponible."
+                    startDetector(provider)
                 }
             }
         }
@@ -1800,6 +1888,9 @@ class TripVoiceService : Service() {
     private fun stopSession(reason: String, expected: Boolean = false) {
         if (closing) return
         val callWasDispatched = callPending
+        val cycleWasActive = conversationCycle.current != null
+        val movingAtStop = movementDetector?.state == MovementState.EN_MARCHA
+        val locationWasEnabled = UserSettingsStore(this).tripLocationEnabled() && locationReadyForSession
         callConfirmation.cancel()
         followUpGate.cancel()
         songCaptureToken = null
@@ -1811,6 +1902,10 @@ class TripVoiceService : Service() {
         buttonCoordinator?.close()
         buttonCoordinator = null
         informationalSpeaker.cancel()
+        greetingTask?.let(mainHandler::removeCallbacks)
+        greetingTask = null
+        sessionTone.cancel()
+        greetingPendingSessionId = null
         active = false
         draftCaptureToken = null
         mainHandler.removeCallbacks(overlayTick)
@@ -1850,7 +1945,9 @@ class TripVoiceService : Service() {
         mainHandler.removeCallbacks(contextTick)
         tripLocationSource?.stop()
         tripLocationSource = null
-        tripRepository?.finish()
+        val tripSummary = tripRepository?.finish()
+        pendingFarewell = PendingFarewell(expected && !callWasDispatched && pendingDialContact == null,
+            movingAtStop, cycleWasActive, locationWasEnabled, tripSummary)
         tripRepository = null
         movementDetector = null
         lastEtaKey = null
@@ -1922,10 +2019,66 @@ class TripVoiceService : Service() {
             } else TripTestState.lastCommandResult = "Audio sin restaurar; marcador sin abrir."
         }
         TripTestState.save(this)
+        val farewell = pendingFarewell
+        pendingFarewell = null
+        if (farewell != null) {
+            val decision = TripGreetingPolicy.end(TripGreetingSettings.selected(this), farewell.expected,
+                farewell.moving, farewell.cycleActive, routeReady && closeError == null &&
+                    informationalHeadsetRouteAvailable(), farewell.locationEnabled, farewell.summary)
+            when (decision.announcement) {
+                TripAnnouncement.VOICE -> {
+                    val spoken = decision.spokenText(this, starting = false)
+                    val started = informationalSpeaker.speak(spoken) { emitted ->
+                        TripTestState.informationalSpeechStatus = if (emitted) "Fin emitido: $spoken"
+                            else "Fin cortado por límite o error: $spoken"
+                        completeStop()
+                    }
+                    if (started) return
+                    TripTestState.informationalSpeechStatus = "Fin omitido: foco de audio no disponible."
+                }
+                TripAnnouncement.TONE -> {
+                    val tone = sessionTone.play(VoiceCue.CANCELLED)
+                    TripTestState.informationalSpeechStatus = if (tone.isSuccess) "Fin: tono del casco solicitado."
+                        else "Fin omitido: ${tone.exceptionOrNull()?.message}."
+                    if (tone.isSuccess) {
+                        greetingTask = Runnable { greetingTask = null; completeStop() }
+                            .also { mainHandler.postDelayed(it, VoiceInteractionTiming.CUE_RELEASE_MS) }
+                        return
+                    }
+                }
+                TripAnnouncement.NONE -> {
+                    TripTestState.informationalSpeechStatus = "Fin omitido: ${decision.skip}."
+                    if (decision.skip in setOf(TripGreetingSkip.UNEXPECTED_STOP, TripGreetingSkip.MOVING,
+                            TripGreetingSkip.NO_HEADSET_ROUTE)) postTripEndNotice(reason)
+                }
+            }
+        }
+        completeStop()
+    }
+
+    private fun completeStop() {
+        if (!closing) return
+        TripTestState.save(this)
         closing = false
         TripTestState.restoringAudio = false
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
+    }
+
+    private fun postTripEndNotice(reason: String) {
+        val launch = PendingIntent.getActivity(this, 8,
+            Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val notice = Notification.Builder(this, APP_CHANNEL_ID)
+            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setContentTitle(getString(R.string.trip_greeting_finished))
+            .setContentText(reason.take(120))
+            .setContentIntent(launch)
+            .setAutoCancel(true)
+            .setTimeoutAfter(60_000L)
+            .setVisibility(Notification.VISIBILITY_PRIVATE)
+            .build()
+        runCatching { getSystemService(NotificationManager::class.java).notify(TRIP_END_NOTIFICATION_ID, notice) }
     }
 
     private fun showDialPrompt(contact: TripCallContact) {
@@ -2071,6 +2224,10 @@ class TripVoiceService : Service() {
 
     override fun onDestroy() {
         followUpGate.cancel()
+        greetingTask?.let(mainHandler::removeCallbacks)
+        greetingTask = null
+        informationalSpeaker.cancel()
+        sessionTone.cancel()
         capture.releaseCue()
         mainHandler.removeCallbacks(overlayTick)
         mainHandler.removeCallbacks(contextTick)

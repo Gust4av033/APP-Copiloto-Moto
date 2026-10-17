@@ -51,6 +51,9 @@ fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onO
     if (state.tripActive && state.buttonMode && !state.canRequestTripCommand) item(key = "waiting") {
         SupportingText(stringResource(R.string.trip_wait_ready))
     }
+    if (state.tripActive && state.greetingWarning.isNotBlank()) item(key = "greeting_warning") {
+        SectionCard(stringResource(R.string.trip_greeting_title)) { SupportingText(state.greetingWarning) }
+    }
     if (state.tripActive) item(key = "trip_music_player") {
         SectionCard(stringResource(R.string.trip_music_player_title)) {
             val selected = state.currentTripMusicPlayer

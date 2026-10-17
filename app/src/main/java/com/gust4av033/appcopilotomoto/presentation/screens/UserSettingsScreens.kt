@@ -13,13 +13,20 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.SensitivityPreset
+import com.gust4av033.appcopilotomoto.TripGreetingMode
+import com.gust4av033.appcopilotomoto.TripGreetingSettings
 import com.gust4av033.appcopilotomoto.presentation.*
 import com.gust4av033.appcopilotomoto.presentation.components.*
 
@@ -68,6 +75,7 @@ fun LazyListScope.SettingsScreen(
                 SupportingText(stringResource(R.string.settings_voice_audio_hint))
             } }
             item("headset_button") { TripButtonSettingsCard(state, actions) }
+            item("greeting_mode") { GreetingSettingsCard(state) }
             item("wake_preferences") { SectionCard(stringResource(R.string.settings_phrase)) {
                 if (state.buttonMode) SupportingText(stringResource(R.string.settings_phrase_manual_inactive))
                 ChoiceGroup(state.phrases, state.phraseId, !state.busy, actions.onPhraseChange)
@@ -176,6 +184,23 @@ fun LazyListScope.SettingsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun GreetingSettingsCard(state: CopilotUiState) {
+    val context = LocalContext.current
+    var selected by rememberSaveable { mutableStateOf(TripGreetingSettings.selected(context).name) }
+    SectionCard(stringResource(R.string.trip_greeting_title)) {
+        ChoiceGroup(listOf(ChoiceUi(TripGreetingMode.VOICE_SHORT.name, R.string.trip_greeting_voice),
+            ChoiceUi(TripGreetingMode.TONE_ONLY.name, R.string.trip_greeting_tone),
+            ChoiceUi(TripGreetingMode.SILENT.name, R.string.trip_greeting_silent)),
+            selected, !state.busy) { value ->
+            val mode = TripGreetingMode.valueOf(value)
+            TripGreetingSettings.select(context, mode)
+            selected = mode.name
+        }
+        SupportingText(stringResource(R.string.trip_greeting_hint))
     }
 }
 

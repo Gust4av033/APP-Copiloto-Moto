@@ -74,6 +74,7 @@ fun DiagnosticsReportCard(state: CopilotUiState, actions: CopilotActions) {
                 appendLine("Antes: ${state.audioBefore}")
                 appendLine("Durante (captura de espera): ${state.audioDuring}")
                 appendLine("Ciclo de orden: ${state.conversationAudioStatus}")
+                appendLine("Saludo y despedida: ${state.informationalSpeechStatus}")
                 appendLine("Búsqueda musical: ${state.musicSearchStatus}")
                 appendLine("Después: ${state.audioAfter}")
                 state.probe?.let {

@@ -465,6 +465,8 @@ class MainActivity : ComponentActivity() {
             audioBefore = TripTestState.audioBefore,
             audioDuring = TripTestState.audioDuring,
             conversationAudioStatus = TripTestState.conversationAudioStatus,
+            informationalSpeechStatus = TripTestState.informationalSpeechStatus,
+            greetingWarning = TripTestState.greetingWarning,
             musicSearchStatus = TripTestState.musicSearchStatus,
             audioAfter = TripTestState.audioAfter,
             callMessage = tripCallMessage,
