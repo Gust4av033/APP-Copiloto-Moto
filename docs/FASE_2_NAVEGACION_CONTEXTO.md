@@ -460,3 +460,7 @@ El inventario de permisos y servicios de los manifiestos fusionados, así como l
 ## Narración propia de giros (experimental)
 
 El ajuste está apagado por defecto. En Play aparece deshabilitado; no hay una fuente de giros confiable. En `full` solo puede hablar en modo botón, con GPS reciente, salida Bluetooth confirmada y una maniobra explícita observada con su distancia del mismo origen. La política pura deduplica los avisos a 450, 175 y 50 m, descarta observaciones vencidas o maniobras que el movimiento ya habría dejado atrás y guarda silencio durante una conversación. No se usa el foco de audio para silenciar Waze o Maps. La voz informativa solicita solo ducking. La ruta propia `APP_ROAD_ROUTE` tiene adaptador de contrato, pendiente de un plan real y progreso sobre la ruta. Validación física de salida y tiempos pendiente.
+
+## Puente de contexto a Fase 3
+
+`TripContextSnapshot` incluye `MusicContext` (reproductor, origen de selección, reproducción, título y artista), `BatteryContext` (nivel y carga) y estado del ciclo de audio, cada uno en `ContextValue` con fuente y vigencia. La batería proviene del broadcast persistente de Android, sin permiso nuevo. «¿Qué suena?» y «¿Cuánta batería me queda?» se resuelven con reglas locales y dicen cuando falta dato reciente. La referencia conversacional a «eso» o al último contacto queda para Fase 3.

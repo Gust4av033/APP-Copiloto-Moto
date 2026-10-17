@@ -3,7 +3,7 @@ package com.gust4av033.appcopilotomoto
 import java.text.Normalizer
 import java.util.Locale
 
-enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, MEDIA_SEARCH, RESET_MUSIC_PLAYER, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, OPEN_APP, OPEN_CONTACT_CHAT, DRAFT_CONTACT_MESSAGE, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, SWITCH_MODE, OPEN_ASSISTANT, NAVIGATE, SEARCH_PLACE, NEXT_TURN, HOW_LONG, TRIP_STATUS, NAVIGATION_REQUEST_STATUS, UNKNOWN }
+enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, MEDIA_SEARCH, RESET_MUSIC_PLAYER, MUSIC_CONTEXT, BATTERY_CONTEXT, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, OPEN_APP, OPEN_CONTACT_CHAT, DRAFT_CONTACT_MESSAGE, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, SWITCH_MODE, OPEN_ASSISTANT, NAVIGATE, SEARCH_PLACE, NEXT_TURN, HOW_LONG, TRIP_STATUS, NAVIGATION_REQUEST_STATUS, UNKNOWN }
 
 data class VolumeRequest(val amount: Int, val percent: Boolean)
 data class RoutedCommand(
@@ -144,6 +144,8 @@ object MinimalIntentRouter {
         val chat = ContactChatParser.parse(normalized)
         val draft = ChatDraftParser.parse(transcript)
         val intent = when {
+            normalized in setOf("que suena", "que cancion suena", "que musica suena", "que estoy escuchando") -> TestIntent.MUSIC_CONTEXT
+            normalized in setOf("cuanta bateria me queda", "cuanta bateria tengo", "como esta mi bateria", "bateria restante") -> TestIntent.BATTERY_CONTEXT
             normalized in setOf("cual es el proximo giro", "proximo giro", "que indica waze", "que dice waze", "next turn", "what is the next turn") -> TestIntent.NEXT_TURN
             normalized in setOf("cuanto falta", "cuanto falta para llegar", "cuanto tiempo falta", "how long until arrival") -> TestIntent.HOW_LONG
             normalized in setOf("estado del viaje", "como va el viaje", "resumen del viaje", "trip status") -> TestIntent.TRIP_STATUS

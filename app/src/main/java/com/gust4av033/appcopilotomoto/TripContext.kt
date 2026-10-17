@@ -102,11 +102,19 @@ data class MediaTripContext(val track: ContextValue<String>?, val artist: Contex
     val app: ContextValue<String>?, val playback: ContextValue<String>?)
 data class DeviceTripContext(val batteryPercent: ContextValue<Int>?, val charging: ContextValue<Boolean>?,
     val bluetoothAudioConfirmed: ContextValue<Boolean>?)
+data class MusicContext(val playerPackage: String, val playerLabel: String,
+    val origin: MusicPlayerOrigin, val playing: Boolean?, val title: String?, val artist: String?)
+data class BatteryContext(val percent: Int, val charging: Boolean) {
+    init { require(percent in 0..100) }
+}
+data class AudioCycleContext(val active: Boolean, val reason: String? = null)
 /** Geometry to an explicit coordinate, independent of roads and external navigation. */
 data class OwnTargetGeometry(val distanceMeters: Double, val bearingDegrees: Double)
 data class TripContextSnapshot(val navigation: NavigationContext = NavigationContext(),
     val location: ContextValue<LocationSample>? = null, val target: ContextValue<TargetDestination>? = null,
     val media: MediaTripContext? = null, val device: DeviceTripContext? = null,
+    val music: ContextValue<MusicContext>? = null, val battery: ContextValue<BatteryContext>? = null,
+    val audioCycle: ContextValue<AudioCycleContext>? = null,
     val sessionDurationMs: ContextValue<Long>? = null,
     val lastObservedEta: LastObservedEta? = null) {
     fun ownTargetGeometry(now: Long): ContextValue<OwnTargetGeometry>? {

@@ -30,12 +30,13 @@ internal object TripContextCollector {
     private const val CURRENT_NOTICE_MAX_AGE_MS = 15_000L
     @Volatile var latestLocation: LocationSample? = null
         private set
+    @Volatile var audioCycleState = AudioCycleContext(false)
     fun recordLocation(sample: LocationSample) {
         if (!sample.hasTripPositionQuality()) return
         if (latestLocation?.elapsedRealtimeMs?.let { sample.elapsedRealtimeMs <= it } == true) return
         latestLocation = sample
     }
-    fun clear() { latestLocation = null }
+    fun clear() { latestLocation = null; audioCycleState = AudioCycleContext(false) }
 
     /** Navigation source shared by voice and UI. */
     fun navigationSnapshot(context: Context, nowEpoch: Long = System.currentTimeMillis(),
@@ -134,11 +135,12 @@ internal object TripContextCollector {
         val route = routeCardSnapshot(context, nowEpoch, nowElapsed)
         fun <T> media(value: T?) = value?.let { ContextValue(it, ContextSource.MEDIA_SESSION,
             nowEpoch, nowElapsed, .9f, 5_000) }
+        val controller = runCatching { TripMediaAccess.controller(context) }.getOrNull()
         val mediaContext = runCatching {
-            val controller = TripMediaAccess.controller(context)
-            MediaTripContext(media(controller.metadata?.getString(MediaMetadata.METADATA_KEY_TITLE)),
-                media(controller.metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST)),
-                media(controller.packageName), media(when (controller.playbackState?.state) {
+            val current = checkNotNull(controller)
+            MediaTripContext(media(current.metadata?.getString(MediaMetadata.METADATA_KEY_TITLE)),
+                media(current.metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST)),
+                media(current.packageName), media(when (current.playbackState?.state) {
                     PlaybackState.STATE_PLAYING -> "PLAYING"
                     PlaybackState.STATE_PAUSED -> "PAUSED"
                     else -> null
@@ -150,13 +152,42 @@ internal object TripContextCollector {
         val level = battery?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
         val scale = battery?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
         val status = battery?.getIntExtra(BatteryManager.EXTRA_STATUS, -1) ?: -1
+        val batteryContext = if (level in 0..scale && scale > 0 &&
+            status in setOf(BatteryManager.BATTERY_STATUS_CHARGING, BatteryManager.BATTERY_STATUS_FULL,
+                BatteryManager.BATTERY_STATUS_DISCHARGING, BatteryManager.BATTERY_STATUS_NOT_CHARGING))
+            ContextValue(BatteryContext(level * 100 / scale,
+                status in setOf(BatteryManager.BATTERY_STATUS_CHARGING, BatteryManager.BATTERY_STATUS_FULL)),
+                ContextSource.DEVICE_STATUS, nowEpoch, nowElapsed, 1f, 10_000L) else null
+        val tripPackage = TripMusicState.activePackage
+        val preferredPackage = MusicSearchAdapter(context).preferredPackage()
+        val playerPackage = tripPackage ?: controller?.packageName ?: preferredPackage
+        val musicContext = playerPackage?.let { packageName ->
+            val fromSession = controller?.packageName == packageName
+            val label = if (packageName == tripPackage) TripMusicState.activeLabel else null
+            val resolvedLabel = label ?: runCatching {
+                @Suppress("DEPRECATION")
+                context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(packageName, 0)).toString()
+            }.getOrDefault(packageName)
+            ContextValue(MusicContext(packageName, resolvedLabel, when {
+                tripPackage != null -> MusicPlayerOrigin.TRIP
+                fromSession && controller?.playbackState?.state == PlaybackState.STATE_PLAYING -> MusicPlayerOrigin.PLAYING_SESSION
+                preferredPackage == packageName -> MusicPlayerOrigin.SETTINGS
+                else -> MusicPlayerOrigin.AUTOMATIC
+            }, if (fromSession) controller?.playbackState?.state == PlaybackState.STATE_PLAYING else null,
+                if (fromSession) controller?.metadata?.getString(MediaMetadata.METADATA_KEY_TITLE) else null,
+                if (fromSession) controller?.metadata?.getString(MediaMetadata.METADATA_KEY_ARTIST) else null),
+                if (tripPackage != null || !fromSession) ContextSource.APP_SESSION else ContextSource.MEDIA_SESSION,
+                nowEpoch, nowElapsed, .9f, 5_000L)
+        }
         val audio = context.getSystemService(AudioManager::class.java)
         val bluetoothTypes = setOf(
             AudioDeviceInfo.TYPE_BLUETOOTH_A2DP, AudioDeviceInfo.TYPE_BLUETOOTH_SCO,
             AudioDeviceInfo.TYPE_BLE_HEADSET, AudioDeviceInfo.TYPE_BLE_SPEAKER)
         val bluetoothAudio = audio.isBluetoothA2dpOn || audio.isBluetoothScoOn ||
             (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && audio.communicationDevice?.type in bluetoothTypes)
-        return route.copy(media = mediaContext,
+        return route.copy(media = mediaContext, music = musicContext, battery = batteryContext,
+            audioCycle = ContextValue(audioCycleState, ContextSource.APP_SESSION,
+                nowEpoch, nowElapsed, 1f, 5_000L),
             device = DeviceTripContext(device(if (level >= 0 && scale > 0) level * 100 / scale else null),
                 device(status in setOf(BatteryManager.BATTERY_STATUS_CHARGING, BatteryManager.BATTERY_STATUS_FULL)),
                 device(bluetoothAudio)))

@@ -81,3 +81,5 @@ Todo dato del contexto lleva `source`, captura monotónica, confianza entre 0 y 
 - Antes de cambiar permisos Play, contrastar ambos manifiestos fusionados con `docs/PLAY_STORE_DECLARACIONES.md`. No presentar enlaces a políticas como revisión completada cuando el acceso a esas páginas haya fallado; la variante Play sigue sin Accesibilidad hasta declaración, divulgación separada y evidencia física.
 
 - La narración de giros es experimental y apagada por defecto. Solo una maniobra explícita, reciente y con distancia de la misma fuente puede generar voz; Play la mantiene no disponible hasta contar con fuente confiable. Nunca pedir foco para silenciar Waze o Maps.
+
+- `MusicContext`, `BatteryContext` y el estado del ciclo llegan al Context Engine con `ContextValue` y vigencia. Las preguntas deterministas solo usan datos recientes; ausencia y caducidad se responden explícitamente. Referencias conversacionales pertenecen a Fase 3.

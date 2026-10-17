@@ -18,6 +18,8 @@ fun RoutedCommand.toCommandUi(): CommandUi = when (intent) {
     TestIntent.MEDIA_SEARCH -> CommandUi(R.string.command_music_search, R.string.command_music_query,
         if (musicTitleInEnglish) "Título en inglés después del tono" else musicQuery.orEmpty())
     TestIntent.RESET_MUSIC_PLAYER -> CommandUi(R.string.command_reset_music_player)
+    TestIntent.MUSIC_CONTEXT -> CommandUi(R.string.command_music_context)
+    TestIntent.BATTERY_CONTEXT -> CommandUi(R.string.command_battery_context)
     TestIntent.VOLUME_UP -> CommandUi(R.string.command_volume_up)
     TestIntent.VOLUME_DOWN -> CommandUi(R.string.command_volume_down)
     TestIntent.VOLUME_SET -> CommandUi(R.string.command_volume_set,

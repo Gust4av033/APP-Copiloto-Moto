@@ -1409,6 +1409,10 @@ class MainActivity : ComponentActivity() {
                                 TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime(),
                                 TripRecordingState.movingMs,
                                 TripRecordingState.movement.takeIf { TripRecordingState.samples > 0 })
+                            TestIntent.MUSIC_CONTEXT -> DeviceMediaContextAnswers.playing(
+                                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime())
+                            TestIntent.BATTERY_CONTEXT -> DeviceMediaContextAnswers.battery(
+                                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime())
                             TestIntent.NAVIGATION_REQUEST_STATUS -> actions.navigationRequestAnswer()
                             TestIntent.NAVIGATE -> "Destino interpretado; la ruta y su confirmación se prueban durante el viaje. No se abrió ningún navegador."
                             TestIntent.OPEN_CONTACT_CHAT -> "Escuché: ‘$heard’. Los chats con confirmación por voz se prueban en la sesión de viaje."

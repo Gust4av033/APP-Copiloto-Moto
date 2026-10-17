@@ -36,5 +36,8 @@ object TripContextDiagnostics {
         line("Batería", snapshot.device?.batteryPercent)
         line("Carga", snapshot.device?.charging)
         line("Audio Bluetooth confirmado", snapshot.device?.bluetoothAudioConfirmed)
+        line("Música contextual", snapshot.music)
+        line("Batería contextual", snapshot.battery)
+        line("Ciclo de audio", snapshot.audioCycle)
     }
 }

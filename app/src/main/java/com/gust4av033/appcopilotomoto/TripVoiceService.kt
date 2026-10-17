@@ -550,6 +550,7 @@ class TripVoiceService : Service() {
         }.getOrDefault(false)
         cyclePausedPlayerPackage = if (paused) playingPackage else null
         val session = conversationCycle.begin(reason, playing, paused)
+        TripContextCollector.audioCycleState = AudioCycleContext(true, reason)
         conversationEndCause = ConversationAudioCycle.End.COMPLETED
         conversationFocusGranted = runCatching {
             audioManager.requestAudioFocus(conversationFocusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
@@ -622,6 +623,7 @@ class TripVoiceService : Service() {
             conversationCycle.rememberPause(it.id, pausedDuringCapture || resumeAfterButtonRoute)
             conversationCycle.end(it.id, cause, otherPlaybackActive, callActive)
         }
+        TripContextCollector.audioCycleState = AudioCycleContext(false)
         if (releaseFocus) releaseConversationFocus()
         val resume = outcome?.shouldResume ?: (pausedDuringCapture || resumeAfterButtonRoute) &&
             !otherPlaybackActive && !callActive && cause !in setOf(ConversationAudioCycle.End.MUSIC_REPLACED,
@@ -969,7 +971,8 @@ class TripVoiceService : Service() {
                 return@listenOnce
             }
             if (intent in setOf(TestIntent.NEXT_TURN, TestIntent.HOW_LONG,
-                    TestIntent.TRIP_STATUS, TestIntent.NAVIGATION_REQUEST_STATUS)) {
+                    TestIntent.TRIP_STATUS, TestIntent.NAVIGATION_REQUEST_STATUS,
+                    TestIntent.MUSIC_CONTEXT, TestIntent.BATTERY_CONTEXT)) {
                 TripTestState.recognized++
                 TripTestState.save(this)
                 val now = SystemClock.elapsedRealtime()
@@ -981,6 +984,10 @@ class TripVoiceService : Service() {
                     TestIntent.TRIP_STATUS -> BriefTripContextTtsFormatter.status(
                         TripContextCollector.snapshot(this), now, TripRecordingState.movingMs,
                         TripRecordingState.movement.takeIf { TripRecordingState.samples > 0 })
+                    TestIntent.MUSIC_CONTEXT -> DeviceMediaContextAnswers.playing(
+                        TripContextCollector.snapshot(this), now)
+                    TestIntent.BATTERY_CONTEXT -> DeviceMediaContextAnswers.battery(
+                        TripContextCollector.snapshot(this), now)
                     else -> actions.navigationRequestAnswer()
                 }
                 explainResolutionProblem(provider, cycle, reply)
