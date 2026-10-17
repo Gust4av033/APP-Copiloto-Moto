@@ -2,7 +2,7 @@ name: Android candidate
 on:
   pull_request:
   push:
-    branches: [main, feature/ui-storm-refined, release/play-internal-rc1]
+    branches: [main]
 permissions:
   contents: read
 concurrency:
@@ -10,20 +10,24 @@ concurrency:
   cancel-in-progress: true
 jobs:
   validate:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-java@v6.1.0
         with:
           distribution: temurin
           java-version: '21'
-      - uses: android-actions/setup-android@v3
+          cache: gradle
+      - uses: android-actions/setup-android@v4.0.4
+        with:
+          packages: platform-tools
+          log-accepted-android-sdk-licenses: false
       - run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - run: chmod +x gradlew
       - name: Tests, lint, manifests and unsigned release
         run: ./gradlew testFullDebugUnitTest testPlaystoreDebugUnitTest testPlaystoreReleaseUnitTest lintFullDebug lintPlaystoreRelease bundlePlaystoreRelease processFullReleaseMainManifest --max-workers=2 --console=plain
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.2
         if: always()
         with:
           name: android-candidate-reports
