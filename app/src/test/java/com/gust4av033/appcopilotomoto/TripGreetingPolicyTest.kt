@@ -55,4 +55,12 @@ class TripGreetingPolicyTest {
         assertTrue(TripGreetingOnce(marker).claim("session-2"))
         assertFalse(TripGreetingOnce(marker).claim(null))
     }
+
+    @Test fun optionalGreetingNameIsShortAndSafeForSpeech() {
+        assertEquals("Juan Carlos", TripGreetingSettings.normalizeName("  Juan   Carlos  "))
+        assertEquals("Ángel", TripGreetingSettings.normalizeName("!!Ángel?"))
+        assertEquals("", TripGreetingSettings.normalizeName("😊!!!"))
+        assertTrue(TripGreetingSettings.normalizeName("A".repeat(80)).length <=
+            TripGreetingSettings.MAX_NAME_LENGTH)
+    }
 }

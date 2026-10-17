@@ -748,10 +748,13 @@ class TripVoiceService : Service() {
                     .also { mainHandler.postDelayed(it, if (tone.isSuccess) VoiceInteractionTiming.CUE_RELEASE_MS else 0L) }
             }
             TripAnnouncement.VOICE -> {
-                val spoken = decision.spokenText(this, starting = true)
+                val greetingName = TripGreetingSettings.name(this)
+                val spoken = decision.spokenText(this, starting = true, name = greetingName)
                 val started = informationalSpeaker.speak(spoken) { emitted ->
-                    TripTestState.informationalSpeechStatus = if (emitted) "Inicio emitido: $spoken"
-                        else "Inicio cortado por límite o error: $spoken"
+                    TripTestState.informationalSpeechStatus = if (emitted) {
+                        if (greetingName.isBlank()) "Inicio emitido: saludo breve."
+                        else "Inicio emitido: saludo con nombre."
+                    } else "Inicio cortado por límite o error."
                     if (active && generation == cycle) startDetector(provider)
                 }
                 if (!started) {

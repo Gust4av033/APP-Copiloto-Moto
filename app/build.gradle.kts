@@ -15,8 +15,8 @@ android {
         applicationId = "com.gust4av033.appcopilotomoto"
         minSdk = 26
         targetSdk = 36
-        versionCode = 20
-        versionName = "1.2.0-f2-context1"
+        versionCode = 21
+        versionName = "1.2.1-f2-greeting1"
     }
 
     flavorDimensions += "distribution"

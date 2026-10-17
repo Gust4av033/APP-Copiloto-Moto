@@ -49,7 +49,10 @@
     <string name="trip_greeting_tone">Solo tono</string>
     <string name="trip_greeting_silent">Silencio</string>
     <string name="trip_greeting_hint">La voz confirma el audio del casco al iniciar y despide el viaje al detenerte. Solo tono usa los tonos breves del casco. Nunca sale por el altavoz del teléfono.</string>
+    <string name="trip_greeting_name_label">Nombre para el saludo (opcional)</string>
+    <string name="trip_greeting_name_hint">APP lo dirá al comenzar el viaje. Se guarda solo en este teléfono; dejalo vacío para oír «Copiloto listo».</string>
     <string name="trip_greeting_ready">Copiloto listo.</string>
+    <string name="trip_greeting_ready_named">Copiloto listo, %1$s.</string>
     <string name="trip_greeting_low_battery">Batería al %1$d por ciento.</string>
     <string name="trip_greeting_no_gps">Sin señal GPS para el contexto del viaje.</string>
     <string name="trip_greeting_finished">Viaje finalizado.</string>

@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
@@ -191,6 +192,7 @@ fun LazyListScope.SettingsScreen(
 private fun GreetingSettingsCard(state: CopilotUiState) {
     val context = LocalContext.current
     var selected by rememberSaveable { mutableStateOf(TripGreetingSettings.selected(context).name) }
+    var nameDraft by rememberSaveable { mutableStateOf(TripGreetingSettings.name(context)) }
     SectionCard(stringResource(R.string.trip_greeting_title)) {
         ChoiceGroup(listOf(ChoiceUi(TripGreetingMode.VOICE_SHORT.name, R.string.trip_greeting_voice),
             ChoiceUi(TripGreetingMode.TONE_ONLY.name, R.string.trip_greeting_tone),
@@ -200,6 +202,14 @@ private fun GreetingSettingsCard(state: CopilotUiState) {
             TripGreetingSettings.select(context, mode)
             selected = mode.name
         }
+        OutlinedTextField(value = nameDraft, onValueChange = { input ->
+            nameDraft = input.take(TripGreetingSettings.MAX_NAME_LENGTH)
+                .filter { it.isLetter() || it == ' ' || it == '-' || it == '\'' }
+            TripGreetingSettings.setName(context, nameDraft)
+        }, modifier = Modifier.fillMaxWidth(), singleLine = true, enabled = !state.busy,
+            label = { Text(stringResource(R.string.trip_greeting_name_label)) },
+            colors = com.gust4av033.appcopilotomoto.presentation.theme.glassTextFieldColors())
+        SupportingText(stringResource(R.string.trip_greeting_name_hint))
         SupportingText(stringResource(R.string.trip_greeting_hint))
     }
 }

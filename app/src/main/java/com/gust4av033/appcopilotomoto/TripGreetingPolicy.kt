@@ -71,6 +71,8 @@ internal class SavedGreetingSessionMarker(context: android.content.Context) : Gr
 
 internal object TripGreetingSettings {
     private const val KEY = "trip_greeting_mode"
+    private const val NAME_KEY = "trip_greeting_name"
+    const val MAX_NAME_LENGTH = 24
     fun selected(context: android.content.Context): TripGreetingMode = runCatching {
         TripGreetingMode.valueOf(context.getSharedPreferences("ui_settings", android.content.Context.MODE_PRIVATE)
             .getString(KEY, TripGreetingMode.VOICE_SHORT.name).orEmpty())
@@ -79,4 +81,14 @@ internal object TripGreetingSettings {
         context.getSharedPreferences("ui_settings", android.content.Context.MODE_PRIVATE)
             .edit().putString(KEY, mode.name).apply()
     }
+    fun name(context: android.content.Context): String = normalizeName(
+        context.getSharedPreferences("ui_settings", android.content.Context.MODE_PRIVATE)
+            .getString(NAME_KEY, null).orEmpty())
+    fun setName(context: android.content.Context, value: String) {
+        context.getSharedPreferences("ui_settings", android.content.Context.MODE_PRIVATE)
+            .edit().putString(NAME_KEY, normalizeName(value)).apply()
+    }
+    fun normalizeName(value: String): String = value.take(MAX_NAME_LENGTH)
+        .filter { it.isLetter() || it == ' ' || it == '-' || it == '\'' }
+        .replace(Regex("\\s+"), " ").trim { !it.isLetter() }
 }

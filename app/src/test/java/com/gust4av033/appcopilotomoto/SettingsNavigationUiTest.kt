@@ -68,7 +68,27 @@ class SettingsNavigationUiTest {
         compose.onNodeWithText("Voz corta").assertExists()
         compose.onNodeWithText("Solo tono").assertExists()
         compose.onNodeWithText("Silencio").assertExists()
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Nombre para el saludo (opcional)"))
+        compose.onNodeWithText("Nombre para el saludo (opcional)").assertExists()
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("APP lo dirá al comenzar el viaje.", substring = true))
         saveRender("phase2-greeting-activation-200")
+    }
+    @Test fun optionalGreetingNameIsSavedFromSettings() {
+        app(section = SettingsSection.ACTIVATION)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Nombre para el saludo (opcional)"))
+        compose.onNodeWithText("Nombre para el saludo (opcional)").performTextInput("Bryan")
+        compose.runOnIdle {
+            assertEquals("Bryan", TripGreetingSettings.name(RuntimeEnvironment.getApplication()))
+            TripGreetingSettings.setName(RuntimeEnvironment.getApplication(), "")
+        }
+    }
+    @Test @Config(sdk = [35], qualifiers = "w360dp-h800dp-night")
+    fun optionalGreetingNameIsReadableInDarkMode() {
+        app(section = SettingsSection.ACTIVATION)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Nombre para el saludo (opcional)"))
+        compose.onNodeWithText("Nombre para el saludo (opcional)").assertExists()
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("APP lo dirá al comenzar el viaje.", substring = true))
+        saveRender("phase2-greeting-activation-night")
     }
     @Test fun ordinarySettingsShowThreeGroupsAndNoDeveloperEntry() {
         app()
