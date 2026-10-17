@@ -75,3 +75,5 @@ Todo dato del contexto lleva `source`, captura monotónica, confianza entre 0 y 
 
 - Para buscar o controlar música, prioriza el reproductor nombrado en la orden, el elegido temporalmente en este viaje, una sesión multimedia que suena y finalmente Ajustes. Abrir un reproductor por voz puede elegirlo para esa sesión sin cambiar la preferencia guardada.
 - Solo usa `playFromSearch` si la sesión anuncia esa acción; Poweramp conserva su receptor directo y el intent estándar exige APP visible y teléfono desbloqueado. Enviar búsqueda o controles no confirma reproducción. No infieras la app al frente sin un acceso específico.
+
+- La búsqueda de POI registra una solicitud despachada, nunca un resultado o ruta confirmada. Clima y resultados propios quedan bajo `WeatherProvider` y `PlacesProvider` de Fase 7; no inferirlos de pantallas ajenas.

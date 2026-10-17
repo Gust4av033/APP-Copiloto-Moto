@@ -448,3 +448,7 @@ S22+: Poweramp como predeterminado; abrir Spotify por voz, confirmar, pedir una
 canción y controlar reproducción; repetir con pantalla bloqueada, volver al
 predeterminado y comprobar la sesión al terminar. La canción final y la pausa
 real durante el ciclo requieren prueba física.
+
+## Búsqueda de puntos de interés v0
+
+APP reconoce gasolinera, taller de moto, parada de comida, farmacia y cajero sin exigir el verbo «busca». Abre una búsqueda en Waze o Maps y registra categoría, proveedor y hora en la sesión. El registro significa que APP despachó la solicitud; no confirma resultado ni ruta. Los contratos propios de clima y POI para Fase 7 están en [FASE_7_BASES_CLIMA_POI.md](FASE_7_BASES_CLIMA_POI.md).

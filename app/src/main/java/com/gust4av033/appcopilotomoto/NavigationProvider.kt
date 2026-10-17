@@ -211,7 +211,8 @@ object NavigationRequestStore {
             if (query != null) NavigationRequestKind.SEARCH else NavigationRequestKind.FAVORITE,
             query ?: checkNotNull(destination).label, System.currentTimeMillis(),
             target.navigationTarget.takeIf { destination != null && query == null },
-            android.os.SystemClock.elapsedRealtime()))
+            android.os.SystemClock.elapsedRealtime(),
+            query?.let(PointOfInterestCategory::fromQuery)))
         if (destination != null) context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(key(app), destination.name).apply()
     }

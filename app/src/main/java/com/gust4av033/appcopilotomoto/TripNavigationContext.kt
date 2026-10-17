@@ -15,7 +15,8 @@ data class NavigationDispatch(
     val requestedDestination: String,
     val dispatchedAtEpochMs: Long,
     val target: TargetDestination? = null,
-    val dispatchedAtElapsedRealtimeMs: Long = 0L
+    val dispatchedAtElapsedRealtimeMs: Long = 0L,
+    val category: PointOfInterestCategory? = null
 )
 
 data class TripNavigationContext(

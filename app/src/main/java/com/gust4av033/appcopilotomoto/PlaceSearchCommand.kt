@@ -6,7 +6,8 @@ import java.net.URLEncoder
 internal object PlaceSearchParser {
     const val MAX_LENGTH = 160
 
-    data class Request(val query: String, val provider: NavigationApp?)
+    data class Request(val query: String, val provider: NavigationApp?,
+        val category: PointOfInterestCategory = PointOfInterestCategory.fromQuery(query))
 
     fun parse(transcript: String): String? = parseRequest(transcript)?.query
 
@@ -15,7 +16,10 @@ internal object PlaceSearchParser {
             .replace(Regex("^(?:por favor[,\\s]+|puedes |podrias |podrías )+", RegexOption.IGNORE_CASE), "")
             .replace(Regex("[,\\s]+(?:por favor|gracias)[.!?]*$", RegexOption.IGNORE_CASE), "")
         val prefix = Regex("^(?:busca|buscar|buscame|búscame|encuentra|encontrar)\\s+(.+)$",
-            RegexOption.IGNORE_CASE).matchEntire(spoken)?.groupValues?.get(1) ?: return null
+            RegexOption.IGNORE_CASE).matchEntire(spoken)?.groupValues?.get(1)
+            ?: spoken.takeIf { Regex("^(?:gasolinera(?:s)?|taller(?: de motos?)?|parada de comida|farmacia(?:s)?|cajero(?:s)?)(?: más cercana| cercano| cerca de mí)?[.!?]*$",
+                RegexOption.IGNORE_CASE).matches(it) }
+            ?: return null
         val phrase = prefix.trim().trimEnd('.', '!', '?').trim()
         val leading = Regex("^en\\s+(waze|google maps)\\s+(.+)$", RegexOption.IGNORE_CASE).matchEntire(phrase)
         val trailing = Regex("^(.+)\\s+en\\s+(waze|google maps)$", RegexOption.IGNORE_CASE).matchEntire(phrase)
@@ -40,6 +44,5 @@ internal object PlaceSearchParser {
 
 internal fun wazePlaceSearchLink(query: String): String {
     require(PlaceSearchParser.valid(query)) { "Pedí un lugar breve, de hasta 160 caracteres." }
-    return "https://waze.com/ul?q=" + URLEncoder.encode(query, "UTF-8").replace("+", "%20") +
-        "&utm_source=app_copiloto_moto"
+    return "waze://?q=" + URLEncoder.encode(query, "UTF-8").replace("+", "%20")
 }
