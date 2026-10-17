@@ -15,16 +15,22 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
     private val music = MusicSearchAdapter(context)
     private val chats: List<ContactChatAdapter> = ChatApp.entries.map { WhatsAppChatAdapter(context, it) }
 
+    fun mediaPlayerPackage(name: String): Result<String> = music.playerPackage(name)
+
     fun executeMedia(command: RoutedCommand): Result<*>? = when (command.intent) {
-        TestIntent.MEDIA_NEXT -> media.nextTrack()
-        TestIntent.MEDIA_PREVIOUS -> media.previousTrack()
-        TestIntent.MEDIA_PLAY -> media.play()
-        TestIntent.MEDIA_PAUSE -> media.pause()
+        TestIntent.MEDIA_NEXT -> mediaPackage(command).mapCatching { media.nextTrack(it).getOrThrow() }
+        TestIntent.MEDIA_PREVIOUS -> mediaPackage(command).mapCatching { media.previousTrack(it).getOrThrow() }
+        TestIntent.MEDIA_PLAY -> mediaPackage(command).mapCatching { media.play(it).getOrThrow() }
+        TestIntent.MEDIA_PAUSE -> mediaPackage(command).mapCatching { media.pause(it).getOrThrow() }
         TestIntent.VOLUME_UP -> media.volumeUp()
         TestIntent.VOLUME_DOWN -> media.volumeDown()
         TestIntent.VOLUME_SET -> command.volume?.let { media.setRequestedVolume(it, bluetoothVoice = false) }
         else -> null
     }
+
+    private fun mediaPackage(command: RoutedCommand): Result<String?> = command.musicPlayerName?.let {
+        music.playerPackage(it).map { packageName -> packageName }
+    } ?: Result.success(null)
 
     /** El viaje ajusta volumen después de restaurar la ruta de audio. */
     fun executeRestoredVolume(command: RoutedCommand, bluetoothVoice: Boolean): Result<VolumeAdjustment>? =
@@ -39,6 +45,7 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
 
     fun availableMusicPlayers(): Result<List<MusicPlayer>> = music.availablePlayers()
     fun preferredMusicPlayer(): String? = music.preferredPackage()
+    fun currentMusicPlayer(): Result<ResolvedMusicPlayer> = music.currentPlayer()
     fun selectMusicPlayer(packageName: String?) = music.selectPlayer(packageName)
     fun prepareMusicSearch(command: RoutedCommand): Result<MusicSearchRequest> = music.prepare(command)
     fun sendMusicSearch(request: MusicSearchRequest): Result<Unit> = music.send(request)

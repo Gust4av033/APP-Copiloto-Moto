@@ -70,3 +70,8 @@ Todo dato del contexto lleva `source`, captura monotónica, confianza entre 0 y 
 
 - Una orden, su dictado y sus confirmaciones forman un solo ciclo de audio. Mantén la música que APP pausó en pausa hasta completar, cancelar o agotar ese ciclo; conserva un único foco de audio entre turnos.
 - Reanuda como máximo una vez después de restaurar la ruta del casco, solo si APP pausó la reproducción. Una búsqueda musical enviada, una pausa pedida por el usuario o una llamada en curso no autorizan PLAY. El ciclo tiene límite de inactividad y diagnóstico sin datos personales.
+
+## Reproductor durante el viaje
+
+- Para buscar o controlar música, prioriza el reproductor nombrado en la orden, el elegido temporalmente en este viaje, una sesión multimedia que suena y finalmente Ajustes. Abrir un reproductor por voz puede elegirlo para esa sesión sin cambiar la preferencia guardada.
+- Solo usa `playFromSearch` si la sesión anuncia esa acción; Poweramp conserva su receptor directo y el intent estándar exige APP visible y teléfono desbloqueado. Enviar búsqueda o controles no confirma reproducción. No infieras la app al frente sin un acceso específico.

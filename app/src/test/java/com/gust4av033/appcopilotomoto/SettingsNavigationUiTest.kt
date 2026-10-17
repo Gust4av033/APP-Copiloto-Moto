@@ -83,6 +83,15 @@ class SettingsNavigationUiTest {
         compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Sin datos recientes de navegación de Waze o Maps."))
         saveRender("phase2-trip-search-large-font")
     }
+    @Test fun tripShowsTheTemporaryPlayerAtLargeFont() {
+        app(state = CopilotUiState(tripActive = true,
+            currentTripMusicPlayer = ResolvedMusicPlayer(
+                MusicPlayer("com.spotify.music", "Spotify", false), MusicPlayerOrigin.TRIP)),
+            screen = CopilotScreen.TRIP, scale = 2f)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Spotify · elegido para este viaje"))
+        compose.onNodeWithText("Spotify · elegido para este viaje").assertExists()
+        saveRender("phase2-music-trip-day-200")
+    }
     @Test fun tripShowsObservedMapsFieldsWithoutTreatingThemAsAConfirmedRoute() {
         val source = ContextSource.GOOGLE_MAPS_NOTIFICATION
         fun <T> field(value: T) = ContextValue(value, source, 1_000, 1_000, .65f, 15_000)

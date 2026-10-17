@@ -29,6 +29,7 @@ import android.provider.Settings
 import android.telecom.TelecomManager
 import android.telephony.PhoneStateListener
 import android.telephony.TelephonyManager
+import android.view.KeyEvent
 import java.util.concurrent.Executors
 import java.util.UUID
 
@@ -130,6 +131,7 @@ class TripVoiceService : Service() {
     )
     private var pendingVolumeCommand: PendingRoutedCommand? = null
     private var pendingMusicCommand: PendingRoutedCommand? = null
+    private var pendingMusicAnnouncement: String? = null
     private val appRequests = PendingAppLaunch<AppTarget>()
     private val pendingApp: AppTarget? get() = appRequests.current?.target
     private var appChoiceToken: String? = null
@@ -146,6 +148,7 @@ class TripVoiceService : Service() {
     private var conversationFocusGranted = false
     private var conversationDeadline: Runnable? = null
     private var conversationEndCause = ConversationAudioCycle.End.COMPLETED
+    private var cyclePausedPlayerPackage: String? = null
     private var providerFactory: (() -> WakeWordProvider)? = null
     private var phoneListener: PhoneStateListener? = null
     private var callWasActive = false
@@ -221,6 +224,7 @@ class TripVoiceService : Service() {
             val label = openedTarget?.label
             val hadDraft = pendingApp?.draftText != null
             if (active && token != null && clearPendingApp(token)) {
+                openedTarget?.let(::maybeSelectOpenedMusic)
                 TripTestState.record(this, PipelineEvent.ACTION_DISPATCHED)
                 TripTestState.actions++
                 TripTestState.save(this)
@@ -363,6 +367,7 @@ class TripVoiceService : Service() {
         mainHandler.post(overlayTick)
         TripTestState.running = true
         TripNavigationState.beginSession(NavigationPreferences.consumeNextTripDestination(this))
+        TripMusicState.beginSession(TripNavigationState.context.sessionId)
         TripRecordingState.clear()
         TripRecordingState.locationStatus = if (UserSettingsStore(this).tripLocationEnabled())
             if (locationReadyForSession) "AVAILABLE" else "UNAVAILABLE" else "OFF"
@@ -521,9 +526,16 @@ class TripVoiceService : Service() {
 
     private fun beginConversation(reason: String) {
         if (conversationCycle.current != null) return
-        val playing = runCatching { if (TripButtonRuntime.intercepting) TripMediaAccess.isPlaying(this)
-            else audioManager.isMusicActive }.getOrDefault(false)
-        val paused = playing && runCatching { media.pauseIfPlaying() }.getOrDefault(false)
+        val playingPackage = TripMediaAccess.playingPackages(this).singleOrNull()
+        val playing = playingPackage != null || runCatching { media.isSelectedPlaybackActive() }.getOrDefault(false)
+        TripMusicState.rememberPlaying(TripNavigationState.context.sessionId, playingPackage)
+        val paused = playing && runCatching {
+            if (playingPackage != null) {
+                TripMediaAccess.dispatchPair(this, KeyEvent.KEYCODE_MEDIA_PAUSE, playingPackage)
+                true
+            } else media.pauseIfPlaying()
+        }.getOrDefault(false)
+        cyclePausedPlayerPackage = if (paused) playingPackage else null
         val session = conversationCycle.begin(reason, playing, paused)
         conversationEndCause = ConversationAudioCycle.End.COMPLETED
         conversationFocusGranted = runCatching {
@@ -548,6 +560,7 @@ class TripVoiceService : Service() {
             songCaptureToken = null
             draftCaptureToken = null
             appChoiceToken = null
+            pendingMusicAnnouncement = null
             clearPendingApp()
             if (callPromptLazy.isInitialized()) callPrompt.cancel()
             resumeAfterButtonRoute = capture.cancel(resumePlayback = false) || resumeAfterButtonRoute
@@ -570,12 +583,27 @@ class TripVoiceService : Service() {
         }
     }
 
+    private fun resumePausedPlayer() {
+        val packageName = cyclePausedPlayerPackage
+        cyclePausedPlayerPackage = null
+        runCatching {
+            val alreadyPlaying = if (TripMediaAccess.granted(this)) TripMediaAccess.playingPackages(this).isNotEmpty()
+                else audioManager.isMusicActive
+            if (alreadyPlaying || callPending) return@runCatching
+            if (packageName != null && TripMediaAccess.granted(this))
+                TripMediaAccess.dispatchPair(this, KeyEvent.KEYCODE_MEDIA_PLAY, packageName)
+            else media.resumePlayback()
+        }
+    }
+
     /** Called only after the headset route is restored; returns whether APP should send PLAY. */
     private fun finishConversation(pausedDuringCapture: Boolean, cause: ConversationAudioCycle.End = conversationEndCause,
         releaseFocus: Boolean = true): Boolean {
         val current = conversationCycle.current
-        val otherPlaybackActive = runCatching { if (TripButtonRuntime.intercepting) TripMediaAccess.isPlaying(this)
-            else audioManager.isMusicActive }.getOrDefault(false)
+        val otherPlaybackActive = runCatching {
+            if (TripMediaAccess.granted(this)) TripMediaAccess.playingPackages(this).isNotEmpty()
+            else audioManager.isMusicActive
+        }.getOrDefault(false)
         val callActive = callPending || TripTestState.callPhase == TripCallPhase.CALL
         val outcome = current?.let {
             conversationCycle.rememberPause(it.id, pausedDuringCapture || resumeAfterButtonRoute)
@@ -590,7 +618,9 @@ class TripVoiceService : Service() {
                 "pausa APP=${it.session.pausedByApp}; reanudar=$resume."
         }
         resumeAfterButtonRoute = false
+        TripMusicState.clearCycle(TripNavigationState.context.sessionId)
         conversationEndCause = ConversationAudioCycle.End.COMPLETED
+        if (!resume && cause != ConversationAudioCycle.End.CALL_DISPATCHED) cyclePausedPlayerPackage = null
         return resume
     }
 
@@ -646,7 +676,7 @@ class TripVoiceService : Service() {
             val searchSent = finishPendingMusic()
             val resume = finishConversation(pausedBySpeech, if (searchSent)
                 ConversationAudioCycle.End.MUSIC_REPLACED else conversationEndCause)
-            if (resume) runCatching { media.resumePlayback() }
+            if (resume) resumePausedPlayer()
             armed = true
             buttonCoordinator?.reclaim()
             TripTestState.audioDuring = media.audioRouteDiagnostic()
@@ -671,7 +701,7 @@ class TripVoiceService : Service() {
         val searchSent = finishPendingMusic()
         val resume = finishConversation(pausedBySpeech, if (searchSent)
             ConversationAudioCycle.End.MUSIC_REPLACED else conversationEndCause)
-        if (resume) runCatching { media.resumePlayback() }
+        if (resume) resumePausedPlayer()
         armed = true
         buttonCoordinator?.reclaim()
         TripTestState.audioDuring = media.audioRouteDiagnostic()
@@ -682,8 +712,15 @@ class TripVoiceService : Service() {
     private fun finishPendingMusic(): Boolean {
         val pending = pendingMusicCommand ?: return false
         pendingMusicCommand = null
-        val sent = actions.prepareMusicSearch(pending.command).mapCatching { request ->
-            if (request.player.backgroundSearch) actions.sendMusicSearch(request).getOrThrow()
+        pendingMusicAnnouncement = null
+        val prepared = actions.prepareMusicSearch(pending.command)
+        TripTestState.musicSearchStatus = prepared.fold(onSuccess = { request ->
+            val actionsMask = runCatching { TripMediaAccess.sessions(this)
+                .firstOrNull { it.packageName == request.player.packageName }?.playbackState?.actions }.getOrNull()
+            "${request.player.label}: ruta=${request.route}; acciones de sesión=${actionsMask ?: "sin sesión"}."
+        }, onFailure = { "Sin ruta: ${it.message}." })
+        val sent = prepared.mapCatching { request ->
+            if (request.route != MusicSearchRoute.VISIBLE_INTENT) actions.sendMusicSearch(request).getOrThrow()
             else (TripTestState.playMusicFromVoice?.invoke(request)
                 ?: Result.failure(IllegalStateException("${request.player.label} requiere APP visible y el teléfono desbloqueado. Revisá Ajustes → Música."))).getOrThrow()
             request
@@ -883,7 +920,6 @@ class TripVoiceService : Service() {
             if (outcome.isFailure) conversationEndCause = ConversationAudioCycle.End.ERROR
             TripTestState.lastRoutedCommand = if (heard != null) command else null
             val intent = command.intent
-            if (intent == TestIntent.MEDIA_PAUSE) conversationEndCause = ConversationAudioCycle.End.USER_PAUSED
             if (intent == TestIntent.CANCEL) conversationEndCause = ConversationAudioCycle.End.CANCELLED
             if (heard != null) TripTestState.record(this,
                 if (intent == TestIntent.UNKNOWN) PipelineEvent.INTENT_UNKNOWN else PipelineEvent.INTENT_RESOLVED)
@@ -910,6 +946,13 @@ class TripVoiceService : Service() {
                     else "No se pudo abrir APP. Desbloqueá el teléfono y usá la burbuja o la notificación."
                 TripTestState.save(this)
                 schedule(100L) { if (active && detector === provider && cycle == generation) startDetector(provider) }
+                return@listenOnce
+            }
+            if (intent == TestIntent.RESET_MUSIC_PLAYER) {
+                TripMusicState.clear(TripNavigationState.context.sessionId)
+                TripTestState.recognized++
+                TripTestState.save(this)
+                explainResolutionProblem(provider, cycle, "Volví a tu reproductor habitual para este viaje.")
                 return@listenOnce
             }
             if (intent in setOf(TestIntent.NEXT_TURN, TestIntent.HOW_LONG,
@@ -959,6 +1002,15 @@ class TripVoiceService : Service() {
                 return@listenOnce
             }
             val mediaAction = actions.executeMedia(command)
+            if (intent == TestIntent.MEDIA_PAUSE) {
+                val targetPackage = command.musicPlayerName?.let { actions.mediaPlayerPackage(it).getOrNull() }
+                conversationEndCause = when {
+                    mediaAction?.isFailure == true -> ConversationAudioCycle.End.ERROR
+                    targetPackage != null && cyclePausedPlayerPackage != null && targetPackage != cyclePausedPlayerPackage ->
+                        ConversationAudioCycle.End.COMPLETED
+                    else -> ConversationAudioCycle.End.USER_PAUSED
+                }
+            }
             val elapsed = SystemClock.elapsedRealtime() - wakeAt
             TripTestState.lastLatencyMs = elapsed
             if (heard != null) TripTestState.recognized++
@@ -1397,7 +1449,18 @@ class TripVoiceService : Service() {
         }.getOrDefault(false).also { opened ->
             // The Activity path already records the dispatch after its successful startActivity.
             if (opened && !opensFromActivity) NavigationRequestStore.recordDispatched(this, target, navigationSession)
+            if (opened) maybeSelectOpenedMusic(target)
         }
+    }
+
+    private fun maybeSelectOpenedMusic(target: AppTarget) {
+        if (target.draftText != null || target.navigationDestination != null || target.navigationSearchQuery != null) return
+        val packageName = target.launchIntent.component?.packageName ?: target.launchIntent.`package` ?: return
+        val player = actions.availableMusicPlayers().getOrNull()?.singleOrNull { it.packageName == packageName } ?: return
+        val announce = TripMusicState.select(TripNavigationState.context.sessionId, player,
+            actions.preferredMusicPlayer() ?: MusicPlayerSelection.POWERAMP_PACKAGE)
+        if (announce && conversationCycle.current != null && appChoiceToken != null)
+            pendingMusicAnnouncement = "Usando ${player.label} para la música de este viaje."
     }
 
     private fun renewAppChoiceWindow(token: String) {
@@ -1422,7 +1485,17 @@ class TripVoiceService : Service() {
         TripTestState.status = message
         TripTestState.lastCommandResult = message
         updateNotification(if (cancelRequest) "Apertura cancelada · viaje activo" else "Confirmación terminada · viaje activo")
-        schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+        val spoken = pendingMusicAnnouncement
+        pendingMusicAnnouncement = null
+        if (spoken != null) {
+            touchConversation()
+            runCatching { callPrompt.explain(spoken) {
+                if (active && detector === provider && generation == cycle)
+                    schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+            } }.onFailure {
+                schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && generation == cycle) startDetector(provider) }
+            }
+        } else schedule(VoiceInteractionTiming.RECOVERY_MS) { if (active && detector === provider && generation == cycle) startDetector(provider) }
     }
 
     /** Abrir, descartar, vencer o detener cancela también su confirmación por voz. */
@@ -1718,6 +1791,7 @@ class TripVoiceService : Service() {
         armed = false
         pendingVolumeCommand = null
         pendingMusicCommand = null
+        pendingMusicAnnouncement = null
         clearPendingApp()
         generation++
         val stoppedGeneration = generation
@@ -1749,6 +1823,7 @@ class TripVoiceService : Service() {
         lastEtaKey = null
         TripContextCollector.clear()
         TripNavigationState.endSession()
+        TripMusicState.endSession()
         TripTestState.markRunning(this, false)
         TripTestState.status = "$reason Restaurando audio del casco…"
         // El servicio conserva su ruta y su notificación hasta terminar close() y verificar
@@ -1791,7 +1866,8 @@ class TripVoiceService : Service() {
         TripTestState.record(this, if (routeReady && closeError == null) PipelineEvent.AUDIO_ROUTE_RESTORE_SUCCESS
             else PipelineEvent.AUDIO_ROUTE_RESTORE_FAILURE)
         releaseConversationFocus()
-        if (resumeAfterRoute && routeReady) runCatching { media.resumePlayback() }
+        if (resumeAfterRoute && routeReady) resumePausedPlayer()
+        else cyclePausedPlayerPackage = null
         TripTestState.status = when {
             closeError != null -> "$reason No se pudo liberar completamente el audio: ${closeError.message}."
             !routeReady -> "$reason La salida de música aún no volvió a la ruta normal; revisá Audio del casco."

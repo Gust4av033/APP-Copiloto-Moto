@@ -4,6 +4,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class MusicSearchCommandTest {
+    @Test fun explicitPlayerIsKeptSeparateFromTheSongTitle() {
+        val command = MinimalIntentRouter.route("pon Counting Stars en Spotify")
+        assertEquals(TestIntent.MEDIA_SEARCH, command.intent)
+        assertEquals("Counting Stars", command.musicQuery)
+        assertEquals("Spotify", command.musicPlayerName)
+        assertEquals(TestIntent.RESET_MUSIC_PLAYER,
+            MinimalIntentRouter.route("vuelve a mi reproductor").intent)
+        assertEquals("spotify", MinimalIntentRouter.route("usa Spotify").appName)
+        val control = MinimalIntentRouter.route("siguiente en Spotify")
+        assertEquals(TestIntent.MEDIA_NEXT, control.intent)
+        assertEquals("spotify", control.musicPlayerName)
+        assertEquals(TestIntent.MEDIA_PAUSE, MinimalIntentRouter.route("pausa en Spotify").intent)
+    }
     @Test fun songNamesRetainAccentsAndPunctuation() {
         assertEquals(RoutedCommand(TestIntent.MEDIA_SEARCH, musicQuery = "Él & Ella"),
             MinimalIntentRouter.route("Por favor, pon la canción Él & Ella, gracias"))

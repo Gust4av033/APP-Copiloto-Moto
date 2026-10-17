@@ -97,6 +97,11 @@ class MainActivity : ComponentActivity() {
     private val refreshDevicesTask = object : Runnable {
         override fun run() {
             refreshAudioDevices()
+            if (TripTestState.running) {
+                val selected = actions.currentMusicPlayer()
+                currentTripMusicPlayer = selected.getOrNull()
+                currentTripMusicMessage = selected.exceptionOrNull()?.message.orEmpty()
+            } else { currentTripMusicPlayer = null; currentTripMusicMessage = "" }
             if (developerEnabled) tripContextReport = "GPS: ${TripRecordingState.locationStatus}\n" + TripContextDiagnostics.report(
                 TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime(),
                 TripRecordingState.movement, TripRecordingState.samples, TripRecordingState.events)
@@ -127,6 +132,8 @@ class MainActivity : ComponentActivity() {
     private var appCommands by mutableStateOf<List<String>>(emptyList())
     private var musicPlayers by mutableStateOf<List<MusicPlayer>>(emptyList())
     private var selectedMusicPlayer by mutableStateOf<String?>(null)
+    private var currentTripMusicPlayer by mutableStateOf<ResolvedMusicPlayer?>(null)
+    private var currentTripMusicMessage by mutableStateOf("")
     private var musicPlayersMessage by mutableStateOf("")
     private var navigationAvailable by mutableStateOf(false)
     private var navigationProvider by mutableStateOf(NavigationApp.WAZE)
@@ -425,6 +432,8 @@ class MainActivity : ComponentActivity() {
             musicPlayers = musicPlayers,
             selectedMusicPlayer = selectedMusicPlayer,
             musicPlayersMessage = musicPlayersMessage,
+            currentTripMusicPlayer = currentTripMusicPlayer,
+            currentTripMusicMessage = currentTripMusicMessage,
             navigationAvailable = navigationAvailable,
             navigationProvider = navigationProvider,
             navigationHomeAddress = navigationHomeAddress,
@@ -456,6 +465,7 @@ class MainActivity : ComponentActivity() {
             audioBefore = TripTestState.audioBefore,
             audioDuring = TripTestState.audioDuring,
             conversationAudioStatus = TripTestState.conversationAudioStatus,
+            musicSearchStatus = TripTestState.musicSearchStatus,
             audioAfter = TripTestState.audioAfter,
             callMessage = tripCallMessage,
             fixedContact = tripCallContact?.display,
@@ -1361,10 +1371,10 @@ class MainActivity : ComponentActivity() {
                                     return@fold "La escucha del título en inglés está disponible durante el viaje: decí ‘busca canción en inglés’."
                                 }
                                 val sent = actions.prepareMusicSearch(command).mapCatching { request ->
-                                    val result = if (request.player.backgroundSearch) actions.sendMusicSearch(request)
+                                    val result = if (request.route != MusicSearchRoute.VISIBLE_INTENT) actions.sendMusicSearch(request)
                                         else voiceMusicSearcher(request)
                                     result.getOrThrow()
-                                    if (fromWake && !request.player.backgroundSearch) endWakeTest("Búsqueda enviada a ${request.player.label}.")
+                                    if (fromWake && request.route == MusicSearchRoute.VISIBLE_INTENT) endWakeTest("Búsqueda enviada a ${request.player.label}.")
                                     request
                                 }
                                 if (sent.isFailure && pausedBySpeech) runCatching { media.resumePlayback() }
@@ -1374,6 +1384,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             TestIntent.SWITCH_MODE -> "Se reconoció modo ${command.audioMode?.modeNumber}; el cambio por voz se ejecuta durante una sesión de viaje."
+                            TestIntent.RESET_MUSIC_PLAYER -> "No hay reproductor temporal fuera de una sesión de viaje."
                             TestIntent.OPEN_ASSISTANT -> { selectedScreen = CopilotScreen.TRIP; "APP abierta." }
                             TestIntent.STOP_TTS -> "Escuché: ‘$heard’. Orden Silencio reconocida; aún no hay voz sintetizada para interrumpir."
                             TestIntent.CANCEL -> "Escuché: ‘$heard’. Orden Cancelar reconocida; no se ejecutó ninguna acción."

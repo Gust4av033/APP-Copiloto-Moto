@@ -51,6 +51,21 @@ fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onO
     if (state.tripActive && state.buttonMode && !state.canRequestTripCommand) item(key = "waiting") {
         SupportingText(stringResource(R.string.trip_wait_ready))
     }
+    if (state.tripActive) item(key = "trip_music_player") {
+        SectionCard(stringResource(R.string.trip_music_player_title)) {
+            val selected = state.currentTripMusicPlayer
+            if (selected == null) SupportingText(state.currentTripMusicMessage.ifBlank {
+                stringResource(R.string.trip_music_player_unknown) })
+            else SupportingText(stringResource(R.string.trip_music_player_value, selected.player.label,
+                stringResource(when (selected.origin) {
+                    com.gust4av033.appcopilotomoto.MusicPlayerOrigin.EXPLICIT -> R.string.trip_music_origin_explicit
+                    com.gust4av033.appcopilotomoto.MusicPlayerOrigin.TRIP -> R.string.trip_music_origin_trip
+                    com.gust4av033.appcopilotomoto.MusicPlayerOrigin.PLAYING_SESSION -> R.string.trip_music_origin_playing
+                    com.gust4av033.appcopilotomoto.MusicPlayerOrigin.SETTINGS -> R.string.trip_music_origin_settings
+                    com.gust4av033.appcopilotomoto.MusicPlayerOrigin.AUTOMATIC -> R.string.trip_music_origin_auto
+                })))
+        }
+    }
     if (state.pendingAppName != null) item(key = "TripScreen_2") {
         PendingAppCard(state, actions)
     }

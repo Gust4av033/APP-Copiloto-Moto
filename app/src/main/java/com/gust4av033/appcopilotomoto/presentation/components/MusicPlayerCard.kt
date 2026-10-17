@@ -31,7 +31,12 @@ fun MusicPlayerCard(state: CopilotUiState, actions: CopilotActions) {
                 MusicChoice(player.label, state.selectedMusicPlayer == player.packageName, !state.busy) {
                     actions.onMusicPlayerChange(player.packageName)
                 }
-                SupportingText(stringResource(if (player.backgroundSearch) R.string.music_search_background else R.string.music_search_visible))
+                SupportingText(stringResource(when {
+                    player.backgroundSearch -> R.string.music_search_background
+                    player.sessionSearch -> R.string.music_search_session
+                    player.intentSearch -> R.string.music_search_visible
+                    else -> R.string.music_search_unavailable
+                }))
             }
         }
         if (state.appCatalogLoading) SupportingText(stringResource(R.string.catalog_loading))

@@ -424,3 +424,27 @@ comparar ambos con música sonando durante orden simple, llamada y dictado de
 WhatsApp, incluida cancelación y confirmación; también comprobar bloqueo,
 pulsaciones seguidas y recuperación del casco. Los tests JVM solo comprueban
 la política y la regresión lógica, no la salida audible del casco.
+
+### Cierre B · reproductor del viaje
+
+La búsqueda de canciones y los controles dan prioridad al reproductor nombrado
+en la orden (`pon [título] en Spotify`), luego al reproductor abierto por voz
+durante la sesión, después a una única sesión multimedia en `PLAYING` y por
+último a Ajustes. `usa Spotify` abre la misma confirmación de aplicación;
+tras una apertura aceptada, APP guarda el reproductor solo hasta finalizar el
+viaje. `vuelve a mi reproductor` lo limpia. Si no coincide con el predeterminado,
+APP lo anuncia una vez por reproductor y viaje. Viaje muestra el nombre y el
+origen; el diagnóstico indica las acciones anunciadas y la ruta elegida, sin
+guardar títulos en la preferencia.
+
+Poweramp conserva el receptor directo. En otros reproductores, APP usa
+`MediaSession.transportControls.playFromSearch` únicamente si la sesión activa
+anuncia `ACTION_PLAY_FROM_SEARCH`; si solo ofrecen el intent estándar, APP debe
+estar visible y el teléfono desbloqueado. Si no anuncian ninguna búsqueda,
+pueden abrirse y controlarse cuando tienen sesión, pero APP explica que no puede
+pedir una canción por nombre. Spotify no se trata como excepción especial.
+El estado de `PLAYING` no prueba que la app esté al frente. Para verificar en el
+S22+: Poweramp como predeterminado; abrir Spotify por voz, confirmar, pedir una
+canción y controlar reproducción; repetir con pantalla bloqueada, volver al
+predeterminado y comprobar la sesión al terminar. La canción final y la pausa
+real durante el ciclo requieren prueba física.
