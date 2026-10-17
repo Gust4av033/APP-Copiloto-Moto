@@ -2,7 +2,7 @@
 
 # APP Copiloto Moto
 
-La rama por defecto `main` conserva la base estable de Fase 1 RC1 y el contexto de navegación aceptado de Fase 2. El trabajo actual continúa en `feature/ui-storm-refined`, descendiente de `feature/fase-2-integrada`. Reúne observación y lectura experimental de Waze, Google Maps seleccionable, los sabores `full`/`playstore` y [Glass UI refinada](docs/UI_TORMENTA_REFINADA_V3.md). La validación física en S22+ y casco sigue pendiente antes de integrar a `main`. [Auditoría anterior de ramas](docs/AUDITORIA_RAMAS_FASE_2_2026-10-14.md).
+Esta entrega consolida Fase 1 RC1 y el contexto de Fase 2 como candidato de pruebas no comerciales. Su integración en `main` sirve de base para estabilización y después Fase 3; no declara estabilidad física ni aprobación de Google Play. Reúne observación y lectura experimental de Waze, Google Maps seleccionable, los sabores `full`/`playstore` y [Glass UI refinada](docs/UI_TORMENTA_REFINADA_V3.md). La validación de voz, casco y conducción sigue pendiente antes de declarar una versión estable de producción. [Auditoría anterior de ramas](docs/AUDITORIA_RAMAS_FASE_2_2026-10-14.md).
 
 En [Google Maps de Fase 2](docs/FASE_2_GOOGLE_MAPS.md), Casa y Trabajo ya admiten una dirección opcional: sin ella, APP abre una búsqueda en Maps para que el conductor elija su lugar guardado con la moto detenida; con dirección, solicita la ruta directa. APP no lee los favoritos personales ni confirma una ruta externa.
 
@@ -59,7 +59,7 @@ La arquitectura prevista conserva límites entre `presentation`, `application`, 
 - `docs/FASE_0.md`: objetivo, validación y orden de implementación.
 - `docs/FASE_1.md`: primera entrega del núcleo de comandos y su prueba en el S22+.
 - `docs/referencias/`: documentos originales del proyecto. La especificación V4, los requisitos y la arquitectura son la línea base. El registro de modificaciones aprobadas complementa los documentos base según su regla de precedencia. Las indicaciones iniciales se conservan como antecedente.
-- `main` es la base estable. El trabajo vigente de Fase 2 se concentra en `feature/ui-storm-refined`; validar en el teléfono antes de integrarlo.
+- `main` es la base del candidato integrado; sus pendientes físicos constan en el protocolo RC1. Fase 3 parte de esta base tras estabilizarla, sin mezclar funciones nuevas con correcciones del candidato.
 - No incluir claves, tokens, firmados, `local.properties`, grabaciones personales ni datos de viajes en Git.
 
 ### Sincronizar cambios de GitHub
