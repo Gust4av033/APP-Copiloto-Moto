@@ -73,6 +73,7 @@ fun DiagnosticsReportCard(state: CopilotUiState, actions: CopilotActions) {
                 appendLine("Diagnóstico consultado: ${state.audioDiagnostic}")
                 appendLine("Antes: ${state.audioBefore}")
                 appendLine("Durante (captura de espera): ${state.audioDuring}")
+                appendLine("Ciclo de orden: ${state.conversationAudioStatus}")
                 appendLine("Después: ${state.audioAfter}")
                 state.probe?.let {
                     appendLine("Última medición de 5 s — solicitada: ${it.requestedInput}; real: ${it.actualInput}")

@@ -38,4 +38,12 @@ class SpeechPlaybackStateTest {
         assertTrue(state.finish(PlaybackResumePolicy.NOW))
         assertFalse(state.takeResume())
     }
+
+    @Test fun separateCapturesPreservePauseButImmediatePolicyWouldResumeBetweenTurns() {
+        val state = SpeechPlaybackState()
+        state.rememberPause(true)
+        assertFalse(state.finish(PlaybackResumePolicy.AFTER_ROUTE_RESTORED))
+        assertTrue(state.finish(PlaybackResumePolicy.NOW))
+        assertFalse(state.takeResume())
+    }
 }

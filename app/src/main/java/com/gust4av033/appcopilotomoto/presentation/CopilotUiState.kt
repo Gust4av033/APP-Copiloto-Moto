@@ -170,6 +170,7 @@ data class CopilotUiState(
     val audioDiagnostic: String = "",
     val audioBefore: String = "",
     val audioDuring: String = "",
+    val conversationAudioStatus: String = "",
     val audioAfter: String = "",
     val callMessage: String = "",
     val fixedContact: String? = null,

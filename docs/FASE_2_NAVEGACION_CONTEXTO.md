@@ -401,3 +401,26 @@ Sin dispositivo conectado no se pudo comprobar el chip nativo encima de Maps,
 Waze o una app de reparto, ni la fluidez del equipo. APK Campo código 18,
 firmado con la misma clave de pruebas anterior; SHA-256
 `383ed63a7455d162fdb63f876b3adc27ed04ac157c7de7cd518ab319cfeb3871`.
+
+### Cierre A · ciclo de audio de una orden
+
+`ConversationAudioCycle` agrupa activación, dictado, anuncio y confirmación hasta
+el cierre de una acción. El servicio solicita un foco transitorio exclusivo al
+principio y lo conserva entre capturas; el reconocedor no lo suelta entre
+turnos mientras el ciclo está activo. La pausa solo se recuerda si APP la
+solicitó y la reanudación se decide una vez, después de recuperar la ruta del
+casco. Una búsqueda musical enviada y una llamada despachada no reciben PLAY
+al cerrar el ciclo; la llamada directa conserva su recuperación al colgar.
+El ciclo expira tras 90 s sin actividad, invalida callbacks anteriores y deja
+su causa, duración y decisiones de pausa/reanudación en diagnóstico, sin datos
+del mensaje ni nombres.
+Verificación local del Bloque A: 298 tests en Full Debug y 298 en Playstore
+Debug, sin fallos (dos y tres omisiones, respectivamente); ambos APK
+ensamblaron y `lintFullDebug`/`lintPlaystoreDebug` terminaron correctamente.
+
+La hipótesis de que Spotify o Poweramp reanudan solos al recuperar el foco
+entre capturas **sigue sin medirse en el Samsung**. La prueba física debe
+comparar ambos con música sonando durante orden simple, llamada y dictado de
+WhatsApp, incluida cancelación y confirmación; también comprobar bloqueo,
+pulsaciones seguidas y recuperación del casco. Los tests JVM solo comprueban
+la política y la regresión lógica, no la salida audible del casco.

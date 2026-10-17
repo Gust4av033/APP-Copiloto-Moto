@@ -455,6 +455,7 @@ class MainActivity : ComponentActivity() {
             audioDiagnostic = audioDiagnostic,
             audioBefore = TripTestState.audioBefore,
             audioDuring = TripTestState.audioDuring,
+            conversationAudioStatus = TripTestState.conversationAudioStatus,
             audioAfter = TripTestState.audioAfter,
             callMessage = tripCallMessage,
             fixedContact = tripCallContact?.display,

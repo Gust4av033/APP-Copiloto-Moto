@@ -65,3 +65,8 @@
 5. Capa 5: futuros servicios de tráfico de pago, sin implementación ni acceso de red en Fase 2.
 
 Todo dato del contexto lleva `source`, captura monotónica, confianza entre 0 y 1, `ttlMs` e `isSimulated`. La fusión descarta datos vencidos y prefiere los frescos de mayor confianza. Sin permiso o con el ajuste apagado, no se lee ni guarda GPS. Replay jamás toca el historial real. Ningún dato de viaje sale del teléfono. El detector de movimiento funciona solo en sombra: registra eventos, sin preguntas espontáneas.
+
+## Ciclo de audio de las órdenes
+
+- Una orden, su dictado y sus confirmaciones forman un solo ciclo de audio. Mantén la música que APP pausó en pausa hasta completar, cancelar o agotar ese ciclo; conserva un único foco de audio entre turnos.
+- Reanuda como máximo una vez después de restaurar la ruta del casco, solo si APP pausó la reproducción. Una búsqueda musical enviada, una pausa pedida por el usuario o una llamada en curso no autorizan PLAY. El ciclo tiene límite de inactividad y diagnóstico sin datos personales.
