@@ -10,7 +10,8 @@ import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 
 /** Anuncia una acción antes de abrir la escucha de confirmación. */
-class TripCallPrompt(private val context: Context) {
+class TripCallPrompt(private val context: Context,
+    private val audioUsage: Int = AudioAttributes.USAGE_VOICE_COMMUNICATION) {
     private val handler = Handler(Looper.getMainLooper())
     private var engine: TextToSpeech? = null
     private var generation = 0
@@ -48,7 +49,7 @@ class TripCallPrompt(private val context: Context) {
                     return@post
                 }
                 speaker.setAudioAttributes(AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setUsage(audioUsage)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build())
                 speaker.setOnUtteranceProgressListener(object : UtteranceProgressListener() {

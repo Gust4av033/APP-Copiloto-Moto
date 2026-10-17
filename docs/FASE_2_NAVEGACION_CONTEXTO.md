@@ -456,3 +456,7 @@ APP reconoce gasolinera, taller de moto, parada de comida, farmacia y cajero sin
 ## Auditoría de distribución
 
 El inventario de permisos y servicios de los manifiestos fusionados, así como las declaraciones pendientes para Play, están en [PLAY_STORE_DECLARACIONES.md](PLAY_STORE_DECLARACIONES.md). La variante Play mantiene llamadas mediante marcador y no incluye Accesibilidad. Los permisos de llamada directa permanecen candidatos hasta verificar la política vigente.
+
+## Narración propia de giros (experimental)
+
+El ajuste está apagado por defecto. En Play aparece deshabilitado; no hay una fuente de giros confiable. En `full` solo puede hablar en modo botón, con GPS reciente, salida Bluetooth confirmada y una maniobra explícita observada con su distancia del mismo origen. La política pura deduplica los avisos a 450, 175 y 50 m, descarta observaciones vencidas o maniobras que el movimiento ya habría dejado atrás y guarda silencio durante una conversación. No se usa el foco de audio para silenciar Waze o Maps. La voz informativa solicita solo ducking. La ruta propia `APP_ROAD_ROUTE` tiene adaptador de contrato, pendiente de un plan real y progreso sobre la ruta. Validación física de salida y tiempos pendiente.

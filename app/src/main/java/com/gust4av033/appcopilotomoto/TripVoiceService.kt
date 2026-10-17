@@ -142,6 +142,8 @@ class TripVoiceService : Service() {
     private var appLaunchPendingIntent: PendingIntent? = null
     private var resumeAfterButtonRoute = false
     private val conversationCycle = ConversationAudioCycle(SystemClock::elapsedRealtime)
+    private val informationalSpeaker by lazy { InformationalTripSpeaker(applicationContext) }
+    private val navigationSpeech = NavigationSpeechDeduplicator()
     private val conversationFocusRequest by lazy { AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT_EXCLUSIVE)
         .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ASSISTANT)
             .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH).build()).build() }
@@ -188,7 +190,9 @@ class TripVoiceService : Service() {
     private val contextTick = object : Runnable {
         override fun run() {
             if (!active || tripRepository == null) return
-            val eta = TripContextCollector.snapshot(this@TripVoiceService).navigation.etaObservation
+            val now = SystemClock.elapsedRealtime()
+            val snapshot = TripContextCollector.snapshot(this@TripVoiceService)
+            val eta = snapshot.navigation.etaObservation
             if (eta != null && eta.valid(SystemClock.elapsedRealtime())) {
                 val key = eta.source to eta.capturedAtElapsedRealtimeMs
                 if (key != lastEtaKey) {
@@ -196,6 +200,14 @@ class TripVoiceService : Service() {
                     TripRecordingState.eta = eta
                     lastEtaKey = key
                 }
+            }
+            if (NavigationSpeechSettings.enabled(this@TripVoiceService) &&
+                effectiveAudioMode == WakeAudioMode.BUTTON && conversationCycle.current == null &&
+                !callPending && !informationalSpeaker.isSpeaking && informationalHeadsetRouteAvailable()) {
+                val maneuver = ObservedManeuverSource.current(snapshot, now)
+                val speed = snapshot.location?.takeIf { it.freshness(now) != Freshness.EXPIRED }
+                    ?.value?.speedMetersPerSec
+                navigationSpeech.next(maneuver, now, speed, false)?.let { informationalSpeaker.speak(it) }
             }
             mainHandler.postDelayed(this, 2_000L)
         }
@@ -368,6 +380,7 @@ class TripVoiceService : Service() {
         TripTestState.running = true
         TripNavigationState.beginSession(NavigationPreferences.consumeNextTripDestination(this))
         TripMusicState.beginSession(TripNavigationState.context.sessionId)
+        navigationSpeech.reset()
         TripRecordingState.clear()
         TripRecordingState.locationStatus = if (UserSettingsStore(this).tripLocationEnabled())
             if (locationReadyForSession) "AVAILABLE" else "UNAVAILABLE" else "OFF"
@@ -1747,6 +1760,18 @@ class TripVoiceService : Service() {
         }.getOrDefault(false)
     }
 
+    private fun informationalHeadsetRouteAvailable(): Boolean = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val outputs = audioManager.getAudioDevicesForAttributes(AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_ASSISTANT).build())
+            outputs.any { it.type in setOf(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+                AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLE_HEADSET,
+                AudioDeviceInfo.TYPE_BLE_SPEAKER) } && outputs.none {
+                it.type == AudioDeviceInfo.TYPE_BUILTIN_SPEAKER || it.type == AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+            }
+        } else headsetRouteAvailable() || audioManager.isBluetoothA2dpOn
+    }.getOrDefault(false)
+
     private fun stopMonitoringHardware() {
         routeCheck?.let(mainHandler::removeCallbacks)
         routeCheck = null
@@ -1778,6 +1803,7 @@ class TripVoiceService : Service() {
         }
         buttonCoordinator?.close()
         buttonCoordinator = null
+        informationalSpeaker.cancel()
         active = false
         draftCaptureToken = null
         mainHandler.removeCallbacks(overlayTick)

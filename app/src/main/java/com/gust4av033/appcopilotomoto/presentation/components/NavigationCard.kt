@@ -8,11 +8,14 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.gust4av033.appcopilotomoto.NavigationApp
 import com.gust4av033.appcopilotomoto.NavigationDestination
 import com.gust4av033.appcopilotomoto.NavigationPreferences
+import com.gust4av033.appcopilotomoto.NavigationSpeechSettings
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.ChoiceUi
 import com.gust4av033.appcopilotomoto.presentation.CopilotActions
@@ -20,6 +23,8 @@ import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
 
 @Composable
 fun NavigationCard(state: CopilotUiState, actions: CopilotActions) {
+    val context = LocalContext.current
+    var narrationEnabled by remember { mutableStateOf(NavigationSpeechSettings.enabled(context)) }
     SectionCard(stringResource(R.string.navigation_title)) {
         ChoiceGroup(listOf(ChoiceUi(NavigationApp.WAZE.id, R.string.navigation_provider_waze),
             ChoiceUi(NavigationApp.GOOGLE_MAPS.id, R.string.navigation_provider_maps)),
@@ -31,6 +36,14 @@ fun NavigationCard(state: CopilotUiState, actions: CopilotActions) {
             R.string.navigation_setup else R.string.navigation_maps_setup))
         if (state.navigationProvider == NavigationApp.WAZE)
             SupportingText(stringResource(R.string.navigation_waze_limited_context))
+        ToggleSettingRow(stringResource(R.string.navigation_speech_title), narrationEnabled,
+            enabled = !state.busy && !com.gust4av033.appcopilotomoto.BuildConfig.IS_PLAYSTORE_BUILD,
+            onCheckedChange = {
+                NavigationSpeechSettings.setEnabled(context, it)
+                narrationEnabled = NavigationSpeechSettings.enabled(context)
+            })
+        SupportingText(stringResource(if (com.gust4av033.appcopilotomoto.BuildConfig.IS_PLAYSTORE_BUILD)
+            R.string.navigation_speech_unavailable else R.string.navigation_speech_experimental))
         if (state.navigationProvider == NavigationApp.GOOGLE_MAPS) {
             NavigationAddressEditor(state, actions, NavigationDestination.HOME, state.navigationHomeAddress)
             NavigationAddressEditor(state, actions, NavigationDestination.WORK, state.navigationWorkAddress)

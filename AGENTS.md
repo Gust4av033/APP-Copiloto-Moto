@@ -79,3 +79,5 @@ Todo dato del contexto lleva `source`, captura monotónica, confianza entre 0 y 
 - La búsqueda de POI registra una solicitud despachada, nunca un resultado o ruta confirmada. Clima y resultados propios quedan bajo `WeatherProvider` y `PlacesProvider` de Fase 7; no inferirlos de pantallas ajenas.
 
 - Antes de cambiar permisos Play, contrastar ambos manifiestos fusionados con `docs/PLAY_STORE_DECLARACIONES.md`. No presentar enlaces a políticas como revisión completada cuando el acceso a esas páginas haya fallado; la variante Play sigue sin Accesibilidad hasta declaración, divulgación separada y evidencia física.
+
+- La narración de giros es experimental y apagada por defecto. Solo una maniobra explícita, reciente y con distancia de la misma fuente puede generar voz; Play la mantiene no disponible hasta contar con fuente confiable. Nunca pedir foco para silenciar Waze o Maps.
