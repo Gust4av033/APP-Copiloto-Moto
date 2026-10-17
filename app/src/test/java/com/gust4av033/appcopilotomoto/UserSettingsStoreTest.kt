@@ -11,7 +11,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [26, 35])
+@Config(sdk = [BuildConfig.MIN_SUPPORTED_SDK, 35])
 class UserSettingsStoreTest {
     private lateinit var context: Application
     @Before fun clear() { context=RuntimeEnvironment.getApplication(); context.getSharedPreferences("ui_settings",0).edit().clear().commit() }

@@ -25,3 +25,5 @@ Thumbs.db
 
 # Kotlin compiler sessions
 .kotlin/
+__pycache__/
+*.pyc

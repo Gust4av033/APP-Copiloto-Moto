@@ -10,7 +10,8 @@ import android.speech.tts.UtteranceProgressListener
 import java.util.Locale
 
 /** Anuncia una acción antes de abrir la escucha de confirmación. */
-class TripCallPrompt(private val context: Context) {
+class TripCallPrompt(private val context: Context,
+    private val audioUsage: Int = AudioAttributes.USAGE_VOICE_COMMUNICATION) {
     private val handler = Handler(Looper.getMainLooper())
     private var engine: TextToSpeech? = null
     private var generation = 0
@@ -19,8 +20,10 @@ class TripCallPrompt(private val context: Context) {
 
     fun isAnnouncing(): Boolean = announcing
 
-    fun announce(name: String, onFinished: (Boolean) -> Unit) = speak(
-        "Llamar a $name. Después del tono, di confirmar llamada o cancelar.", onFinished)
+    fun announce(name: String, direct: Boolean = true, onFinished: (Boolean) -> Unit) = speak(
+        if (direct) "Llamar a $name. Después del tono, di confirmar llamada o cancelar."
+        else "Abrir marcador para $name. Deberás iniciar la llamada en Teléfono. Después del tono, di confirmar llamada o cancelar.",
+        onFinished)
 
     fun announceApp(name: String, draft: String? = null, onFinished: (Boolean) -> Unit) = speak(
         VoiceInteractionTiming.appAnnouncement(name, draft), onFinished)
@@ -46,7 +49,7 @@ class TripCallPrompt(private val context: Context) {
                     return@post
                 }
                 speaker.setAudioAttributes(AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+                    .setUsage(audioUsage)
                     .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                     .build())
                 speaker.setOnUtteranceProgressListener(object : UtteranceProgressListener() {

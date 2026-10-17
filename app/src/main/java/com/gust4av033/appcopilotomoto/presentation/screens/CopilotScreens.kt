@@ -51,13 +51,32 @@ fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onO
     if (state.tripActive && state.buttonMode && !state.canRequestTripCommand) item(key = "waiting") {
         SupportingText(stringResource(R.string.trip_wait_ready))
     }
+    if (state.tripActive && state.greetingWarning.isNotBlank()) item(key = "greeting_warning") {
+        SectionCard(stringResource(R.string.trip_greeting_title)) { SupportingText(state.greetingWarning) }
+    }
+    if (state.tripActive) item(key = "trip_music_player") {
+        SectionCard(stringResource(R.string.trip_music_player_title)) {
+            val selected = state.currentTripMusicPlayer
+            if (selected == null) SupportingText(state.currentTripMusicMessage.ifBlank {
+                stringResource(R.string.trip_music_player_unknown) })
+            else SupportingText(stringResource(R.string.trip_music_player_value, selected.player.label,
+                stringResource(when (selected.origin) {
+                    com.gust4av033.appcopilotomoto.MusicPlayerOrigin.EXPLICIT -> R.string.trip_music_origin_explicit
+                    com.gust4av033.appcopilotomoto.MusicPlayerOrigin.TRIP -> R.string.trip_music_origin_trip
+                    com.gust4av033.appcopilotomoto.MusicPlayerOrigin.PLAYING_SESSION -> R.string.trip_music_origin_playing
+                    com.gust4av033.appcopilotomoto.MusicPlayerOrigin.SETTINGS -> R.string.trip_music_origin_settings
+                    com.gust4av033.appcopilotomoto.MusicPlayerOrigin.AUTOMATIC -> R.string.trip_music_origin_auto
+                })))
+        }
+    }
     if (state.pendingAppName != null) item(key = "TripScreen_2") {
         PendingAppCard(state, actions)
     }
     if (state.standaloneListening) item("standalone_command") {
         SectionCard(stringResource(R.string.settings_short_command)) {
             SupportingText(stringResource(R.string.settings_short_command_hint))
-            ActionButton(stringResource(R.string.listen_cancel), iconRes = R.drawable.ic_stop, onClick = actions.onCancelStandaloneCommand)
+            ActionButton(stringResource(R.string.listen_cancel), destructive = true,
+                iconRes = R.drawable.ic_stop, onClick = actions.onCancelStandaloneCommand)
         }
     }
     if (!state.tripActive && state.lastTestCommand != null) item("standalone_result") {
@@ -79,7 +98,12 @@ fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onO
     }
 
     if (state.tripActive) item(key = "trip_navigation_context") {
-        com.gust4av033.appcopilotomoto.presentation.components.TripNavigationCard(state.navigationContext)
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            com.gust4av033.appcopilotomoto.presentation.components.TripDestinationCard(state, actions)
+            com.gust4av033.appcopilotomoto.presentation.components.TripNavigationCard(
+                state.navigationContext, state.observedRoute, state.observedRouteAtElapsedMs,
+                state.navigationNoticesReady)
+        }
     }
 
 }
@@ -146,6 +170,13 @@ private fun LazyListScope.DeveloperTripDetails(state: CopilotUiState, onOpenTest
 fun LazyListScope.TestsScreen(state: CopilotUiState, actions: CopilotActions) {
     if (!state.developerEnabled) { BasicDiagnosticsScreen(state, actions); return }
     DeveloperTripDetails(state, actions.onOpenBasicDiagnostics)
+    item("trip_context_layers") { SectionCard(stringResource(R.string.trip_context_layers)) {
+        SupportingText(state.tripContextReport.ifBlank { stringResource(R.string.trip_context_waiting) })
+        ActionButton(stringResource(R.string.trip_export_gpx), enabled = !state.busy,
+            onClick = { actions.onExportLastTrip(true) })
+        ActionButton(stringResource(R.string.trip_export_json), enabled = !state.busy,
+            onClick = { actions.onExportLastTrip(false) })
+    } }
     if (!state.developerToolsAvailable) {
         item("release_diagnostics") { SupportingText(stringResource(R.string.settings_developer_read_only)) }
         item("release_devices") { AudioDevicesCard(state, actions) }

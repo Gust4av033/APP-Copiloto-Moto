@@ -1,0 +1,37 @@
+APP Copiloto Moto 1.2.1-rc1 — non-commercial test candidate
+
+This candidate retains the bundled Alexa and Hey Jarvis wake-word models
+solely for non-commercial testing, as selected by the project owner.
+No commercial distribution clearance is claimed.
+
+openWakeWord Android 0.1.2 — msnilsen and contributors
+https://github.com/msnilsen/openwakeword-android/tree/0.1.2
+Code: Apache License 2.0 (included).
+
+Pre-trained wake-word models — David Scripka / openWakeWord contributors
+https://github.com/dscripka/openWakeWord
+Models Alexa and Hey Jarvis: Creative Commons BY-NC-SA 4.0 (included).
+Model files are used as supplied by openWakeWord Android, without modification.
+The Android wrapper's Apache license does not replace the models' NC license.
+Attribution, non-commercial use, and applicable share-alike conditions apply.
+Google speech embedding / preprocessing assets: see upstream provenance;
+the wrapper identifies the Google speech embedding as Apache 2.0.
+
+ONNX Runtime Android 1.23.2 — Microsoft Corporation and contributors
+https://github.com/microsoft/onnxruntime/tree/v1.23.2
+MIT license included. See packaged upstream third-party notices for components.
+
+Jetpack Compose, Activity, AndroidX Core — The Android Open Source Project
+https://android.googlesource.com/platform/frameworks/support/
+Apache License 2.0 (included).
+Kotlin runtime — JetBrains s.r.o. and Kotlin Programming Language contributors
+https://github.com/JetBrains/kotlin
+Apache License 2.0 (included).
+
+Manrope font — Manrope Project Authors
+https://github.com/sharanda/manrope
+SIL Open Font License 1.1 included. Static font instances derive from the
+variable font distributed in this project.
+
+Alexa, Jarvis, Google, Waze and other product names do not imply affiliation
+or endorsement. This notice does not grant trademark rights.

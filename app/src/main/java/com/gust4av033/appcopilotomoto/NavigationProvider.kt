@@ -18,11 +18,13 @@ interface NavigationProvider {
     val label: String
     val capabilities: NavigationCapabilities
     fun available(): Boolean
+    fun nextTurnAnswer(): String = "Este navegador no ofrece una indicación reciente para APP."
     fun prepare(destination: NavigationDestination): Result<AppTarget>
     fun search(query: String): Result<AppTarget> = Result.failure(UnsupportedOperationException("Este navegador no ofrece búsqueda de lugares."))
 }
 
 class WazeNavigationProvider(private val context: Context) : NavigationProvider {
+    override fun nextTurnAnswer(): String = WazeScreenAccess.answer(context)
     override val id = "waze"
     override val label = "Waze"
     override val capabilities = NavigationCapabilities(opensSavedDestinations = true, searchesPlaces = true)
@@ -32,12 +34,27 @@ class WazeNavigationProvider(private val context: Context) : NavigationProvider 
     }.getOrDefault(false)
 
     override fun prepare(destination: NavigationDestination): Result<AppTarget> = runCatching {
-        val launch = intent(destination)
-        check(launch.resolveActivity(context.packageManager) != null) {
-            "Waze no está disponible para abrir destinos. Instalalo y guardá Casa y Trabajo allí."
+        val coordinate = NavigationPreferences.coordinates(context, destination)
+        if (coordinate != null) {
+            val launch = Intent(Intent.ACTION_VIEW,
+                Uri.parse("waze://?ll=${coordinate.latitude},${coordinate.longitude}&navigate=yes"))
+                .setPackage("com.waze")
+            if (launch.resolveActivity(context.packageManager) != null)
+                AppTarget("Ruta a ${destination.label} en $label", launch,
+                    navigationDestination = destination, navigationTarget = coordinate)
+            else {
+                val query = "${coordinate.latitude},${coordinate.longitude}"
+                val search = Intent(Intent.ACTION_VIEW, Uri.parse(wazePlaceSearchLink(query))).setPackage("com.waze")
+                check(search.resolveActivity(context.packageManager) != null) { "Waze no está disponible para buscar el destino." }
+                AppTarget("Búsqueda de ${destination.label} en Waze", search, navigationSearchQuery = query)
+            }
+        } else {
+            val launch = intent(destination)
+            check(launch.resolveActivity(context.packageManager) != null) {
+                "Waze no está disponible para abrir destinos. Instalalo y guardá Casa y Trabajo allí."
+            }
+            AppTarget("Ruta a ${destination.label} en $label", launch, navigationDestination = destination)
         }
-        AppTarget("Ruta a ${destination.label} en $label", launch,
-            navigationDestination = destination)
     }
 
     override fun search(query: String): Result<AppTarget> = runCatching {
@@ -51,36 +68,164 @@ class WazeNavigationProvider(private val context: Context) : NavigationProvider 
             .setPackage("com.waze") // No enviar el favorito a otro navegador ni abrir una tienda.
 }
 
+enum class NavigationApp(val id: String, val label: String, val packageName: String) {
+    WAZE("waze", "Waze", "com.waze"),
+    GOOGLE_MAPS("google_maps", "Google Maps", "com.google.android.apps.maps");
+
+    companion object {
+        fun fromPackage(packageName: String?) = entries.firstOrNull { it.packageName == packageName }
+        fun fromId(id: String?) = entries.firstOrNull { it.id == id } ?: WAZE
+    }
+}
+
+/** User choice and addresses remain on this installation. No route state is persisted. */
+object NavigationPreferences {
+    private const val PREFS = "navigation_preferences"
+    private const val NEXT_TRIP_DESTINATION = "next_trip_destination"
+    fun validAddress(address: String): Boolean = address.trim().let { it.isEmpty() || PlaceSearchParser.valid(it) }
+    fun selected(context: Context): NavigationApp = NavigationApp.fromId(
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString("provider", null))
+    fun select(context: Context, app: NavigationApp) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putString("provider", app.id).apply()
+    }
+    fun address(context: Context, destination: NavigationDestination): String =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(destination.name.lowercase(), null).orEmpty()
+    fun saveAddress(context: Context, destination: NavigationDestination, address: String) {
+        val value = address.trim()
+        require(validAddress(value)) { "Escribí una dirección de 2 a 160 caracteres." }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(destination.name.lowercase(), value).apply()
+    }
+    fun coordinates(context: Context, destination: NavigationDestination): TargetDestination? {
+        val raw = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString("${destination.name.lowercase()}_coords", null) ?: return null
+        return parseCoordinates(destination.label, raw)
+    }
+    fun saveCoordinates(context: Context, destination: NavigationDestination, raw: String) {
+        val value = raw.trim()
+        require(value.isEmpty() || parseCoordinates(destination.label, value) != null) {
+            "Escribí coordenadas válidas como latitud,longitud."
+        }
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        prefs.edit().putString("${destination.name.lowercase()}_coords", value).apply()
+        if (value.isEmpty() && nextTripDestination(context) == destination)
+            prefs.edit().remove(NEXT_TRIP_DESTINATION).apply()
+    }
+
+    /** One-trip choice; it is consumed when the foreground trip starts. */
+    fun nextTripDestination(context: Context): NavigationDestination? =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getString(NEXT_TRIP_DESTINATION, null)?.let { saved ->
+                NavigationDestination.entries.firstOrNull { it.name == saved }
+            }
+
+    fun planNextTripDestination(context: Context, destination: NavigationDestination?) {
+        require(destination == null || coordinates(context, destination) != null) {
+            "Guardá coordenadas para fijar este destino en APP."
+        }
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString(NEXT_TRIP_DESTINATION, destination?.name).apply()
+    }
+
+    fun consumeNextTripDestination(context: Context): TargetDestination? {
+        val destination = nextTripDestination(context)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(NEXT_TRIP_DESTINATION).apply()
+        return destination?.let { coordinates(context, it) }
+    }
+}
+
+internal fun parseCoordinates(label: String, raw: String): TargetDestination? {
+    val parts = raw.split(',').map(String::trim)
+    if (parts.size != 2) return null
+    val lat = parts[0].toDoubleOrNull() ?: return null
+    val lon = parts[1].toDoubleOrNull() ?: return null
+    return runCatching { TargetDestination(label, lat, lon) }.getOrNull()
+}
+
+class GoogleMapsNavigationProvider(private val context: Context) : NavigationProvider {
+    override val id = NavigationApp.GOOGLE_MAPS.id
+    override val label = NavigationApp.GOOGLE_MAPS.label
+    override val capabilities = NavigationCapabilities(opensSavedDestinations = false, searchesPlaces = true)
+
+    override fun available(): Boolean = googleMapsSearchIntent("gasolinera").resolveActivity(context.packageManager) != null
+
+    override fun prepare(destination: NavigationDestination): Result<AppTarget> = runCatching {
+        val coordinates = NavigationPreferences.coordinates(context, destination)
+        val address = NavigationPreferences.address(context, destination)
+        if (coordinates != null) {
+            val launch = googleMapsNavigationIntent("${coordinates.latitude},${coordinates.longitude}")
+            check(launch.resolveActivity(context.packageManager) != null) { "Google Maps no está disponible para abrir la ruta." }
+            AppTarget("Ruta a ${destination.label} en $label", launch,
+                navigationDestination = destination, navigationTarget = coordinates)
+        } else if (address.isBlank()) {
+            // Maps does not expose a documented deep link to the user's personal Home/Work.
+            // Show search results inside Maps; only the rider can identify the saved place.
+            val launch = googleMapsSearchIntent(destination.label)
+            check(launch.resolveActivity(context.packageManager) != null) { "Google Maps no está disponible para buscar ${destination.label}." }
+            AppTarget("Elegir ${destination.label} guardado en $label", launch,
+                navigationSearchQuery = destination.label)
+        } else {
+            val launch = googleMapsNavigationIntent(address)
+            check(launch.resolveActivity(context.packageManager) != null) { "Google Maps no está disponible para abrir la ruta." }
+            AppTarget("Ruta a ${destination.label} en $label", launch, navigationDestination = destination)
+        }
+    }
+
+    override fun search(query: String): Result<AppTarget> = runCatching {
+        require(PlaceSearchParser.valid(query)) { "Pedí un lugar breve, de hasta 160 caracteres." }
+        val launch = googleMapsSearchIntent(query)
+        check(launch.resolveActivity(context.packageManager) != null) { "Google Maps no está disponible para buscar lugares." }
+        AppTarget("Búsqueda de $query en $label", launch, navigationSearchQuery = query)
+    }
+
+}
+
+internal fun googleMapsNavigationUri(address: String): Uri = Uri.parse("google.navigation:q=${Uri.encode(address)}")
+internal fun googleMapsSearchUri(query: String): Uri = Uri.parse("geo:0,0?q=${Uri.encode(query)}")
+internal fun googleMapsNavigationIntent(address: String) = Intent(Intent.ACTION_VIEW, googleMapsNavigationUri(address))
+    .setPackage(NavigationApp.GOOGLE_MAPS.packageName)
+internal fun googleMapsSearchIntent(query: String) = Intent(Intent.ACTION_VIEW, googleMapsSearchUri(query))
+    .setPackage(NavigationApp.GOOGLE_MAPS.packageName)
+
 /** Guarda únicamente el favorito solicitado, sin leer ni almacenar direcciones o GPS. */
 object NavigationRequestStore {
     private const val PREFS = "navigation_requests"
     private const val LAST_WAZE = "last_dispatched_waze_favorite"
+    private const val LAST_MAPS = "last_dispatched_google_maps_favorite"
 
-    fun last(context: Context): NavigationDestination? =
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(LAST_WAZE, null)
+    private fun key(app: NavigationApp) = if (app == NavigationApp.WAZE) LAST_WAZE else LAST_MAPS
+
+    fun last(context: Context, app: NavigationApp = NavigationApp.WAZE): NavigationDestination? =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(key(app), null)
             ?.let { saved -> NavigationDestination.entries.firstOrNull { it.name == saved } }
 
     fun recordDispatched(context: Context, target: AppTarget,
                          sessionId: String? = TripNavigationState.context.sessionId) {
-        if (target.launchIntent.`package` != "com.waze") return
+        val app = NavigationApp.fromPackage(target.launchIntent.`package`) ?: return
         val destination = target.navigationDestination
         val query = target.navigationSearchQuery
         if (destination == null && query.isNullOrBlank()) return
         // Do not let an old session replace the current trip or its repeat favorite.
         if (sessionId != null && sessionId != TripNavigationState.context.sessionId) return
-        TripNavigationState.record(sessionId, NavigationDispatch("waze",
+        TripNavigationState.record(sessionId, NavigationDispatch(app.id,
             if (query != null) NavigationRequestKind.SEARCH else NavigationRequestKind.FAVORITE,
-            query ?: checkNotNull(destination).label, System.currentTimeMillis()))
+            query ?: checkNotNull(destination).label, System.currentTimeMillis(),
+            target.navigationTarget.takeIf { destination != null && query == null },
+            android.os.SystemClock.elapsedRealtime(),
+            query?.let(PointOfInterestCategory::fromQuery)))
         if (destination != null) context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putString(LAST_WAZE, destination.name).apply()
+            .putString(key(app), destination.name).apply()
     }
 
-    fun forget(context: Context) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(LAST_WAZE).apply()
+    fun forget(context: Context, app: NavigationApp = NavigationApp.WAZE) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().remove(key(app)).apply()
     }
 }
 
-internal fun navigationDispatchMessage(target: AppTarget): String =
-    if (target.navigationSearchQuery != null) "Búsqueda de ${target.navigationSearchQuery} enviada a Waze; viaje activo. Elegí el resultado en Waze con la moto detenida."
-    else "Solicitud de ruta a ${target.navigationDestination?.label} enviada a Waze; viaje activo. " +
-        "El destino y el inicio de navegación los resuelve Waze."
+internal fun navigationDispatchMessage(target: AppTarget): String {
+    val label = NavigationApp.fromPackage(target.launchIntent.`package`)?.label ?: "el navegador"
+    return if (target.navigationSearchQuery != null)
+        "Búsqueda de ${target.navigationSearchQuery} enviada a $label; viaje activo. Elegí el resultado en $label con la moto detenida."
+    else "Solicitud de ruta a ${target.navigationDestination?.label} enviada a $label; viaje activo. " +
+        "El destino y el inicio de navegación los resuelve $label."
+}

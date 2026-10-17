@@ -32,6 +32,7 @@ fun LazyListScope.CommandsScreen(state: CopilotUiState, actions: CopilotActions)
                 else stringResource(R.string.commands_voice_intro, state.phraseLabel))
         }
     }
+    item(key = "next_turn") { SupportingText(stringResource(R.string.waze_screen_command)) }
     item(key = "music") {
         ExpandableSectionCard(stringResource(R.string.command_group_music)) {
             Text(stringResource(R.string.commands_music))
@@ -58,11 +59,14 @@ fun LazyListScope.CommandsScreen(state: CopilotUiState, actions: CopilotActions)
     item(key = "navigation") {
         ExpandableSectionCard(stringResource(R.string.command_group_navigation)) {
             SupportingText(if (state.appCatalogLoading) stringResource(R.string.catalog_loading)
-                else stringResource(if (state.navigationAvailable) R.string.navigation_ready else R.string.navigation_missing))
+                else stringResource(if (state.navigationAvailable) R.string.navigation_ready else R.string.navigation_missing,
+                    state.navigationProvider.label))
             Text(stringResource(R.string.navigation_commands))
+            SupportingText(stringResource(R.string.navigation_request_command))
             SupportingText(stringResource(R.string.navigation_search_hint))
             SupportingText(stringResource(R.string.navigation_confirmation))
-            SupportingText(stringResource(R.string.navigation_scope))
+            SupportingText(stringResource(if (state.navigationProvider == com.gust4av033.appcopilotomoto.NavigationApp.WAZE)
+                R.string.navigation_scope else R.string.navigation_maps_scope))
         }
     }
     item(key = "apps_guide") {

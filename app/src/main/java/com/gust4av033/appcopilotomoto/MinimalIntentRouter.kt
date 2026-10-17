@@ -3,7 +3,7 @@ package com.gust4av033.appcopilotomoto
 import java.text.Normalizer
 import java.util.Locale
 
-enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, MEDIA_SEARCH, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, OPEN_APP, OPEN_CONTACT_CHAT, DRAFT_CONTACT_MESSAGE, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, SWITCH_MODE, OPEN_ASSISTANT, NAVIGATE, SEARCH_PLACE, UNKNOWN }
+enum class TestIntent { MEDIA_NEXT, MEDIA_PREVIOUS, MEDIA_PLAY, MEDIA_PAUSE, MEDIA_SEARCH, RESET_MUSIC_PLAYER, MUSIC_CONTEXT, BATTERY_CONTEXT, VOLUME_UP, VOLUME_DOWN, VOLUME_SET, OPEN_APP, OPEN_CONTACT_CHAT, DRAFT_CONTACT_MESSAGE, CALL_SELECTED, CALL_NAMED, CONFIRM_CALL, STOP_TTS, CANCEL, STOP_SESSION, SWITCH_MODE, OPEN_ASSISTANT, NAVIGATE, SEARCH_PLACE, NEXT_TURN, HOW_LONG, TRIP_STATUS, NAVIGATION_REQUEST_STATUS, UNKNOWN }
 
 data class VolumeRequest(val amount: Int, val percent: Boolean)
 data class RoutedCommand(
@@ -17,7 +17,9 @@ data class RoutedCommand(
     val messageText: String? = null,
     val navigationRequest: NavigationRequest? = null,
     val placeQuery: String? = null,
-    val musicTitleInEnglish: Boolean = false
+    val musicTitleInEnglish: Boolean = false,
+    val navigationProvider: NavigationApp? = null,
+    val musicPlayerName: String? = null
 )
 
 /** Las órdenes claras pasan por reglas locales; una frase desconocida no ejecuta nada. */
@@ -82,21 +84,25 @@ object MinimalIntentRouter {
             Regex("^(?:abre|abrir|abrime) (?:whatsapp|whats app|wasap|watsap)(?: business)? (?:con|de|para)(?: |$)").containsMatchIn(spoken)) return null
         val prefix = listOf("abre la aplicacion de ", "abre la aplicacion ",
             "abre la app de ", "abre la app ", "abrir la aplicacion ",
-            "abre ", "abrir ", "abrime ", "inicia ", "iniciar ", "lanza ", "lanzar ", "open ", "launch ")
+            "abre ", "abrir ", "abrime ", "inicia ", "iniciar ", "lanza ", "lanzar ", "usa ", "usar ", "open ", "launch ")
             .firstOrNull { spoken.startsWith(it) } ?: return null
         return spoken.removePrefix(prefix).takeIf { it.length >= 2 && it.any(Char::isLetter) }
     }
 
     /** Conserva el título original; las reglas de control tienen prioridad sobre la búsqueda. */
-    fun requestedSong(transcript: String): String? {
+    private fun requestedSongRequest(transcript: String): Pair<String, String?>? {
         val spoken = transcript.trim()
             .replace(Regex("^(?:por favor[,\\s]+|puedes |podrias |podrías |quiero que |please |can you |could you )+", RegexOption.IGNORE_CASE), "")
             .replace(Regex("[,\\s]+(?:por favor|gracias|please|thanks)[.!?]*$", RegexOption.IGNORE_CASE), "")
         val match = Regex("^(?:pon|pone|poné|poneme|ponme|reproduce|reproducir|reproduci|reproducí|play|busca (?:la )?canci[oó]n|buscar (?:la )?canci[oó]n|search (?:for )?(?:the )?song)\\s+(.+)$",
             RegexOption.IGNORE_CASE).matchEntire(spoken) ?: return null
-        val title = match.groupValues[1]
+        val rawTitle = match.groupValues[1]
             .replace(Regex("^(?:(?:la|the) )?(?:cancion|canción|pista|song|track)\\s+", RegexOption.IGNORE_CASE), "")
             .trim().trim('"', '“', '”')
+        val playerSuffix = Regex("^(.+?)\\s+(?:en|on)\\s+(Spotify|Poweramp|YouTube Music|Apple Music|VLC)$",
+            RegexOption.IGNORE_CASE).matchEntire(rawTitle)
+        val title = playerSuffix?.groupValues?.get(1)?.trim() ?: rawTitle
+        val player = playerSuffix?.groupValues?.get(2)
         val normalized = normalize(title)
         val reserved = setOf("musica", "la musica", "pausa", "la pausa", "cancion", "la cancion", "pista", "la pista",
             "siguiente", "la siguiente", "siguiente cancion", "anterior", "la anterior", "anterior cancion",
@@ -104,22 +110,47 @@ object MinimalIntentRouter {
         if (normalize(match.groupValues[1]).startsWith("modo ") || normalized in reserved || normalized.startsWith("volumen") || normalized.startsWith("el volumen") ||
             normalized.startsWith("volume") || normalized.startsWith("the volume") || normalized.startsWith("la musica ") ||
             Regex("\\b(?:y|and) (?:llama|abre|sube|baja|cancela|deten|call|open|play|pause|stop)\\b").containsMatchIn(normalized)) return null
-        return title.takeIf { it.length in 2..200 && it.any(Char::isLetterOrDigit) }
+        return title.takeIf { it.length in 2..200 && it.any(Char::isLetterOrDigit) }?.let { it to player }
+    }
+
+    fun requestedSong(transcript: String): String? = requestedSongRequest(transcript)?.first
+
+    private fun explicitMediaControl(normalized: String): Pair<TestIntent, String>? {
+        val player = "(spotify|poweramp|youtube music|apple music|vlc)"
+        val match = Regex("^(siguiente(?: cancion| pista)?|anterior(?: cancion| pista)?|pausa(?: musica)?|reanuda(?: musica)?|reproduce(?: musica)?) (?:en |de )?$player$")
+            .matchEntire(normalized) ?: return null
+        val intent = when {
+            match.groupValues[1].startsWith("siguiente") -> TestIntent.MEDIA_NEXT
+            match.groupValues[1].startsWith("anterior") -> TestIntent.MEDIA_PREVIOUS
+            match.groupValues[1].startsWith("pausa") -> TestIntent.MEDIA_PAUSE
+            else -> TestIntent.MEDIA_PLAY
+        }
+        return intent to match.groupValues[2]
     }
 
     fun route(transcript: String): RoutedCommand {
         val normalized = commandText(transcript)
         val englishTitle = EnglishSongRequest.matches(normalized)
-        val placeQuery = PlaceSearchParser.parse(transcript)
+        val placeSearch = PlaceSearchParser.parseRequest(transcript)
+        val placeQuery = placeSearch?.query
         val navigation = NavigationCommandParser.parse(normalized)
         val mode = TripModeCommands.parse(normalized)
         val volume = requestedVolume(transcript)
         val contact = requestedContact(transcript)
         val app = requestedApp(transcript)
-        val song = requestedSong(transcript)
+        val songRequest = requestedSongRequest(transcript)
+        val song = songRequest?.first
+        val mediaControl = explicitMediaControl(normalized)
         val chat = ContactChatParser.parse(normalized)
         val draft = ChatDraftParser.parse(transcript)
         val intent = when {
+            normalized in setOf("que suena", "que cancion suena", "que musica suena", "que estoy escuchando") -> TestIntent.MUSIC_CONTEXT
+            normalized in setOf("cuanta bateria me queda", "cuanta bateria tengo", "como esta mi bateria", "bateria restante") -> TestIntent.BATTERY_CONTEXT
+            normalized in setOf("cual es el proximo giro", "proximo giro", "que indica waze", "que dice waze", "next turn", "what is the next turn") -> TestIntent.NEXT_TURN
+            normalized in setOf("cuanto falta", "cuanto falta para llegar", "cuanto tiempo falta", "how long until arrival") -> TestIntent.HOW_LONG
+            normalized in setOf("estado del viaje", "como va el viaje", "resumen del viaje", "trip status") -> TestIntent.TRIP_STATUS
+            normalized in setOf("que destino pedi", "que destino solicite", "que ruta solicite",
+                "que busqueda hice", "cual fue mi ultima solicitud de ruta", "a donde voy") -> TestIntent.NAVIGATION_REQUEST_STATUS
             mode != null -> TestIntent.SWITCH_MODE
             navigation != null -> TestIntent.NAVIGATE
             placeQuery != null -> TestIntent.SEARCH_PLACE
@@ -130,6 +161,8 @@ object MinimalIntentRouter {
             normalized in setOf("cancelar", "cancela", "olvidalo",
                 "cancelar cancelar", "cancela cancela", "cancelar cancela", "cancela cancelar", "cancel", "never mind") -> TestIntent.CANCEL
             normalized in setOf("confirmar llamada", "confirma llamada", "confirmo la llamada", "confirmar la llamada", "llamar ahora", "confirm call") -> TestIntent.CONFIRM_CALL
+            normalized in setOf("vuelve a mi reproductor", "volver a mi reproductor", "usa mi reproductor", "reproductor predeterminado") -> TestIntent.RESET_MUSIC_PLAYER
+            mediaControl != null -> mediaControl.first
             normalized in setOf("llamar", "hacer llamada", "llamar al contacto", "llama al contacto") -> TestIntent.CALL_SELECTED
             contact != null -> TestIntent.CALL_NAMED
             volume != null -> TestIntent.VOLUME_SET
@@ -155,7 +188,11 @@ object MinimalIntentRouter {
             if (intent == TestIntent.DRAFT_CONTACT_MESSAGE) draft?.text else null,
             if (intent == TestIntent.NAVIGATE) navigation else null,
             if (intent == TestIntent.SEARCH_PLACE) placeQuery else null,
-            intent == TestIntent.MEDIA_SEARCH && englishTitle)
+            intent == TestIntent.MEDIA_SEARCH && englishTitle,
+            if (intent == TestIntent.SEARCH_PLACE) placeSearch?.provider
+                else if (intent == TestIntent.NAVIGATE) NavigationCommandParser.explicitProvider(normalized)
+                else null,
+            if (intent == TestIntent.MEDIA_SEARCH) songRequest?.second else mediaControl?.second)
     }
 
     fun resolve(transcript: String): TestIntent = route(transcript).intent

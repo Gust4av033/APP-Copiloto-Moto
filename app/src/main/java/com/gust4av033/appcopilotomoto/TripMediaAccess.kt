@@ -28,16 +28,40 @@ internal object TripMediaAccess {
         ComponentName.unflattenFromString(it) == component(context)
     }
 
-    fun controller(context: Context): MediaController {
+    fun sessions(context: Context): List<MediaController> {
         check(granted(context)) { "Habilitá acceso multimedia en Ajustes de APP para usar el botón reasignado." }
-        val sessions = context.getSystemService(MediaSessionManager::class.java)
+        return context.getSystemService(MediaSessionManager::class.java)
             .getActiveSessions(component(context)).filter { it.packageName != context.packageName }
+    }
+
+    fun playingPackages(context: Context): List<String> = runCatching { sessions(context)
+        .filter { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+        .map { it.packageName }.distinct() }.getOrDefault(emptyList())
+
+    fun searchController(context: Context, packageName: String): MediaController? = runCatching {
+        sessions(context).firstOrNull { it.packageName == packageName &&
+            ((it.playbackState?.actions ?: 0L) and PlaybackState.ACTION_PLAY_FROM_SEARCH) != 0L }
+    }.getOrNull()
+
+    fun controller(context: Context, explicitPackage: String? = null): MediaController {
+        val sessions = sessions(context)
+        if (explicitPackage != null) return sessions.firstOrNull { it.packageName == explicitPackage }
+            ?: error("El reproductor pedido no tiene una sesión multimedia activa; abrilo y reproducí música.")
+        val tripPackage = TripMusicState.activePackage
+        if (tripPackage != null) return sessions.firstOrNull { it.packageName == tripPackage }
+            ?: error("El reproductor de este viaje no tiene una sesión activa; abrilo y reproducí música.")
+        val playing = sessions.filter { it.playbackState?.state == PlaybackState.STATE_PLAYING }
+        if (playing.isEmpty()) TripMusicState.cyclePlayingPackage?.let { captured ->
+            sessions.firstOrNull { it.packageName == captured }?.let { return it }
+        }
         val preferred = context.getSharedPreferences("ui_settings", Context.MODE_PRIVATE)
             .getString("music_search_player", null)
+        if (playing.size == 1) return playing.single()
+        if (playing.size > 1) return playing.firstOrNull { it.packageName == preferred }
+            ?: error("Hay varios reproductores sonando; elegí uno en Ajustes → Música.")
         if (preferred != null) return sessions.firstOrNull { it.packageName == preferred }
             ?: error("El reproductor elegido no tiene una sesión activa; abrilo y reproducí música.")
         return sessions.firstOrNull { it.packageName == MusicPlayerSelection.POWERAMP_PACKAGE }
-            ?: sessions.filter { it.playbackState?.state == PlaybackState.STATE_PLAYING }.singleOrNull()
             ?: sessions.singleOrNull() ?: error("No hay un reproductor único; elegilo en Ajustes → Música.")
     }
 
@@ -46,8 +70,8 @@ internal object TripMediaAccess {
             PlaybackState.STATE_BUFFERING, PlaybackState.STATE_CONNECTING)
     }.getOrDefault(false)
 
-    fun dispatchPair(context: Context, keyCode: Int) {
-        val controller = controller(context)
+    fun dispatchPair(context: Context, keyCode: Int, explicitPackage: String? = null) {
+        val controller = controller(context, explicitPackage)
         val time = android.os.SystemClock.uptimeMillis()
         for (action in listOf(KeyEvent.ACTION_DOWN, KeyEvent.ACTION_UP)) {
             check(controller.dispatchMediaButtonEvent(KeyEvent(time, android.os.SystemClock.uptimeMillis(), action, keyCode, 0))) {

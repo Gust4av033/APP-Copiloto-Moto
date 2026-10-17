@@ -3,6 +3,7 @@ package com.gust4av033.appcopilotomoto
 import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioFormat
+import android.media.AudioDeviceInfo
 import android.media.AudioManager
 import android.media.AudioTrack
 import android.os.Build
@@ -14,7 +15,8 @@ import kotlin.math.sin
 /** Señal corta por la ruta de comunicación. No cambia volumen, foco ni selección de casco. */
 internal enum class VoiceCue { READY, CANCELLED }
 
-internal class TripReadyCue(context: Context) {
+internal class TripReadyCue(context: Context,
+    private val usage: Int = AudioAttributes.USAGE_VOICE_COMMUNICATION) {
     private val audio = context.getSystemService(AudioManager::class.java)
     private val handler = Handler(Looper.getMainLooper())
     private var track: AudioTrack? = null
@@ -40,14 +42,22 @@ internal class TripReadyCue(context: Context) {
             (sin(2 * PI * frequency * frame / rate) * 8_000 * fade).toInt().toShort()
         }
         val output = AudioTrack.Builder()
-            .setAudioAttributes(AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_VOICE_COMMUNICATION)
+            .setAudioAttributes(AudioAttributes.Builder().setUsage(usage)
                 .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build())
             .setAudioFormat(AudioFormat.Builder().setEncoding(AudioFormat.ENCODING_PCM_16BIT)
                 .setSampleRate(rate).setChannelMask(AudioFormat.CHANNEL_OUT_MONO).build())
             .setTransferMode(AudioTrack.MODE_STATIC).setBufferSizeInBytes(samples.size * 2).build()
         track = output
         check(output.state != AudioTrack.STATE_UNINITIALIZED) { "Android no preparó la señal para hablar." }
-        val preferred = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audio.communicationDevice else null
+        val preferred = if (usage == AudioAttributes.USAGE_ASSISTANT) {
+            val outputs = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
+                audio.getAudioDevicesForAttributes(AudioAttributes.Builder().setUsage(usage).build()).toTypedArray()
+            else audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+            outputs.firstOrNull { it.type in setOf(AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+                AudioDeviceInfo.TYPE_BLUETOOTH_SCO, AudioDeviceInfo.TYPE_BLE_HEADSET,
+                AudioDeviceInfo.TYPE_BLE_SPEAKER) }
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audio.communicationDevice else null
+        if (usage == AudioAttributes.USAGE_ASSISTANT) check(preferred != null) { "No hay salida Bluetooth para el tono." }
         if (preferred != null) check(output.setPreferredDevice(preferred)) { "Android rechazó la salida del tono." }
         check(output.write(samples, 0, samples.size) == samples.size) { "No se pudo cargar el tono." }
         check(output.state == AudioTrack.STATE_INITIALIZED) { "Android no preparó la señal para hablar." }

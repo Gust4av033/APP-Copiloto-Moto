@@ -1,0 +1,16 @@
+version,commit,apk_sha256,fecha,dispositivo,casco,caso,resultado,evidencia
+1.2.1-rc1,9d61f647a95566e7feb382f5fdb84e7ad9ed8d3f,1bc86b0e21815411ee5741c6ac8308da63701d8fad16cc79a1c328e033e639df,2026-10-17,S22+ Android 16 API 36,No utilizado,P01_instalacion_y_arranque,APROBADO_INSTALACION_ARRANQUE,Instalacion y arranque por ADB; Inicio Ajustes Privacidad Acerca de y licencias revisados en S22+. Sin iniciar viaje.
+1.2.1-rc1,,,,,,P02_denegar_microfono_sin_crash,PENDIENTE,
+1.2.1-rc1,,,,,,P03_inicio_y_parada_voz_casco,PENDIENTE,
+1.2.1-rc1,,,,,,P04_boton_con_musica_y_recuperacion,PENDIENTE,
+1.2.1-rc1,,,,,,P05_pantalla_bloqueada_y_reconexion,PENDIENTE,
+1.2.1-rc1,,,,,,P06_interrupcion_llamada_y_no_PLAY_indebido,PENDIENTE,
+1.2.1-rc1,,,,,,P07_GPS_optin_denegacion_revocacion,PENDIENTE,
+1.2.1-rc1,,,,,,P08_maps_waze_fuentes_y_caducidad,PENDIENTE,
+1.2.1-rc1,,,,,,P09_burbuja_opcional_sin_activar_microfono,PENDIENTE,
+1.2.1-rc1,,,,,,P10_exportacion_recorte_y_borrado,PENDIENTE,
+1.2.1-rc1,9d61f647a95566e7feb382f5fdb84e7ad9ed8d3f,1bc86b0e21815411ee5741c6ac8308da63701d8fad16cc79a1c328e033e639df,2026-10-17,S22+ Android 16 API 36,No utilizado,P11_licencias_offline_y_fuente_200,APROBADO_VISUAL_PARCIAL,Licencias incluidas abren y cierran en telefono sin navegador. Fuente 200 por JVM; no se cambio la fuente del telefono.
+1.2.1-rc1,,,,,,P12_TalkBack_y_exterior,PENDIENTE,
+1.2.1-rc1,,,,,,P13_sesion_prolongada_bateria_temperatura,PENDIENTE,
+1.2.1-rc1,9d61f647a95566e7feb382f5fdb84e7ad9ed8d3f,1bc86b0e21815411ee5741c6ac8308da63701d8fad16cc79a1c328e033e639df,2026-10-17,S22+ Android 16 API 36,No utilizado,P14_modelos_ONNX_inferencia_dispositivo,APROBADO_SINTETICO,5 modelos ONNX con ceros y salidas finitas en APK optimizado. Sin microfono. Instrumentation code -1.
+1.2.1-rc1,9d61f647a95566e7feb382f5fdb84e7ad9ed8d3f,1bc86b0e21815411ee5741c6ac8308da63701d8fad16cc79a1c328e033e639df,2026-10-17,S22+ Android 16 API 36,No utilizado,P15_dispositivo_16KB,PENDIENTE_DISPOSITIVO_16KB,ELF64 ZIP y BundleConfig 16KB verificados. Telefono de prueba usa paginas de 4096 bytes.

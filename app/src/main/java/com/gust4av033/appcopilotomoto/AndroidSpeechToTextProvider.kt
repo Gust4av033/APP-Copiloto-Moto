@@ -32,12 +32,16 @@ class AndroidSpeechToTextProvider(private val context: Context) {
     private var recognizer: SpeechRecognizer? = null
     private var generation = 0
     private var audioFocusGranted = false
+    /** The trip service owns focus across every turn of the current conversation. */
+    private var conversationFocusHeld = false
     private val playbackState = SpeechPlaybackState()
     private var recognitionTimeout: Runnable? = null
     private var requestedLanguages = "Español; disponibilidad pendiente de comprobar."
 
     fun languageDescription(): String = "$requestedLanguages; último idioma informado=${SpeechLanguageSupport.snapshot.lastDetectedTag.ifBlank { "ninguno" }}; " +
         "cambio informado=${SpeechLanguageSupport.snapshot.switchObserved}."
+
+    fun setConversationFocusHeld(held: Boolean) { conversationFocusHeld = held }
 
     fun listenOnce(
         mode: SpeechCaptureMode = SpeechCaptureMode.COMMAND,
@@ -65,10 +69,10 @@ class AndroidSpeechToTextProvider(private val context: Context) {
                 val recovery = ConfirmationSilenceRecovery()
                 val pauseRequestedForSession = runCatching { media.pauseIfPlaying() }.getOrDefault(false)
                 playbackState.rememberPause(pauseRequestedForSession)
-                audioFocusGranted = runCatching {
+                audioFocusGranted = !conversationFocusHeld && runCatching {
                     audioManager.requestAudioFocus(focusRequest) == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
                 }.getOrDefault(false)
-                val focusGrantedForSession = audioFocusGranted
+                val focusGrantedForSession = conversationFocusHeld || audioFocusGranted
                 val locale = if (mode == SpeechCaptureMode.SONG_TITLE) Locale.US
                     else Locale.forLanguageTag(languages.spanishTag)
                 val automatic = Build.VERSION.SDK_INT >= 34 && SpeechLanguagePolicy.automaticFor(mode, languages)

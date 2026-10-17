@@ -8,49 +8,71 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.gust4av033.appcopilotomoto.R
 
 internal val DayColors = lightColorScheme(
-    primary = Color(0xFF7136B8), onPrimary = Color.White,
-    primaryContainer = Color(0xFFEBDDFD), onPrimaryContainer = Color(0xFF32144F),
-    secondary = Color(0xFF145BB7), secondaryContainer = Color(0xFFD9E9FF), onSecondaryContainer = Color(0xFF102C55),
+    primary = Color(0xFF075BA8), onPrimary = Color.White,
+    primaryContainer = Color(0xFFC6E3FD), onPrimaryContainer = Color(0xFF082D50),
+    secondary = Color(0xFF235F96), secondaryContainer = Color(0xFFC4DFF6), onSecondaryContainer = Color(0xFF103150),
     tertiary = Color(0xFF006C89), tertiaryContainer = Color(0xFFBAEFFF), onTertiaryContainer = Color(0xFF003548),
-    background = Color(0xFFE9EEFA), onBackground = Color(0xFF20253D),
-    surface = Color(0xFFF9FBFF), onSurface = Color(0xFF20253D),
-    surfaceVariant = Color(0xFFEAE4F4), onSurfaceVariant = Color(0xFF5D526F),
-    outline = Color(0xFF7D7192), outlineVariant = Color(0xFFDFD7EF)
+    background = StormGlass.DayBackdrop, onBackground = Color(0xFF102D46),
+    surface = Color(0xFFEAF4FC), onSurface = Color(0xFF102D46),
+    surfaceVariant = Color(0xFFCBDDED), onSurfaceVariant = Color(0xFF3D536B),
+    outline = Color(0xFF597992), outlineVariant = Color(0xFFA5C3DD)
 )
 internal val NightColors = darkColorScheme(
-    primary = Color(0xFFB69CFF), onPrimary = Color(0xFF251442),
-    primaryContainer = Color(0xFF4B286D), onPrimaryContainer = Color(0xFFEBDDFD),
-    secondary = Color(0xFF82AFFF), secondaryContainer = Color(0xFF183864), onSecondaryContainer = Color(0xFFD9E9FF),
+    primary = Color(0xFF8DB4FF), onPrimary = Color(0xFF06142F),
+    primaryContainer = Color(CopilotPalette.Storm), onPrimaryContainer = Color(0xFFDDE8FF),
+    secondary = Color(0xFF5C9BFF), secondaryContainer = Color(0xFF0F2E73), onSecondaryContainer = Color(0xFFEAF1FF),
     tertiary = Color(0xFF6DDCFF), tertiaryContainer = Color(0xFF004C64), onTertiaryContainer = Color(0xFFBAEFFF),
-    background = Color(0xFF0B1020), onBackground = Color(0xFFF4F6FF),
-    surface = Color(0xFF151D31), onSurface = Color(0xFFF4F6FF),
-    surfaceVariant = Color(0xFF24304B), onSurfaceVariant = Color(0xFFBDC5DA),
-    outline = Color(0xFF9288A6), outlineVariant = Color(0xFF3E3455)
+    background = StormGlass.NightBackdrop, onBackground = Color(0xFFEAF1FF),
+    surface = Color(CopilotPalette.Abyss), onSurface = Color(0xFFEAF1FF),
+    surfaceVariant = Color(0xFF14244D), onSurfaceVariant = Color(0xFFC3D3F2),
+    outline = Color(0xFF6C7FA8), outlineVariant = Color(0xFF2A3B66)
+)
+// The source variable font defaults to ExtraLight (200). Explicit instances avoid
+// thin body text and synthesized headings on Android resource-font loaders.
+private val AppFont = FontFamily(
+    Font(R.font.manrope_regular, FontWeight.Normal),
+    Font(R.font.manrope_medium, FontWeight.Medium),
+    Font(R.font.manrope_semibold, FontWeight.SemiBold),
+    Font(R.font.manrope_bold, FontWeight.Bold)
 )
 private val CopilotType = Typography(
-    headlineLarge = TextStyle(fontWeight = FontWeight.Bold, fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.4).sp),
-    headlineMedium = TextStyle(fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 34.sp),
-    titleLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 23.sp, lineHeight = 29.sp),
-    titleMedium = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 24.sp),
-    titleSmall = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 21.sp),
-    bodyLarge = TextStyle(fontSize = 16.sp, lineHeight = 24.sp),
-    bodyMedium = TextStyle(fontSize = 14.sp, lineHeight = 21.sp),
-    labelLarge = TextStyle(fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp)
+    displayLarge = TextStyle(fontFamily = AppFont, fontSize = 57.sp),
+    displayMedium = TextStyle(fontFamily = AppFont, fontSize = 45.sp),
+    displaySmall = TextStyle(fontFamily = AppFont, fontSize = 36.sp),
+    headlineLarge = TextStyle(fontFamily = AppFont, fontWeight = FontWeight.Bold, fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.4).sp),
+    headlineMedium = TextStyle(fontFamily = AppFont, fontWeight = FontWeight.Bold, fontSize = 28.sp, lineHeight = 34.sp),
+    headlineSmall = TextStyle(fontFamily = AppFont, fontSize = 24.sp),
+    titleLarge = TextStyle(fontFamily = AppFont, fontWeight = FontWeight.SemiBold, fontSize = 23.sp, lineHeight = 29.sp),
+    titleMedium = TextStyle(fontFamily = AppFont, fontWeight = FontWeight.SemiBold, fontSize = 17.sp, lineHeight = 24.sp),
+    titleSmall = TextStyle(fontFamily = AppFont, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, lineHeight = 21.sp),
+    bodyLarge = TextStyle(fontFamily = AppFont, fontSize = 16.sp, lineHeight = 24.sp),
+    bodyMedium = TextStyle(fontFamily = AppFont, fontSize = 14.sp, lineHeight = 21.sp),
+    bodySmall = TextStyle(fontFamily = AppFont, fontSize = 12.sp),
+    labelLarge = TextStyle(fontFamily = AppFont, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, lineHeight = 20.sp),
+    labelMedium = TextStyle(fontFamily = AppFont, fontSize = 12.sp),
+    labelSmall = TextStyle(fontFamily = AppFont, fontSize = 11.sp)
 )
 private val CopilotShapes = Shapes(
-    small = RoundedCornerShape(12.dp), medium = RoundedCornerShape(20.dp), large = RoundedCornerShape(28.dp)
+    small = RoundedCornerShape(Glass.controlRadius), medium = RoundedCornerShape(Glass.cardRadius),
+    large = RoundedCornerShape(Glass.heroRadius)
 )
 
 @Composable
 fun CopilotTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
-    MaterialTheme(colorScheme = if (darkTheme) NightColors else DayColors,
-        typography = CopilotType, shapes = CopilotShapes, content = content)
+    CompositionLocalProvider(LocalGlassDark provides darkTheme) {
+        MaterialTheme(colorScheme = if (darkTheme) NightColors else DayColors,
+            typography = CopilotType, shapes = CopilotShapes, content = content)
+    }
 }
 

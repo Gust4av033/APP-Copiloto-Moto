@@ -13,6 +13,11 @@ class NavigationCommandTest {
         }
         assertEquals(NavigationRequest.WORK, MinimalIntentRouter.route("Vamos al trabajo, por favor").navigationRequest)
         assertEquals(TestIntent.OPEN_APP, MinimalIntentRouter.route("abre Waze").intent)
+        assertEquals(NavigationApp.WAZE,
+            MinimalIntentRouter.route("Llévame a casa en Waze").navigationProvider)
+        val maps = MinimalIntentRouter.route("Vamos a la chamba en Google Maps")
+        assertEquals(TestIntent.NAVIGATE, maps.intent)
+        assertEquals(NavigationApp.GOOGLE_MAPS, maps.navigationProvider)
     }
 
     @Test fun lastDestinationUsesLocalRequestAndNeverInventsAFallback() {
@@ -30,6 +35,17 @@ class NavigationCommandTest {
         }
         assertEquals(TestIntent.CANCEL, MinimalIntentRouter.resolve("cancelar"))
         assertEquals(TestIntent.MEDIA_PREVIOUS, MinimalIntentRouter.resolve("anterior canción"))
+    }
+
+    @Test fun requestStatusIsAQueryAndCannotOpenOrRepeatNavigation() {
+        for (phrase in listOf("¿Qué destino pedí?", "¿Qué búsqueda hice?", "¿A dónde voy?")) {
+            val command = MinimalIntentRouter.route(phrase)
+            assertEquals(TestIntent.NAVIGATION_REQUEST_STATUS, command.intent)
+            assertNull(command.navigationRequest)
+            assertNull(command.placeQuery)
+        }
+        assertEquals(TestIntent.UNKNOWN, MinimalIntentRouter.resolve("qué destino pedí y llama a Ana"))
+        assertEquals(TestIntent.NAVIGATE, MinimalIntentRouter.resolve("vamos al último destino"))
     }
 
     @Test fun linksAddressOnlyDocumentedWazeFavorites() {

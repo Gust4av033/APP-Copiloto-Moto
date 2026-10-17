@@ -5,8 +5,8 @@
   la misma entrega; si no tiene efecto visible, explica brevemente por qué.
 - Consulta la documentación de UI vigente. Conserva el sistema de diseño y
   reutiliza componentes y recursos. No cambies dependencias por decoración.
-- La dirección visual es vidrio esmerilado sobre un fondo propio morado,
-  celeste y azul. Mantén texto nítido, iconos vectoriales coherentes y contraste.
+- La dirección visual actual es vidrio tormenta medianoche, siguiendo
+  docs/UI_TORMENTA_REFINADA_V3.md. Mantén texto nítido, iconos coherentes y contraste.
   Representa la profundidad sin efectos que degraden la fluidez o el audio.
 - Revisa colores semánticos de contenido, inputs y botones. Los controles
   principales necesitan identificación clara y selección/estado visible.
@@ -27,29 +27,62 @@
   cuando sea posible. Declara por separado las pruebas físicas pendientes.
 - Actualiza la trazabilidad de capacidad, UI y prueba en los documentos existentes.
   Conserva cambios locales y usa la baseline vigente, sin asumir ramas históricas.
-El vidrio se construye con capas, sin blur sobre contenido ni dependencias:
-tinte translúcido en gradiente vertical, borde de 1dp con gradiente, brillo
-especular en el borde superior y resplandor solo en el control principal.
-Todos esos valores viven en theme/Glass.kt; las pantallas no llevan colores,
-alphas ni radios sueltos.
-Un solo acento brillante por pantalla (la acción o el estado principal). Lo
-demás es vidrio sobrio. Si un elemento no informa ni da identidad, se quita.
-Botones con tres jerarquías: primario, secundario y destructivo. Detener o
-cancelar nunca se ve igual que la acción principal.
-Atrás, siguiente y cerrar son GlassIconButton de al menos 48dp con flecha.
-No uses TextButton para navegar. Los carruseles y pasos llevan indicador de
-página.
-Alineación: los iconos van centrados con Box(contentAlignment = Center), con
-un IconTile único para todas las filas y tarjetas. Espaciados en múltiplos
-de 4dp. Elementos del mismo nivel comparten radio, alto de icono y padding.
-Tipografía: el tema define una FontFamily explícita para que la app se vea
-igual en cualquier teléfono. Pesos y tamaños salen de la escala del tema.
-Movimiento solo como respuesta a una acción (presionar, cambiar de estado),
-corto y respetando las animaciones del sistema. Nada continuo que distraiga
-en Viaje.
-Si cambias un color o token compartido, revisa también la burbuja nativa
-(OverlayGlassStyle.kt, TripOverlay.kt).
-Antes de cerrar: compilar, correr SettingsContrastTest y los tests de UI, y
-revisar capturas en oscuro, claro y fuente al 200%. La deuda visual que veas
-fuera del alcance de la tarea se anota en los documentos de trazabilidad; no
-se rediseña en la misma entrega.
+
+## Acabado visual de vidrio
+
+- Dirección: vidrio oscuro sobre fondo azul profundo con luz difusa (base #050C1D, azul
+  eléctrico #2F6BFF, luz #79DDFF). Un solo elemento protagonista por pantalla;
+  lo demás, vidrio sobrio.
+- El vidrio es: fondo propio con luces azules suaves, versión
+  desenfocada precalculada de ese fondo dibujada dentro de cada panel según su
+  posición, tinte oscuro para el contraste, borde de luz en gradiente y brillo
+  especular. No leas la pantalla ni desenfoques controles. Sin `shadowElevation`
+  en superficies translúcidas.
+- Todos los valores (colores, alphas, radios, bordes) viven en `theme/Glass.kt` y
+  `CopilotPalette`; las pantallas no llevan valores sueltos. Cualquier cambio
+  compartido se replica en la burbuja nativa (modo LITE).
+- Botones con tres jerarquías: primario, secundario y destructivo. Detener o
+  cancelar nunca se ve igual que la acción principal.
+- Atrás, siguiente y cerrar son `GlassIconButton` de al menos 48dp con flecha. No
+  uses `TextButton` para navegar. Carruseles y pasos llevan indicador de página.
+- Iconos centrados con `Box(contentAlignment = Center)` y un `IconTile` único.
+  Espaciados en múltiplos de 4dp.
+- El tema define una `FontFamily` explícita.
+- Movimiento solo como respuesta a una acción, corto y respetando las
+  animaciones del sistema. Nada continuo en Viaje.
+- Rendimiento: nada se recalcula por frame; debe existir modo LITE para
+  desactivar el desenfoque.
+- Antes de cerrar: compilar, correr `SettingsContrastTest` y los tests de UI, y
+  revisar capturas en oscuro, claro y fuente al 200%. La deuda visual fuera del
+  alcance se anota en los documentos de trazabilidad.
+
+## Contexto de viaje y Fusión por Capas
+
+1. Capa 1: GPS y sensores propios del teléfono, solo con permiso y ajuste activo.
+2. Capa 2: calle bajo las ruedas, reservada para un motor libre futuro como OSM/Valhalla.
+3. Capa 3: ruta propia estimada a las coordenadas del destino; por ahora solo distancia lineal y rumbo, nunca una ruta vial supuesta.
+4. Capa 4: observación del navegador externo Waze o Google Maps por notificación y, en el sabor autorizado, accesibilidad. Una solicitud despachada no confirma la ruta.
+5. Capa 5: futuros servicios de tráfico de pago, sin implementación ni acceso de red en Fase 2.
+
+Todo dato del contexto lleva `source`, captura monotónica, confianza entre 0 y 1, `ttlMs` e `isSimulated`. La fusión descarta datos vencidos y prefiere los frescos de mayor confianza. Sin permiso o con el ajuste apagado, no se lee ni guarda GPS. Replay jamás toca el historial real. Ningún dato de viaje sale del teléfono. El detector de movimiento funciona solo en sombra: registra eventos, sin preguntas espontáneas.
+
+## Ciclo de audio de las órdenes
+
+- Una orden, su dictado y sus confirmaciones forman un solo ciclo de audio. Mantén la música que APP pausó en pausa hasta completar, cancelar o agotar ese ciclo; conserva un único foco de audio entre turnos.
+- Reanuda como máximo una vez después de restaurar la ruta del casco, solo si APP pausó la reproducción. Una búsqueda musical enviada, una pausa pedida por el usuario o una llamada en curso no autorizan PLAY. El ciclo tiene límite de inactividad y diagnóstico sin datos personales.
+
+## Reproductor durante el viaje
+
+- Para buscar o controlar música, prioriza el reproductor nombrado en la orden, el elegido temporalmente en este viaje, una sesión multimedia que suena y finalmente Ajustes. Abrir un reproductor por voz puede elegirlo para esa sesión sin cambiar la preferencia guardada.
+- Solo usa `playFromSearch` si la sesión anuncia esa acción; Poweramp conserva su receptor directo y el intent estándar exige APP visible y teléfono desbloqueado. Enviar búsqueda o controles no confirma reproducción. No infieras la app al frente sin un acceso específico.
+
+- La búsqueda de POI registra una solicitud despachada, nunca un resultado o ruta confirmada. Clima y resultados propios quedan bajo `WeatherProvider` y `PlacesProvider` de Fase 7; no inferirlos de pantallas ajenas.
+
+- Antes de cambiar permisos Play, contrastar ambos manifiestos fusionados con `docs/PLAY_STORE_DECLARACIONES.md`. No presentar enlaces a políticas como revisión completada cuando el acceso a esas páginas haya fallado; la variante Play sigue sin Accesibilidad hasta declaración, divulgación separada y evidencia física.
+
+- La narración de giros es experimental y apagada por defecto. Solo una maniobra explícita, reciente y con distancia de la misma fuente puede generar voz; Play la mantiene no disponible hasta contar con fuente confiable. Nunca pedir foco para silenciar Waze o Maps.
+
+- `MusicContext`, `BatteryContext` y el estado del ciclo llegan al Context Engine con `ContextValue` y vigencia. Las preguntas deterministas solo usan datos recientes; ausencia y caducidad se responden explícitamente. Referencias conversacionales pertenecen a Fase 3.
+
+- Saludo y despedida (`TripGreetingPolicy`): solo una vez por ID de sesión, tras estabilizar ruta Bluetooth y con tope de espera; nunca voz por el altavoz del teléfono. No iniciar captura mientras se habla. Son informativos, usan ducking y no pausan música. Al cerrar, la recuperación de música precede a la locución; omitir si fin inesperado, moto en marcha o ciclo de conversación activo. El resumen hablado exige datos GPS propios válidos y umbrales de distancia/duración. Registrar emisión y omisión en diagnóstico, y conservar estado en Viaje/notificación.
+- El nombre del saludo es opcional, lo escribe el usuario y se guarda solo en este dispositivo. No lo infieras de contactos, cuentas o nombres del casco ni lo incluyas en el diagnóstico. Batería y GPS solo se anuncian cuando hay una advertencia reciente y confiable.

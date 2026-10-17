@@ -21,13 +21,13 @@ class MediaActionAdapter(private val context: Context) {
     private val audioManager = context.getSystemService(AudioManager::class.java)
 
     /** Confirma envío del evento, no que otra app haya cambiado de pista. */
-    fun nextTrack(): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_NEXT) }
+    fun nextTrack(explicitPackage: String? = null): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_NEXT, explicitPackage) }
 
-    fun previousTrack(): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_PREVIOUS) }
+    fun previousTrack(explicitPackage: String? = null): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_PREVIOUS, explicitPackage) }
 
-    fun play(): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_PLAY) }
+    fun play(explicitPackage: String? = null): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_PLAY, explicitPackage) }
 
-    fun pause(): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_PAUSE) }
+    fun pause(explicitPackage: String? = null): Result<Unit> = runCatching { dispatch(KeyEvent.KEYCODE_MEDIA_PAUSE, explicitPackage) }
 
     /** En SCO el nivel multimedia puede cambiar sin modificar la intensidad audible. */
     fun volumeUp(requireBluetoothCommunication: Boolean = false): Result<VolumeAdjustment> =
@@ -191,9 +191,15 @@ class MediaActionAdapter(private val context: Context) {
     }
 
     /** Solicita una pausa solo si Android informa reproducción activa. */
-    fun pauseIfPlaying(): Boolean {
-        val playing = if (TripButtonRuntime.intercepting) TripMediaAccess.isPlaying(context)
+    fun isSelectedPlaybackActive(): Boolean {
+        val selectedSession = TripButtonRuntime.intercepting ||
+            (TripMusicState.activePackage != null && TripMediaAccess.granted(context))
+        return if (selectedSession) TripMediaAccess.isPlaying(context)
             else audioManager.isMusicActive
+    }
+
+    fun pauseIfPlaying(): Boolean {
+        val playing = isSelectedPlaybackActive()
         if (!playing) return false
         dispatch(KeyEvent.KEYCODE_MEDIA_PAUSE)
         return true
@@ -201,9 +207,10 @@ class MediaActionAdapter(private val context: Context) {
 
     fun resumePlayback() = dispatch(KeyEvent.KEYCODE_MEDIA_PLAY)
 
-    private fun dispatch(keyCode: Int) {
-        if (TripButtonRuntime.intercepting) {
-            TripMediaAccess.dispatchPair(context, keyCode)
+    private fun dispatch(keyCode: Int, explicitPackage: String? = null) {
+        if (explicitPackage != null || TripButtonRuntime.intercepting ||
+            (TripMusicState.activePackage != null && TripMediaAccess.granted(context))) {
+            TripMediaAccess.dispatchPair(context, keyCode, explicitPackage)
             return
         }
         val downTime = SystemClock.uptimeMillis()

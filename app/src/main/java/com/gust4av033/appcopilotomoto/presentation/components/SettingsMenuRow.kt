@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -27,11 +26,7 @@ fun SettingsMenuRow(section: SettingsSection, value: String?, onClick: () -> Uni
     GlassPanel(onClick = onClick, modifier = Modifier.fillMaxWidth().sizeIn(minHeight = 76.dp)) {
         Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Surface(shape = MaterialTheme.shapes.small, color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = .74f),
-                contentColor = MaterialTheme.colorScheme.onSecondaryContainer) {
-                Icon(painterResource(section.iconRes), null, Modifier.padding(10.dp).size(24.dp),
-                    tint = MaterialTheme.colorScheme.onSecondaryContainer)
-            }
+            IconTile(section.iconRes)
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(stringResource(section.titleRes), style = MaterialTheme.typography.titleMedium)
                 if (value == null) SupportingText(stringResource(section.hintRes))

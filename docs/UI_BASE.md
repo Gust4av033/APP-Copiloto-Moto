@@ -1,6 +1,16 @@
 # UI de APP Copiloto Moto · Fase 1
 
+## Vidrio y formas refinados · versión 3
+
+La revisión actual en `feature/ui-storm-refined` conserva Fase 2 y el azul tormenta; reduce reflejos y marcos, corrige los pesos reales de Manrope y simplifica el icono. [Alcance y validación](UI_TORMENTA_REFINADA_V3.md).
+
+## Vidrio azul tormenta · 13 de octubre de 2026
+
+La entrega `feature/ui-storm-glass` parte de Fase 2 / observación de Waze (`f106724`), manteniendo Ajustes protegidos y los avances funcionales. Refina superficies y botones azules y organiza Inicio en un carrusel de Copiloto/Mi equipo/Mi ruta con datos reales. [Paleta, alcance y pruebas](UI_AZUL_TORMENTA.md).
+
 ## Fase 2 · Contexto de navegación · 13 de octubre de 2026
+
+Contexto 1 fue aceptado por el usuario e integrado mediante PR #15 (main 7a0c239). La siguiente entrega añade una tarjeta de observación solo con desarrollo activo en Ajustes → Navegación: interruptor opt-in, permiso independiente y copia explícita de una muestra textual acotada. Mantiene las tarjetas glass y texto localizable; no agrega lecturas o anuncios de giros a Viaje/burbuja/notificación. Ver [fuente experimental y prueba](FASE_2_OBSERVACION_WAZE.md).
 
 La base consolidada está en main (506a604); el trabajo continúa en feature/fase-2-navigation-context. Viaje incorpora una tarjeta glass «Navegación de este viaje», observando el contexto de sesión compartido: favorito o búsqueda despachados a Waze, ruta desconocida y ausencia de ETA/distancia/giro. Una búsqueda no confirma el resultado elegido en Waze. No se inicia escucha desde la tarjeta ni se añaden controles o permisos. Burbuja y notificación mantienen su estado de sesión de APP; no muestran una ruta activa ni datos de Waze. Alcance y prueba: [Fase 2](FASE_2_NAVEGACION_CONTEXTO.md).
 

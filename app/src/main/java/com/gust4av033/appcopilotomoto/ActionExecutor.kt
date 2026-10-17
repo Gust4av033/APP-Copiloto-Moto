@@ -7,20 +7,30 @@ import android.media.AudioManager
 /** Ejecuta las acciones deterministas; la sesión decide cuándo restaurar audio o pedir confirmación. */
 class ActionExecutor(private val context: Context, private val media: MediaActionAdapter) {
     private val apps = AppLaunchAdapter(context)
-    private val navigation: NavigationProvider = WazeNavigationProvider(context)
+    private fun navigation(app: NavigationApp): NavigationProvider = when (app) {
+        NavigationApp.WAZE -> WazeNavigationProvider(context)
+        NavigationApp.GOOGLE_MAPS -> GoogleMapsNavigationProvider(context)
+    }
+    private val selectedNavigation: NavigationProvider get() = navigation(NavigationPreferences.selected(context))
     private val music = MusicSearchAdapter(context)
     private val chats: List<ContactChatAdapter> = ChatApp.entries.map { WhatsAppChatAdapter(context, it) }
 
+    fun mediaPlayerPackage(name: String): Result<String> = music.playerPackage(name)
+
     fun executeMedia(command: RoutedCommand): Result<*>? = when (command.intent) {
-        TestIntent.MEDIA_NEXT -> media.nextTrack()
-        TestIntent.MEDIA_PREVIOUS -> media.previousTrack()
-        TestIntent.MEDIA_PLAY -> media.play()
-        TestIntent.MEDIA_PAUSE -> media.pause()
+        TestIntent.MEDIA_NEXT -> mediaPackage(command).mapCatching { media.nextTrack(it).getOrThrow() }
+        TestIntent.MEDIA_PREVIOUS -> mediaPackage(command).mapCatching { media.previousTrack(it).getOrThrow() }
+        TestIntent.MEDIA_PLAY -> mediaPackage(command).mapCatching { media.play(it).getOrThrow() }
+        TestIntent.MEDIA_PAUSE -> mediaPackage(command).mapCatching { media.pause(it).getOrThrow() }
         TestIntent.VOLUME_UP -> media.volumeUp()
         TestIntent.VOLUME_DOWN -> media.volumeDown()
         TestIntent.VOLUME_SET -> command.volume?.let { media.setRequestedVolume(it, bluetoothVoice = false) }
         else -> null
     }
+
+    private fun mediaPackage(command: RoutedCommand): Result<String?> = command.musicPlayerName?.let {
+        music.playerPackage(it).map { packageName -> packageName }
+    } ?: Result.success(null)
 
     /** El viaje ajusta volumen después de restaurar la ruta de audio. */
     fun executeRestoredVolume(command: RoutedCommand, bluetoothVoice: Boolean): Result<VolumeAdjustment>? =
@@ -35,6 +45,7 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
 
     fun availableMusicPlayers(): Result<List<MusicPlayer>> = music.availablePlayers()
     fun preferredMusicPlayer(): String? = music.preferredPackage()
+    fun currentMusicPlayer(): Result<ResolvedMusicPlayer> = music.currentPlayer()
     fun selectMusicPlayer(packageName: String?) = music.selectPlayer(packageName)
     fun prepareMusicSearch(command: RoutedCommand): Result<MusicSearchRequest> = music.prepare(command)
     fun sendMusicSearch(request: MusicSearchRequest): Result<Unit> = music.send(request)
@@ -50,19 +61,38 @@ class ActionExecutor(private val context: Context, private val media: MediaActio
         adapter.prepare(contact).getOrThrow()
     }
 
-    fun navigationAvailable(): Boolean = navigation.available()
+    fun navigationAvailable(): Boolean = selectedNavigation.available()
+    fun nextTurnAnswer(): String {
+        val current = TripNavigationState.context.lastDispatch?.providerId
+            ?.let(NavigationApp::fromId) ?: NavigationPreferences.selected(context)
+        return navigation(current).nextTurnAnswer()
+    }
+
+    /** Only reports what APP dispatched in this trip; the navigator's actual route is unknown. */
+    fun navigationRequestAnswer(): String {
+        val trip = TripNavigationState.context
+        if (trip.sessionId == null) return context.getString(R.string.navigation_request_no_trip)
+        val dispatch = trip.lastDispatch ?: return context.getString(R.string.navigation_request_empty)
+        val provider = NavigationApp.entries.firstOrNull { it.id == dispatch.providerId }?.label
+            ?: context.getString(R.string.navigation_request_unknown_provider)
+        return context.getString(if (dispatch.kind == NavigationRequestKind.SEARCH)
+            R.string.navigation_request_search_answer else R.string.navigation_request_favorite_answer,
+            dispatch.requestedDestination, provider)
+    }
 
     fun preparePlaceSearch(command: RoutedCommand): Result<AppTarget> = runCatching {
         check(command.intent == TestIntent.SEARCH_PLACE) { "La orden no pide buscar un lugar." }
-        navigation.search(checkNotNull(command.placeQuery)).getOrThrow()
+        navigation(command.navigationProvider ?: NavigationPreferences.selected(context))
+            .search(checkNotNull(command.placeQuery)).getOrThrow()
     }
 
     fun prepareNavigation(command: RoutedCommand): Result<AppTarget> = runCatching {
         check(command.intent == TestIntent.NAVIGATE) { "La orden no pide navegación." }
         val request = checkNotNull(command.navigationRequest)
-        val destination = request.resolve(NavigationRequestStore.last(context))
-            ?: error("Todavía no hay un destino solicitado desde APP. Pedí ir a Casa o Trabajo primero. El historial de Waze no se lee.")
-        navigation.prepare(destination).getOrThrow()
+        val app = command.navigationProvider ?: NavigationPreferences.selected(context)
+        val destination = request.resolve(NavigationRequestStore.last(context, app))
+            ?: error("Todavía no hay un destino solicitado desde APP en ${app.label}. Pedí ir a Casa o Trabajo primero; APP no lee el historial externo.")
+        navigation(app).prepare(destination).getOrThrow()
     }
 
     fun availableApps(): Result<List<LaunchableApp>> = apps.installedApps()

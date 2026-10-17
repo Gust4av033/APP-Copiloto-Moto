@@ -12,30 +12,8 @@ import com.gust4av033.appcopilotomoto.presentation.components.*
 import com.gust4av033.appcopilotomoto.presentation.upcomingModules
 
 fun LazyListScope.HomeScreen(state: CopilotUiState, actions: CopilotActions, onNavigate: (CopilotScreen) -> Unit) {
-    item(key = "journey") {
-        JourneyHero(state, tripScreen = false, onPrimary = {
-            if (!state.tripActive) actions.onToggleTrip()
-            onNavigate(CopilotScreen.TRIP)
-        }, onCommand = actions.onManualTripCommand)
-    }
+    item(key = "journey") { HomeDashboardPager(state, actions, onNavigate) }
     if (state.pendingAppName != null) item(key = "pending") { PendingAppCard(state, actions) }
-    item(key = "setup") {
-        SectionCard(stringResource(R.string.home_setup)) {
-            Text(stringResource(R.string.home_headset, state.audioDevices.selectedLabel.ifBlank {
-                state.audioDevices.automaticHeadset.ifBlank { stringResource(R.string.devices_auto_unresolved) }
-            }), style = MaterialTheme.typography.titleSmall)
-            SupportingText(if (state.buttonMode) stringResource(R.string.home_button_short)
-                else stringResource(R.string.mode_voice_instruction, state.phraseLabel))
-            if (state.buttonMode && state.tripButtonBinding == "NONE" && !state.assistantSelected) {
-                SupportingText(stringResource(R.string.home_assistant_required))
-                ActionButton(stringResource(R.string.assistant_select), enabled = !state.busy,
-                    iconRes = R.drawable.ic_button, onClick = actions.onSelectAssistant)
-            }
-            if (state.busy && !state.tripActive) SupportingText(stringResource(R.string.home_test_active))
-            ActionButton(stringResource(R.string.home_configure), iconRes = R.drawable.ic_settings,
-                onClick = { onNavigate(CopilotScreen.SETTINGS) })
-        }
-    }
     item(key = "commands") {
         QuickLink(stringResource(R.string.home_view_commands), stringResource(R.string.home_commands_short),
             R.drawable.ic_commands) { onNavigate(CopilotScreen.COMMANDS) }

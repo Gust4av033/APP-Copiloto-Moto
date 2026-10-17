@@ -1,4 +1,5 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
 
 plugins {
     alias(libs.plugins.android.application)
@@ -14,18 +15,74 @@ android {
         applicationId = "com.gust4av033.appcopilotomoto"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.1.0-f2-context1"
+        versionCode = 22
+        versionName = "1.2.1-rc1"
+        testInstrumentationRunner = "com.gust4av033.appcopilotomoto.ModelCompatibilityInstrumentation"
+    }
+
+    flavorDimensions += "distribution"
+    productFlavors {
+        create("full") {
+            dimension = "distribution"
+            buildConfigField("int", "MIN_SUPPORTED_SDK", "26")
+            buildConfigField("boolean", "IS_PLAYSTORE_BUILD", "false")
+            buildConfigField("boolean", "ALLOW_ACCESSIBILITY_WAZE", "true")
+            buildConfigField("boolean", "ALLOW_DIRECT_CALL", "true")
+        }
+        create("playstore") {
+            dimension = "distribution"
+            // On-device SpeechRecognizer and headset routing require Android 12.
+            minSdk = 31
+            buildConfigField("int", "MIN_SUPPORTED_SDK", "31")
+            buildConfigField("boolean", "IS_PLAYSTORE_BUILD", "true")
+            buildConfigField("boolean", "ALLOW_ACCESSIBILITY_WAZE", "false")
+            buildConfigField("boolean", "ALLOW_DIRECT_CALL", "false")
+        }
+    }
+
+    val signingProperties = Properties().apply {
+        val file = rootProject.file("keystore.properties")
+        if (file.exists()) file.inputStream().use(::load)
+    }
+    fun signingValue(property: String, environment: String): String? =
+        signingProperties.getProperty(property)?.takeIf(String::isNotBlank)
+            ?: System.getenv(environment)?.takeIf(String::isNotBlank)
+    val signingFile = signingValue("storeFile", "APP_SIGNING_STORE_FILE")
+    signingConfigs {
+        if (signingFile != null) create("release") {
+            storeFile = rootProject.file(signingFile)
+            storePassword = signingValue("storePassword", "APP_SIGNING_STORE_PASSWORD")
+            keyAlias = signingValue("keyAlias", "APP_SIGNING_KEY_ALIAS")
+            keyPassword = signingValue("keyPassword", "APP_SIGNING_KEY_PASSWORD")
+        }
     }
 
     buildTypes {
+        getByName("debug") {
+            buildConfigField("boolean", "SHOW_DIAGNOSTICS_BY_DEFAULT", "true")
+        }
+        getByName("release") {
+            buildConfigField("boolean", "SHOW_DIAGNOSTICS_BY_DEFAULT", "false")
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (signingFile != null) signingConfig = signingConfigs.getByName("release")
+        }
         create("fieldTest") {
             initWith(getByName("debug"))
+            buildConfigField("boolean", "SHOW_DIAGNOSTICS_BY_DEFAULT", "true")
             applicationIdSuffix = ".pruebas"
             versionNameSuffix = "-campo"
             matchingFallbacks += listOf("debug")
             resValue("string", "app_name", "APP · Campo F2")
             resValue("string", "media_access_service_label", "APP · Campo F2 · controles del reproductor")
+        }
+        create("candidate") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".candidato"
+            versionNameSuffix = "-interno"
+            matchingFallbacks += listOf("release")
+            resValue("string", "app_name", "APP · Candidato Play")
+            resValue("string", "media_access_service_label", "APP · Candidato Play · controles del reproductor")
         }
     }
 
@@ -34,6 +91,8 @@ android {
         buildConfig = true
     }
 
+    // Device smoke tests target a separate, release-optimized copy and preserve existing installs.
+    testBuildType = "candidate"
     testOptions { unitTests.isIncludeAndroidResources = true }
 
     compileOptions {
@@ -54,6 +113,8 @@ dependencies {
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.activity.compose)
     implementation("com.github.msnilsen:openwakeword-android:0.1.2")
+    // The wrapper requests 1.17.1, whose 64-bit ELF libraries are only 4 KB aligned.
+    implementation("com.microsoft.onnxruntime:onnxruntime-android:1.23.2")
     debugImplementation(libs.compose.ui.tooling)
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.robolectric:robolectric:4.16.1")

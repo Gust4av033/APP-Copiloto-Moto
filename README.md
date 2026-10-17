@@ -1,8 +1,22 @@
+> Candidato de pruebas no comerciales **1.2.1-rc1 (22)**: [preparación, verificación y puerta de Fase 3](docs/PLAY_RC1_2026-10-17.md). Play requiere Android 12+ y STT local disponible. No publicado en Google Play.
+
 # APP Copiloto Moto
 
-Entrega de Ajustes: [organización de usuario, ayuda y acceso de desarrollador](docs/AJUSTES_USUARIO_DESARROLLO.md). Rama `feature/settings-user-developer`, derivada de RC1 con la UI glass integrada.
+Esta entrega consolida Fase 1 RC1 y el contexto de Fase 2 como candidato de pruebas no comerciales. Su integración en `main` sirve de base para estabilización y después Fase 3; no declara estabilidad física ni aprobación de Google Play. Reúne observación y lectura experimental de Waze, Google Maps seleccionable, los sabores `full`/`playstore` y [Glass UI refinada](docs/UI_TORMENTA_REFINADA_V3.md). La validación de voz, casco y conducción sigue pendiente antes de declarar una versión estable de producción. [Auditoría anterior de ramas](docs/AUDITORIA_RAMAS_FASE_2_2026-10-14.md).
 
-Baseline integrada actual: **Fase 1 RC1**, versión `1.0.0-rc1`, en `release/fase-1-rc1`. Reúne toda la UI glass y la esfera de agua de `1d58c29`, con panel compacto y adaptación a texto/pantalla ([detalle de UI](docs/UI_BASE.md)) y el núcleo de Escucha 03 con reconocimiento automático español/inglés según capacidades del motor, aclaraciones habladas y preparación/cancelación común. [Estado y alcance](docs/FASE_1_RC1.md) · [Regresión repetible](docs/REGRESION_FASE_1_RC1.md). Es candidata a estable: la validación de los cambios nuevos en S22+/Y12 se registra por separado de las pruebas automatizadas.
+En [Google Maps de Fase 2](docs/FASE_2_GOOGLE_MAPS.md), Casa y Trabajo ya admiten una dirección opcional: sin ella, APP abre una búsqueda en Maps para que el conductor elija su lugar guardado con la moto detenida; con dirección, solicita la ruta directa. APP no lee los favoritos personales ni confirma una ruta externa.
+
+## Cierre del contexto disponible de Fase 2
+
+La rama funcional `feature/ui-storm-refined` reúne observaciones recientes de Waze y Google Maps, sesión multimedia y batería/audio del teléfono en un contexto con fuente, confianza y vigencia. La lectura de pantalla es experimental y depende del sabor `full`, del permiso y de una sesión activa. Casa y Trabajo aceptan coordenadas opcionales además de texto; con coordenadas, APP solicita la navegación externa y puede calcular distancia lineal y rumbo, sin atribuirse una ruta vial. El GPS propio es opcional, apagado por defecto, con permiso preciso y sin ubicación en segundo plano. El historial local y el detector de movimiento en sombra pertenecen a esta entrega y requieren prueba física antes de integrar a `main`.
+
+### MOD-009 — Tráfico colaborativo y calibración personal (RESERVADA)
+
+Estado: reservada, **no aprobada para implementar**. Se relaciona con Fase 9 (historial), Fase 11 (cuenta) y Fase 13 (tráfico); Fase 8 corresponde a Seguridad. Orden de valor: (1) calibración personal sin servidor a partir de velocidad real por tramo y hora para mejorar ETA incluso con un solo usuario; (2) detección en sombra de lentitud y paradas para medir falsos positivos sin preguntar; (3) confirmación por voz uno/dos; (4) colaboración con opt-in separado y backend anónimo. Ir lento no prueba tráfico: puede ser semáforo, tope o lluvia. La moto filtra carriles y su tráfico no equivale al de auto. No se pedirán confirmaciones en curvas ni a alta velocidad; un «no» también aporta información. Antes de cualquier colaboración, `PrivacyTrim` recorta 300 m al inicio y al final. La calibración personal cubre el arranque en frío sin comunidad.
+
+La [base de arquitectura para navegación propia](docs/NAVEGACION_PROPIA_PLAN.md) separa la futura ruta vial de APP de las lecturas observadas de Maps/Waze y deja Navigation Connect como adaptador opcional sujeto a costo, backend y consentimiento. No activa una integración nueva en Fase 2.
+
+La documentación de [Ajustes de usuario y desarrollador](docs/AJUSTES_USUARIO_DESARROLLO.md) y [Fase 1 RC1](docs/FASE_1_RC1.md) se conserva como historial de la base integrada; la [regresión repetible](docs/REGRESION_FASE_1_RC1.md) separa las pruebas automatizadas de las físicas.
 
 Proyecto Android nativo para el copiloto de voz orientado a motociclistas. Esta rama inicia la fase 1 sobre el prototipo de fase 0: reúne las órdenes en un Action Executor, amplía las frases de música y volumen, y descubre los accesos instalados para abrir aplicaciones por voz. **Comandos** reúne la guía, una comprobación de frases sin ejecución y los accesos de apps disponibles con búsqueda. Inicio y Viaje muestran las aperturas pendientes y los estados de llamada/recuperación. El viaje y el audio Bluetooth siguen en validación con hardware real.
 
@@ -45,12 +59,12 @@ La arquitectura prevista conserva límites entre `presentation`, `application`, 
 - `docs/FASE_0.md`: objetivo, validación y orden de implementación.
 - `docs/FASE_1.md`: primera entrega del núcleo de comandos y su prueba en el S22+.
 - `docs/referencias/`: documentos originales del proyecto. La especificación V4, los requisitos y la arquitectura son la línea base. El registro de modificaciones aprobadas complementa los documentos base según su regla de precedencia. Las indicaciones iniciales se conservan como antecedente.
-- `main` es la base estable. Todo el trabajo de fase 1, incluida la UI, se concentra en `feature/fase-1-intent-router`; probar en el teléfono antes de integrar mediante PR.
+- `main` es la base del candidato integrado; sus pendientes físicos constan en el protocolo RC1. Fase 3 parte de esta base tras estabilizarla, sin mezclar funciones nuevas con correcciones del candidato.
 - No incluir claves, tokens, firmados, `local.properties`, grabaciones personales ni datos de viajes en Git.
 
 ### Sincronizar cambios de GitHub
 
-En Android Studio: **Git > Pull** sobre `feature/fase-1-intent-router` o `git pull --ff-only origin feature/fase-1-intent-router` desde la terminal del proyecto. Para subir cambios propios: **Commit** y luego **Push** (o `git add . && git commit -m "..." && git push`).
+En Android Studio, usar **Git > Fetch** y elegir `feature/ui-storm-refined` para Fase 2. Después ejecutar **Git > Pull** y **Sync Project with Gradle Files**. En terminal, desde la rama ya descargada: `git fetch origin`, `git switch feature/ui-storm-refined`, `git pull --ff-only`. Si la rama aún no existe localmente: `git switch --track origin/feature/ui-storm-refined`. Conservar o respaldar cambios locales antes de cambiar de rama. La variante `fullDebug` conserva las herramientas de desarrollo; `playstoreDebug` prueba el sabor de publicación. Ambas comparten el código general, pero se compilan e instalan por separado. Para subir cambios propios: **Commit** y luego **Push**.
 
 
 ## Estabilización del núcleo y botón configurable
@@ -67,3 +81,7 @@ Estabilización 04 distingue el permiso multimedia de la copia de prueba, abre s
 
 
 
+
+### Fase 2: asistencia en segundo plano
+
+Durante un viaje, APP puede responder qué música suena, leer la batería y despachar búsquedas de lugares a Waze o Google Maps sin iniciar una ruta automáticamente. El saludo y la despedida se configuran en Ajustes → Activación; solo se emiten por una salida Bluetooth confirmada. Los contratos de clima y lugares propios quedan preparados para Fase 7. La narración de giros es experimental y apagada; la variante Play no incluye lectura de pantalla. Ver [alcance y pruebas pendientes](docs/FASE_2_NAVEGACION_CONTEXTO.md) y [matriz Play](docs/PLAY_STORE_DECLARACIONES.md).

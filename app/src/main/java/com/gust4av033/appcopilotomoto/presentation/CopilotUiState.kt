@@ -75,6 +75,8 @@ data class ProbeUi(
 data class CopilotUiState(
     val developerAccess: com.gust4av033.appcopilotomoto.DeveloperAccess = com.gust4av033.appcopilotomoto.DeveloperAccess(),
     val developerConfirmationRequested: Boolean = false,
+    val developerDiagnosticsUnlocked: Boolean = com.gust4av033.appcopilotomoto.BuildConfig.SHOW_DIAGNOSTICS_BY_DEFAULT,
+    val accessibilityWazeAvailable: Boolean = com.gust4av033.appcopilotomoto.BuildConfig.ALLOW_ACCESSIBILITY_WAZE,
     val installedVersion: String = "",
     val microphoneGranted: Boolean = false,
     val bluetoothGranted: Boolean = false,
@@ -138,8 +140,28 @@ data class CopilotUiState(
     val musicPlayers: List<MusicPlayer> = emptyList(),
     val selectedMusicPlayer: String? = null,
     val musicPlayersMessage: String = "",
+    val currentTripMusicPlayer: com.gust4av033.appcopilotomoto.ResolvedMusicPlayer? = null,
+    val currentTripMusicMessage: String = "",
     val navigationAvailable: Boolean = false,
+    val navigationProvider: com.gust4av033.appcopilotomoto.NavigationApp = com.gust4av033.appcopilotomoto.NavigationApp.WAZE,
+    val navigationHomeAddress: String = "",
+    val navigationWorkAddress: String = "",
+    val navigationHomeCoordinates: String = "",
+    val navigationWorkCoordinates: String = "",
+    val nextTripDestination: com.gust4av033.appcopilotomoto.NavigationDestination? = null,
+    val tripLocationEnabled: Boolean = false,
+    val tripLocationAvailable: Boolean = false,
+    val tripContextReport: String = "",
+    val wazeObservationEnabled: Boolean = false,
+    val wazeScreenEnabled: Boolean = false,
+    val wazeScreenGranted: Boolean = false,
+    val wazeScreen: com.gust4av033.appcopilotomoto.WazeScreenSnapshot = com.gust4av033.appcopilotomoto.WazeScreenSnapshot(),
+    val wazeObservationGranted: Boolean = false,
+    val wazeObservation: com.gust4av033.appcopilotomoto.WazeObservationSnapshot = com.gust4av033.appcopilotomoto.WazeObservationSnapshot(),
     val navigationContext: com.gust4av033.appcopilotomoto.TripNavigationContext = com.gust4av033.appcopilotomoto.TripNavigationContext(),
+    val observedRoute: com.gust4av033.appcopilotomoto.TripContextSnapshot = com.gust4av033.appcopilotomoto.TripContextSnapshot(),
+    val observedRouteAtElapsedMs: Long = 0L,
+    val navigationNoticesReady: Boolean = true,
     val lastNavigationRequest: String = "",
     val chatCapabilities: List<ContactChatCapability> = emptyList(),
     val chatContactsGranted: Boolean = false,
@@ -150,12 +172,16 @@ data class CopilotUiState(
     val audioDiagnostic: String = "",
     val audioBefore: String = "",
     val audioDuring: String = "",
+    val conversationAudioStatus: String = "",
+    val informationalSpeechStatus: String = "",
+    val greetingWarning: String = "",
+    val musicSearchStatus: String = "",
     val audioAfter: String = "",
     val callMessage: String = "",
     val fixedContact: String? = null,
     val probe: ProbeUi? = null
 ) {
-    val developerEnabled: Boolean get() = developerAccess.canViewDiagnostics
+    val developerEnabled: Boolean get() = developerAccess.canViewDiagnostics && developerDiagnosticsUnlocked
     val developerToolsAvailable: Boolean get() = developerAccess.canRunExperiments
     val buttonMode: Boolean get() = inputId == "BUTTON" || manualActivationOnly
     val canStartTrip: Boolean get() = !busy && !audioDevices.selectionMissing
@@ -181,6 +207,18 @@ data class CopilotActions(
     val onCancelStandaloneCommand: () -> Unit = {},
     val onToggleTrip: () -> Unit = {},
     val onForgetNavigationRequest: () -> Unit = {},
+    val onNavigationProviderChange: (String) -> Unit = {},
+    val onNavigationAddressSave: (com.gust4av033.appcopilotomoto.NavigationDestination, String) -> Unit = { _, _ -> },
+    val onNavigationCoordinatesSave: (com.gust4av033.appcopilotomoto.NavigationDestination, String) -> Unit = { _, _ -> },
+    val onNavigationPinCurrentGps: (com.gust4av033.appcopilotomoto.NavigationDestination) -> Unit = {},
+    val onTripDestinationChange: (com.gust4av033.appcopilotomoto.NavigationDestination?) -> Unit = {},
+    val onTripLocationChange: (Boolean) -> Unit = {},
+    val onForgetTripHistory: () -> Unit = {},
+    val onExportLastTrip: (Boolean) -> Unit = {},
+    val onWazeObservationChange: (Boolean) -> Unit = {},
+    val onWazeScreenChange: (Boolean) -> Unit = {},
+    val onWazeScreenPermission: () -> Unit = {},
+    val onWazeObservationPermission: () -> Unit = {},
     val onKeepScreenOnChange: (Boolean) -> Unit = {},
     val onManualTripCommand: () -> Unit = {},
     val onCancelPendingApp: (String) -> Unit = {},
@@ -213,7 +251,8 @@ data class CopilotActions(
     val onShowOverlay: () -> Unit = {},
     val onEnableNamedCalls: () -> Unit = {},
     val onChooseContact: () -> Unit = {},
-    val onClearContact: () -> Unit = {}
+    val onClearContact: () -> Unit = {},
+    val onOpenPrivacyPolicy: () -> Unit = {}
 )
 
 

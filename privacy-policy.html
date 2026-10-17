@@ -179,7 +179,7 @@
       <h1>Política de Privacidad — APP Copiloto Moto</h1>
       <p class="meta">
         Paquete de aplicación: <code>com.gust4av033.appcopilotomoto</code><br />
-        Última actualización: 14 de octubre de 2026
+        Última actualización: 17 de octubre de 2026
       </p>
     </header>
 
@@ -188,6 +188,8 @@
         <strong>Procesamiento en el dispositivo:</strong> <strong>APP Copiloto Moto</strong> procesa las órdenes de voz, la búsqueda de contactos y, en las versiones de prueba de Fase 2, el contexto de viaje en el teléfono. No tenemos servidores propios, no creamos cuentas, no vendemos información personal ni transmitimos mensajes personales. Si decides compartir un viaje exportado, Android lo entregará a la aplicación que elijas.
       </p>
     </div>
+
+    <section><h2>Candidato de pruebas no comerciales</h2><p>La versión 1.2.1-rc1 conserva modelos Alexa y Hey Jarvis de openWakeWord bajo CC BY-NC-SA 4.0 y se destina a pruebas no comerciales. Las licencias están disponibles sin conexión en Ajustes → Acerca de → Licencias y atribuciones. La versión Play requiere Android 12 o posterior y un reconocedor de voz local disponible. El nombre opcional del saludo no modifica la palabra de activación.</p></section>
 
     <section>
       <h2>1. Información General y Alcance</h2>
@@ -217,12 +219,12 @@
           </tr>
           <tr>
             <td><strong>Acceso a Notificaciones</strong><br /><code>BIND_NOTIFICATION_LISTENER_SERVICE</code></td>
-            <td>Android concede acceso a las notificaciones del dispositivo. APP consulta el estado multimedia para controlar el audio del casco. En las versiones de prueba de Fase 2, puede observar avisos de Waze o Google Maps durante un viaje si activas esa opción.</td>
+            <td>Android concede acceso a las notificaciones del dispositivo. APP consulta sesiones multimedia para controlar el audio del casco. Durante un viaje, si activas esa opción, APP procesa solamente avisos de navegación de Waze y Google Maps; no procesa mensajes personales.</td>
             <td>Las muestras de navegación se mantienen temporalmente durante el viaje y se descartan al detenerlo. Un aviso no confirma por sí solo una ruta activa. Si activas el historial GPS opcional, se puede guardar la ETA observada con ese viaje.</td>
           </tr>
           <tr>
             <td><strong>Ubicación durante el viaje</strong><br /><code>ACCESS_FINE_LOCATION</code><br /><code>ACCESS_COARSE_LOCATION</code><br /><code>FOREGROUND_SERVICE_LOCATION</code></td>
-            <td>En las versiones de prueba de Fase 2, registrar posición, velocidad y eventos de movimiento únicamente si activas «Contexto de viaje (ubicación GPS)» y con un viaje activo. El acceso es en primer plano; no se solicita ubicación en segundo plano.</td>
+            <td>Registrar posición, velocidad y eventos de movimiento únicamente si activas «Contexto de viaje (ubicación GPS)» y con un viaje activo. Antes de pedir el permiso, APP muestra una divulgación propia. El acceso es en primer plano; no se solicita ubicación en segundo plano.</td>
             <td>El historial queda en el almacenamiento privado del teléfono. Las muestras crudas se eliminan tras 30 días; puedes borrar todo el historial desde la app. Las exportaciones GPX y JSON recortan 300 m al inicio y al final antes de compartirlas.</td>
           </tr>
           <tr>
@@ -241,7 +243,7 @@
             <td>Solo dibuja la interfaz propia de control de viaje; no captura ni registra el contenido visual de la pantalla.</td>
           </tr>
           <tr>
-            <td><strong>Conectividad Bluetooth y Control Multimedia</strong><br /><code>BLUETOOTH_CONNECT</code><br /><code>FOREGROUND_SERVICE_MEDIA_PLAYBACK</code></td>
+            <td><strong>Conectividad Bluetooth y Control Multimedia</strong><br /><code>BLUETOOTH_CONNECT</code></td>
             <td>Conectar el canal de audio con el intercomunicador o auricular Bluetooth de tu casco y recibir la pulsación del botón físico para activar la escucha.</td>
             <td>Se limita a gestionar el enrutamiento de audio y eventos de botón durante la sesión activa.</td>
           </tr>
@@ -252,7 +254,7 @@
     <section>
       <h2>3. Almacenamiento Local y Aplicaciones de Terceros</h2>
       <ul>
-        <li><strong>Preferencias locales:</strong> Tus ajustes de configuración (como tu aplicación de mapas preferida o destinos rápidos opcionales como "Casa" o "Trabajo") se guardan únicamente en el almacenamiento interno privado de la aplicación dentro de tu teléfono.</li>
+        <li><strong>Preferencias locales:</strong> Tus ajustes de configuración (como tu aplicación de mapas preferida, destinos rápidos opcionales como "Casa" o "Trabajo" y el nombre opcional que escribas para el saludo de voz) se guardan únicamente en el almacenamiento interno privado de la aplicación dentro de tu teléfono. El nombre del saludo no se obtiene de tus contactos ni se envía a servidores propios.</li>
         <li><strong>Historial opcional de Fase 2:</strong> Si activas el contexto GPS, APP conserva muestras y eventos de movimiento del viaje en el almacenamiento privado del teléfono. Puedes exportar el último viaje mediante el menú para compartir de Android; el destino que elijas tendrá su propia política de privacidad.</li>
         <li><strong>Interacción con apps externas:</strong> Cuando ordenas abrir una ruta en <strong>Google Maps</strong> o <strong>Waze</strong>, controlar música en tu reproductor o preparar una llamada en el marcador del teléfono, la aplicación utiliza <em>Intents</em> estándar de Android. El uso posterior de dichas aplicaciones externas se rige por sus respectivas políticas de privacidad.</li>
         <li><strong>Sin publicidad ni rastreadores:</strong> La aplicación no integra SDKs de publicidad, rastreadores comerciales ni telemetría remota.</li>

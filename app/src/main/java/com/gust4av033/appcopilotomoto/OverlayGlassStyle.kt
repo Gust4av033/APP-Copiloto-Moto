@@ -15,39 +15,31 @@ internal object OverlayGlassStyle {
 
     fun panel(context: Context, night: Boolean): LayerDrawable {
         val base = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            if (night) intArrayOf(0xEA2F2857.toInt(), 0xE61A2745.toInt(), 0xEC171D39.toInt())
-            else intArrayOf(0xEFF7F3FF.toInt(), 0xEBEDF7FF.toInt(), 0xF0E3EBFB.toInt())).apply {
+            if (night) CopilotPalette.OverlayNight else CopilotPalette.OverlayDay).apply {
             cornerRadius = dp(context, 24)
-            setStroke(dp(context, 1).toInt().coerceAtLeast(1), if (night) 0xA39CDCF5.toInt() else 0xCFFFFFFF.toInt())
+            setStroke(dp(context, 1).toInt().coerceAtLeast(1), if (night) 0x4079DDFF else 0xA6FFFFFF.toInt())
         }
         val reflection = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(0x44FFFFFF, 0x08FFFFFF, 0x1A79DDFF)).apply { cornerRadius = dp(context, 23) }
-        val innerRim = GradientDrawable().apply {
-            cornerRadius = dp(context, 22)
-            setColor(Color.TRANSPARENT)
-            setStroke(dp(context, 1).toInt().coerceAtLeast(1), if (night) 0x2044B7EA else 0x3689A4D8)
-        }
+            CopilotPalette.OverlayReflection).apply { cornerRadius = dp(context, 23) }
         val inset = dp(context, 2).toInt()
-        return LayerDrawable(arrayOf(base, reflection, innerRim)).apply {
+        return LayerDrawable(arrayOf(base, reflection)).apply {
             setLayerInset(1, inset, inset, inset, inset)
-            setLayerInset(2, inset, inset, inset, inset)
         }
     }
 
     fun button(context: Context, night: Boolean, primary: Boolean): RippleDrawable {
         val normal = GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            if (primary) intArrayOf(0xFF6546A2.toInt(), 0xFF28538C.toInt())
-            else if (night) intArrayOf(0xB832405F.toInt(), 0xD126304D.toInt())
-            else intArrayOf(0xE6FFFFFF.toInt(), 0xE6E5ECFA.toInt())).apply {
+            if (primary) CopilotPalette.OverlayPrimary
+            else if (night) CopilotPalette.OverlaySecondaryNight else CopilotPalette.OverlaySecondaryDay).apply {
             cornerRadius = dp(context, 16)
-            setStroke(dp(context, 1).toInt().coerceAtLeast(1), if (primary) 0xAA9DCFFF.toInt() else 0x4588ABD5)
+            setStroke(dp(context, 1).toInt().coerceAtLeast(1), if (primary) 0x8079DDFF.toInt() else 0x4579DDFF)
         }
         val disabled = GradientDrawable().apply {
             cornerRadius = dp(context, 16)
-            setColor(if (night) 0xF22A344C.toInt() else 0xF2DDE4F1.toInt())
+            setColor(if (night) 0xF214244D.toInt() else 0xF2DDE4F1.toInt())
         }
         val sheen = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(0x26FFFFFF, 0x00FFFFFF, 0x0B79DDFF)).apply { cornerRadius = dp(context, 16) }
+            CopilotPalette.OverlaySheen).apply { cornerRadius = dp(context, 16) }
         val raised = LayerDrawable(arrayOf(normal, sheen))
         val states = StateListDrawable().apply {
             addState(intArrayOf(-android.R.attr.state_enabled), disabled)

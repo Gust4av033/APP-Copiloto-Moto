@@ -159,6 +159,53 @@ Todo el punto anterior requiere Samsung S22+, Y12 Pro/Dime Evo y aplicaciones re
 No hay evidencia de validación física de esta entrega; la recuperación SCO/A2DP,
 recepción de botones en bloqueo y comportamiento del firmware quedan pendientes.
 
+## Actualización de distribución · UI Storm refined (14 de octubre de 2026)
+
+La rama `feature/ui-storm-refined` agrupa la entrada de Ajustes en tres bloques:
+**Casco y Botón Bluetooth**, **Navegación y Destinos** y **Voz, Permisos y
+Privacidad**. Las siete páginas anteriores y Llamadas siguen accesibles como
+subpantallas. La versión instalada conserva el acceso de siete pulsaciones de
+desarrollador y ahora alterna `developerDiagnosticsUnlocked` con un Toast; debug
+lo muestra por defecto y release lo oculta por defecto. Desactivar la vista de
+diagnóstico no cambia la sesión, el micrófono ni los permisos. Los detalles
+SCO/ID/métricas permanecen dentro de las pantallas de desarrollo.
+
+| Capacidad | UI y permiso | Prueba |
+| --- | --- | --- |
+| Ajustes jerárquicos y retorno | Tres bloques → páginas existentes → volver al bloque | `SettingsAccessTest`, `SettingsNavigationUiTest` y renders de 320/360/800 dp |
+| Diagnóstico persistente | Siete pulsaciones sobre versión; Toast de estado | `DistributionTest` y `ReleaseDiagnosticsTest` |
+| Acceso a notificaciones | Diálogo antes de abrir Ajustes de listener multimedia/Waze | Comprobación del callback y manifiesto fusionado |
+| Burbuja | Diálogo antes de solicitar superposición; cancelación deja desactivado el interruptor | Validación pendiente en Android real |
+| Voz/contactos | Diálogo antes de pedir `RECORD_AUDIO` o `READ_CONTACTS` | Pruebas unitarias de permisos; lectura física pendiente |
+| Política | Enlace en Voz, Permisos y Privacidad y en Privacidad | `privacy-policy.html` en la raíz de `main`; GitHub Pages publicó la URL y respondió HTTP 200 el 14 de octubre de 2026 |
+
+El sabor `playstore` abre el marcador telefónico para que el usuario inicie
+la llamada. `full` conserva la llamada directa. En ambos casos APP distingue
+el envío de la solicitud del estado confirmado por Android. La recuperación
+de SCO y el comportamiento de la apertura en segundo plano deben comprobarse
+en el Samsung antes de publicar.
+
+Para compilar esta rama, selecciona `fullDebug` para pruebas con todas las
+herramientas o `playstoreDebug` para revisar el paquete de tienda. Para firmar
+`playstoreRelease`, copia `keystore.properties.example` a `keystore.properties`
+y coloca la ruta real del almacén y sus credenciales, o usa
+`APP_SIGNING_STORE_FILE`, `APP_SIGNING_STORE_PASSWORD`,
+`APP_SIGNING_KEY_ALIAS` y `APP_SIGNING_KEY_PASSWORD`. El archivo de propiedades
+y los `.jks` están excluidos de Git. Sin credenciales se genera un release
+sin firmar, que no se puede instalar directamente.
+
+Verificación de esta actualización: `testFullDebugUnitTest` terminó con 247
+casos (245 aprobados, 2 omitidos) y `testPlaystoreDebugUnitTest` con 247 (244
+aprobados, 3 omitidos por pruebas exclusivas de accesibilidad `full`).
+`ReleaseDiagnosticsTest` pasó en `playstoreRelease`; el manifiesto fusionado y
+el APK debug de `playstore` carecen de permisos de llamada directa y del
+servicio de accesibilidad. `assemblePlaystoreRelease` completó R8 y lint vital;
+el APK release quedó sin firma por falta de credenciales. Las pruebas se
+ejecutaron en Android JVM y no sustituyen la prueba de casco, SCO y marcador
+en el Samsung. La URL pública de GitHub Pages se verificó después: la política
+se publicó desde la raíz de `main` y respondió HTTP 200. La apertura desde la
+app instalada aún requiere una comprobación física en el Samsung.
+
 ## Archivos de la entrega
 
 - `.gitignore`

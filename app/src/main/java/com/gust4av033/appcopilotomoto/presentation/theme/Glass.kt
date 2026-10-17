@@ -1,76 +1,212 @@
 package com.gust4av033.appcopilotomoto.presentation.theme
 
-import androidx.compose.foundation.Canvas
+import android.graphics.Bitmap
+import android.graphics.Canvas as AndroidCanvas
+import android.graphics.Paint
+import android.graphics.RadialGradient as AndroidRadialGradient
+import android.graphics.LinearGradient as AndroidLinearGradient
+import android.graphics.Shader
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextFieldDefaults
-import androidx.compose.material3.Surface
 import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.layout.positionInWindow
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 
-/** Fondo propio y estático: ninguna lectura de pantalla ni blur de controles. */
-@Composable
-fun CopilotBackdrop(modifier: Modifier = Modifier) {
-    val dark = androidx.compose.foundation.isSystemInDarkTheme()
-    Canvas(modifier.fillMaxSize()) {
-        drawRect(if (dark) Color(0xFF0B1020) else Color(0xFFE9EEFA))
-        glow(if (dark) Color(0xFF7250B8) else Color(0xFFB69CFF), Offset(size.width * .12f, size.height * .12f), size.width * .9f)
-        glow(if (dark) Color(0xFF2873A5) else Color(0xFF6DDCFF), Offset(size.width * 1.06f, size.height * .42f), size.width * .95f)
-        glow(if (dark) Color(0xFF375BB0) else Color(0xFF82AFFF), Offset(size.width * .10f, size.height * .92f), size.width * .85f)
-    }
+/** Backdrop, tint and contrast tokens for both themes. */
+internal object StormGlass {
+    val DayBackdrop = Color(0xFFDCE9F7)
+    val NightBackdrop = Color(CopilotPalette.Midnight)
+    val DayTint = Color(0xFFE0F0FF)
+    val NightTint = Color(CopilotPalette.Abyss)
+    const val DayAlpha = .72f
+    const val DayStrongAlpha = .78f
+    const val NightAlpha = .66f
+    const val NightStrongAlpha = .58f
+    val DayGlows = listOf(Color(0xFF79B5E2), Color(0xFFA2DFFF), Color(0xFF82A9D4))
+    val NightGlows = listOf(Color(0xFF1644C3), Color(0xFF126589), Color(0xFF183B8C))
+    const val GlowAlpha = .48f
+    val DayAction = Color(0xFF075BA8)
+    val NightAction = Color(CopilotPalette.ActionBottom)
 }
 
-private fun DrawScope.glow(color: Color, center: Offset, radius: Float) {
-    drawRect(Brush.radialGradient(listOf(color.copy(alpha = .46f), color.copy(alpha = 0f)), center, radius))
-}
+internal val LocalGlassDark = staticCompositionLocalOf { false }
 
-/** Solo el material es translúcido; texto e iconos conservan su opacidad. */
+/** Shared surface, button and geometry tokens. */
 object Glass {
-    @Composable fun surface(strong: Boolean = false): Color {
-        val dark = androidx.compose.foundation.isSystemInDarkTheme()
-        return if (dark) Color(0xFF172039).copy(alpha = if (strong) .51f else .39f)
-            else Color(0xFFFFFFFF).copy(alpha = if (strong) .76f else .64f)
-    }
+    val heroRadius = 28.dp
+    val cardRadius = 20.dp
+    val controlRadius = 16.dp
+    val rimWidth = 1.dp
+    val iconTileSize = 44.dp
+    val iconSize = 24.dp
+    val iconButtonSize = 48.dp
+    val actionHeight = 52.dp
+    val pageDot = 8.dp
+    val pageActiveWidth = 24.dp
+    const val pageGlowAlpha = .30f
+    const val pressScale = .98f
+    const val secondaryButtonAlpha = .72f
+    val primaryTop = Color(CopilotPalette.ActionTop)
+    val primaryBottom = Color(CopilotPalette.ActionBottom)
+    val destructiveTop = Color(0xFF81394F)
+    val destructiveBottom = Color(0xFF4E203A)
 
-    @Composable fun outline(): Color = if (androidx.compose.foundation.isSystemInDarkTheme())
-        Color.White.copy(alpha = .26f) else Color.White.copy(alpha = .88f)
+    @Composable fun surface(strong: Boolean = false): Color = if (LocalGlassDark.current)
+        StormGlass.NightTint.copy(alpha = if (strong) StormGlass.NightStrongAlpha else StormGlass.NightAlpha)
+    else StormGlass.DayTint.copy(alpha = if (strong) StormGlass.DayStrongAlpha else StormGlass.DayAlpha)
 
-    @Composable fun rim(): Brush = Brush.linearGradient(listOf(
-        Color.White.copy(alpha = if (androidx.compose.foundation.isSystemInDarkTheme()) .58f else .96f),
-        MaterialTheme.colorScheme.tertiary.copy(alpha = .28f),
-        Color.White.copy(alpha = .10f)
-    ))
+    const val heroGlowAlpha = .10f
+    const val nightReflectionAlpha = .07f
+    const val dayReflectionAlpha = .12f
+    const val nightLowerReflectionAlpha = .025f
+    const val reflectionFalloff = .30f
+    const val iconTintAlpha = .18f
+
+    @Composable fun outline(): Color = if (LocalGlassDark.current)
+        Color(CopilotPalette.Lightning).copy(alpha = .18f) else Color.White.copy(alpha = .62f)
+
+    @Composable fun rim(): Brush = Brush.linearGradient(if (LocalGlassDark.current) listOf(
+        Color(0xFFB1D8FF).copy(alpha = .28f), Color(0xFFB1D8FF).copy(alpha = .055f),
+        Color(CopilotPalette.Lightning).copy(alpha = .14f)
+    ) else listOf(Color.White.copy(alpha = .85f), Color.White.copy(alpha = .22f),
+        Color(0xFF5786BA).copy(alpha = .18f)))
+
+    @Composable fun iconTint(): Color = MaterialTheme.colorScheme.primary.copy(alpha = iconTintAlpha)
 
     @Composable fun accent(): Color = MaterialTheme.colorScheme.tertiary
 }
 
-/** Colorea solo el panel. Surface fija el color de texto y conserva el ripple de clic. */
+enum class GlassMode { FULL, LITE }
+internal data class GlassBackdrop(val bitmap: androidx.compose.ui.graphics.ImageBitmap, val size: IntSize, val origin: Offset)
+internal val LocalGlassBackdrop = staticCompositionLocalOf<GlassBackdrop?> { null }
+
+/** Draws only APP-owned artwork. The small copy is created once per size/theme. */
 @Composable
-fun GlassPanel(
-    modifier: Modifier = Modifier,
-    strong: Boolean = false,
-    shape: Shape = MaterialTheme.shapes.medium,
-    onClick: (() -> Unit)? = null,
-    content: @Composable () -> Unit
-) {
-    val color = Glass.surface(strong)
-    val border = BorderStroke(1.dp, Glass.rim())
-    val contentColor = MaterialTheme.colorScheme.onSurface
-    if (onClick == null) {
-        Surface(modifier = modifier, shape = shape, color = color, contentColor = contentColor,
-            border = border, shadowElevation = if (strong) 10.dp else 5.dp, content = content)
-    } else {
-        Surface(onClick = onClick, modifier = modifier, shape = shape, color = color,
-            contentColor = contentColor, border = border,
-            shadowElevation = if (strong) 10.dp else 5.dp, content = content)
+fun CopilotBackdrop(modifier: Modifier = Modifier, content: @Composable () -> Unit = {}) {
+    val dark = LocalGlassDark.current
+    var sceneSize by remember { mutableStateOf(IntSize.Zero) }
+    var sceneOrigin by remember { mutableStateOf(Offset.Zero) }
+    val sharp = remember(sceneSize, dark) {
+        if (sceneSize.width == 0 || sceneSize.height == 0) null else {
+            val bitmap = Bitmap.createBitmap(sceneSize.width, sceneSize.height, Bitmap.Config.ARGB_8888)
+            paintScene(AndroidCanvas(bitmap), bitmap.width.toFloat(), bitmap.height.toFloat(), dark)
+            bitmap.asImageBitmap()
+        }
+    }
+    val small = remember(sceneSize, dark) {
+        if (sceneSize.width == 0 || sceneSize.height == 0) null else {
+            val bitmap = Bitmap.createBitmap((sceneSize.width / 8).coerceAtLeast(1),
+                (sceneSize.height / 8).coerceAtLeast(1), Bitmap.Config.ARGB_8888)
+            paintScene(AndroidCanvas(bitmap), bitmap.width.toFloat(), bitmap.height.toFloat(), dark)
+            bitmap.asImageBitmap()
+        }
+    }
+    Box(modifier.fillMaxSize().onSizeChanged { sceneSize = it }
+        .onGloballyPositioned { sceneOrigin = it.positionInWindow() }) {
+        Canvas(Modifier.fillMaxSize()) {
+            sharp?.let { drawImage(it) }
+        }
+        CompositionLocalProvider(LocalGlassBackdrop provides small?.let { GlassBackdrop(it, sceneSize, sceneOrigin) }) {
+            content()
+        }
+    }
+}
+
+private fun paintScene(canvas: AndroidCanvas, w: Float, h: Float, dark: Boolean) {
+    val p = Paint(Paint.ANTI_ALIAS_FLAG)
+    canvas.drawColor((if (dark) StormGlass.NightBackdrop else StormGlass.DayBackdrop).toArgb())
+    val colors = if (dark) StormGlass.NightGlows else StormGlass.DayGlows
+    val glows = listOf(
+        Triple(Offset(w * .82f, h * .12f), w * 1.22f, colors[0]),
+        Triple(Offset(w * -.20f, h * .48f), w * .96f, colors[1]),
+        Triple(Offset(w * .92f, h * .97f), w * 1.14f, colors[2])
+    )
+    glows.forEach { (center, radius, color) ->
+        p.shader = AndroidRadialGradient(center.x, center.y, radius,
+            intArrayOf(color.copy(alpha = StormGlass.GlowAlpha).toArgb(),
+                color.copy(alpha = 0f).toArgb()), null, Shader.TileMode.CLAMP)
+        canvas.drawRect(0f, 0f, w, h, p)
+    }
+    // A quiet vertical light falloff gives the scene depth without a decorative shape.
+    p.shader = AndroidLinearGradient(0f, 0f, 0f, h, intArrayOf(
+        Color.Transparent.toArgb(), (if (dark) Color(CopilotPalette.Midnight).copy(alpha = .36f)
+            else Color.White.copy(alpha = .16f)).toArgb(), Color.Transparent.toArgb()
+    ), floatArrayOf(0f, .64f, 1f), Shader.TileMode.CLAMP)
+    canvas.drawRect(0f, 0f, w, h, p)
+    p.shader = null
+}
+
+/** Draws the corresponding part of the shared blurred background. LITE omits it. */
+@Composable
+fun GlassPanel(modifier: Modifier = Modifier, strong: Boolean = false,
+    shape: Shape = MaterialTheme.shapes.medium, onClick: (() -> Unit)? = null,
+    mode: GlassMode = GlassMode.FULL, content: @Composable () -> Unit) {
+    val dark = LocalGlassDark.current
+    val backdrop = LocalGlassBackdrop.current
+    val rim = Glass.rim()
+    var panelPosition by remember { mutableStateOf(Offset.Zero) }
+    val decorated = modifier
+        .then(if (strong) Modifier.drawWithContent {
+            val center = Offset(size.width * .5f, size.height * .5f)
+            drawCircle(Brush.radialGradient(listOf(Color(CopilotPalette.Electric).copy(alpha = Glass.heroGlowAlpha), Color.Transparent),
+                center = center, radius = size.width * .8f), size.width * .8f, center)
+            drawContent()
+        } else Modifier)
+        .onGloballyPositioned { panelPosition = it.positionInWindow() }
+        .clip(shape)
+        .drawWithContent {
+            if (mode == GlassMode.FULL && backdrop != null && backdrop.size.width > 0 && backdrop.size.height > 0) {
+                val relative = panelPosition - backdrop.origin
+                val sourceX = (relative.x / backdrop.size.width * backdrop.bitmap.width).roundToInt().coerceIn(0, backdrop.bitmap.width - 1)
+                val sourceY = (relative.y / backdrop.size.height * backdrop.bitmap.height).roundToInt().coerceIn(0, backdrop.bitmap.height - 1)
+                val sourceW = (size.width / backdrop.size.width * backdrop.bitmap.width).roundToInt().coerceIn(1, backdrop.bitmap.width - sourceX)
+                val sourceH = (size.height / backdrop.size.height * backdrop.bitmap.height).roundToInt().coerceIn(1, backdrop.bitmap.height - sourceY)
+                drawImage(backdrop.bitmap, srcOffset = IntOffset(sourceX, sourceY), srcSize = IntSize(sourceW, sourceH),
+                    dstSize = IntSize(size.width.roundToInt(), size.height.roundToInt()), filterQuality = FilterQuality.Medium)
+            }
+            drawRect(if (dark) StormGlass.NightTint.copy(alpha = if (strong)
+                StormGlass.NightStrongAlpha else StormGlass.NightAlpha) else StormGlass.DayTint.copy(alpha = if (strong)
+                StormGlass.DayStrongAlpha else StormGlass.DayAlpha))
+            // Edge light, rather than a white oval reflected across the labels.
+            drawRect(Brush.verticalGradient(
+                0f to Color.White.copy(alpha = if (dark) Glass.nightReflectionAlpha else Glass.dayReflectionAlpha),
+                Glass.reflectionFalloff to Color.Transparent,
+                1f to Color(CopilotPalette.Electric).copy(alpha = Glass.nightLowerReflectionAlpha)))
+            drawContent()
+        }
+        .border(BorderStroke(Glass.rimWidth, rim), shape)
+        .then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick))
+    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
+        Box(decorated) { content() }
     }
 }
 

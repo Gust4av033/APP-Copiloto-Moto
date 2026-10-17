@@ -31,8 +31,11 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import com.gust4av033.appcopilotomoto.presentation.CopilotActions
 import com.gust4av033.appcopilotomoto.presentation.AudioDeviceUi
 import com.gust4av033.appcopilotomoto.presentation.AudioDevicesUi
@@ -44,6 +47,8 @@ import com.gust4av033.appcopilotomoto.presentation.TripMetricsUi
 import com.gust4av033.appcopilotomoto.presentation.VoiceRouteUi
 import com.gust4av033.appcopilotomoto.presentation.CommandUi
 import com.gust4av033.appcopilotomoto.presentation.toCommandUi
+import com.gust4av033.appcopilotomoto.presentation.components.DisclosureKind
+import com.gust4av033.appcopilotomoto.presentation.components.ProminentDisclosureDialog
 import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
@@ -54,6 +59,13 @@ class MainActivity : ComponentActivity() {
     private val settingsStore by lazy { UserSettingsStore(this) }
     private val developerChallenge = DeveloperAccessChallenge()
     private var developerEnabled by mutableStateOf(false)
+    private var developerDiagnosticsUnlocked by mutableStateOf(BuildConfig.SHOW_DIAGNOSTICS_BY_DEFAULT)
+    private var pendingDisclosure by mutableStateOf<DisclosureKind?>(null)
+    private var pendingDisclosureAction: (() -> Unit)? = null
+    private fun disclose(kind: DisclosureKind, action: () -> Unit) {
+        pendingDisclosureAction = action
+        pendingDisclosure = kind
+    }
     private var developerConfirmationRequested by mutableStateOf(false)
     private var standaloneCommand by mutableStateOf(false)
     private var configurationNotice by mutableStateOf("")
@@ -85,6 +97,14 @@ class MainActivity : ComponentActivity() {
     private val refreshDevicesTask = object : Runnable {
         override fun run() {
             refreshAudioDevices()
+            if (TripTestState.running) {
+                val selected = actions.currentMusicPlayer()
+                currentTripMusicPlayer = selected.getOrNull()
+                currentTripMusicMessage = selected.exceptionOrNull()?.message.orEmpty()
+            } else { currentTripMusicPlayer = null; currentTripMusicMessage = "" }
+            if (developerEnabled) tripContextReport = "GPS: ${TripRecordingState.locationStatus}\n" + TripContextDiagnostics.report(
+                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime(),
+                TripRecordingState.movement, TripRecordingState.samples, TripRecordingState.events)
             // Los índices de volumen aún necesitan refresco; las consultas ocurren fuera de UI.
             mainHandler.postDelayed(this, 2_000L)
         }
@@ -112,8 +132,26 @@ class MainActivity : ComponentActivity() {
     private var appCommands by mutableStateOf<List<String>>(emptyList())
     private var musicPlayers by mutableStateOf<List<MusicPlayer>>(emptyList())
     private var selectedMusicPlayer by mutableStateOf<String?>(null)
+    private var currentTripMusicPlayer by mutableStateOf<ResolvedMusicPlayer?>(null)
+    private var currentTripMusicMessage by mutableStateOf("")
     private var musicPlayersMessage by mutableStateOf("")
     private var navigationAvailable by mutableStateOf(false)
+    private var navigationProvider by mutableStateOf(NavigationApp.WAZE)
+    private var navigationHomeAddress by mutableStateOf("")
+    private var navigationWorkAddress by mutableStateOf("")
+    private var navigationHomeCoordinates by mutableStateOf("")
+    private var navigationWorkCoordinates by mutableStateOf("")
+    private var nextTripDestination by mutableStateOf<NavigationDestination?>(null)
+    private var tripContextReport by mutableStateOf("")
+    private fun refreshSavedCoordinates() {
+        navigationHomeCoordinates = NavigationPreferences.coordinates(this, NavigationDestination.HOME)
+            ?.let { "${it.latitude},${it.longitude}" }.orEmpty()
+        navigationWorkCoordinates = NavigationPreferences.coordinates(this, NavigationDestination.WORK)
+            ?.let { "${it.latitude},${it.longitude}" }.orEmpty()
+        nextTripDestination = NavigationPreferences.nextTripDestination(this)
+    }
+    private var tripLocationEnabled by mutableStateOf(false)
+    private var tripLocationAvailable by mutableStateOf(false)
     private var lastNavigationRequest by mutableStateOf<NavigationDestination?>(null)
     private var chatCapabilities by mutableStateOf<List<ContactChatCapability>>(emptyList())
     private var chatContactsGranted by mutableStateOf(false)
@@ -126,6 +164,10 @@ class MainActivity : ComponentActivity() {
     private var overlayMessage by mutableStateOf("")
     private var tripButtonBinding by mutableStateOf(TripButtonBinding.NONE)
     private var mediaAccessGranted by mutableStateOf(false)
+    private var wazeObservationEnabled by mutableStateOf(false)
+    private var wazeObservationGranted by mutableStateOf(false)
+    private var wazeScreenEnabled by mutableStateOf(false)
+    private var wazeScreenGranted by mutableStateOf(false)
     private var manualActivationOnly by mutableStateOf(false)
     private var buttonProbeActive by mutableStateOf(false)
     private var buttonProbeLog by mutableStateOf<List<String>>(emptyList())
@@ -159,6 +201,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val tripLocationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        val granted = TripLocationAccess.permission(this)
+        settingsStore.setTripLocationEnabled(granted)
+        tripLocationEnabled = granted
+        tripLocationAvailable = TripLocationAccess.available(this)
+        TripRepository(filesDir).prune()
+        configurationNotice = if (granted) "GPS local activado. Los datos quedan en este teléfono."
+            else "Contexto GPS no disponible: permiso denegado."
+    }
+
     private val assistantRoleRequest = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
@@ -185,10 +239,12 @@ class MainActivity : ComponentActivity() {
     private val namedCallPermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
-        tripCallMessage = if (listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+        tripCallMessage = if ((listOf(Manifest.permission.READ_CONTACTS) + if (BuildConfig.ALLOW_DIRECT_CALL)
+                listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE) else emptyList())
                 .all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }) {
             "Listo: podés decir ‘llama a [nombre]’ durante la sesión."
-        } else "Faltan permisos de contactos o llamadas; podés seguir usando música y volumen."
+        } else if (BuildConfig.ALLOW_DIRECT_CALL) "Faltan permisos de contactos o llamadas; podés seguir usando música y volumen."
+        else "Falta el permiso de contactos para abrir el marcador por nombre."
     }
 
     private val contactPicker = registerForActivityResult(
@@ -214,7 +270,7 @@ class MainActivity : ComponentActivity() {
         } else {
             tripCallContact = selected
             tripCallMessage = "Contacto de prueba: ${selected.display}."
-            if (listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+            if (BuildConfig.ALLOW_DIRECT_CALL && listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
                     .any { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }) {
                 callPermissionRequest.launch(arrayOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE))
             }
@@ -245,6 +301,7 @@ class MainActivity : ComponentActivity() {
         TripTestState.restore(this)
         HeadsetSelection.restore(this)
         developerEnabled = settingsStore.developerEnabled(BuildConfig.DEBUG)
+        developerDiagnosticsUnlocked = settingsStore.developerDiagnosticsUnlocked()
         installedVersion = runCatching { packageManager.getPackageInfo(packageName, 0).versionName.orEmpty() }.getOrDefault("")
         manualActivationOnly = getSharedPreferences("ui_settings", MODE_PRIVATE)
             .getBoolean(TripActivationPolicy.PREFERENCE, false)
@@ -283,8 +340,35 @@ class MainActivity : ComponentActivity() {
     /** Único puente entre el runtime de fase 1 y las pantallas Compose. */
     @Composable
     private fun AppUi() {
+        var routeRefresh by remember { mutableLongStateOf(0L) }
+        LaunchedEffect(TripTestState.running) {
+            if (!TripTestState.running) routeRefresh = 0L
+            while (TripTestState.running) {
+                routeRefresh = SystemClock.elapsedRealtime()
+                delay(5_000)
+            }
+        }
+        // The tick requests recomposition; observation age must use the clock at this render.
+        val routeNow = maxOf(SystemClock.elapsedRealtime(), routeRefresh)
+        val observedRoute = if (TripTestState.running)
+            TripContextCollector.routeCardSnapshot(this@MainActivity, nowElapsed = routeNow)
+        else TripContextSnapshot()
+        pendingDisclosure?.let { kind ->
+            ProminentDisclosureDialog(kind, onContinue = {
+                val action = pendingDisclosureAction
+                pendingDisclosureAction = null
+                pendingDisclosure = null
+                action?.invoke()
+            }, onDismiss = {
+                if (kind == DisclosureKind.MICROPHONE) pendingAction = null
+                pendingDisclosureAction = null
+                pendingDisclosure = null
+            })
+        }
         val state = CopilotUiState(
             developerAccess = DeveloperAccess(developerEnabled, BuildConfig.DEBUG),
+            developerDiagnosticsUnlocked = developerDiagnosticsUnlocked,
+            accessibilityWazeAvailable = BuildConfig.ALLOW_ACCESSIBILITY_WAZE,
             developerConfirmationRequested = developerConfirmationRequested,
             installedVersion = installedVersion,
             configurationNotice = configurationNotice,
@@ -348,8 +432,28 @@ class MainActivity : ComponentActivity() {
             musicPlayers = musicPlayers,
             selectedMusicPlayer = selectedMusicPlayer,
             musicPlayersMessage = musicPlayersMessage,
+            currentTripMusicPlayer = currentTripMusicPlayer,
+            currentTripMusicMessage = currentTripMusicMessage,
             navigationAvailable = navigationAvailable,
+            navigationProvider = navigationProvider,
+            navigationHomeAddress = navigationHomeAddress,
+            navigationWorkAddress = navigationWorkAddress,
+            navigationHomeCoordinates = navigationHomeCoordinates,
+            navigationWorkCoordinates = navigationWorkCoordinates,
+            nextTripDestination = nextTripDestination,
+            tripLocationEnabled = tripLocationEnabled,
+            tripLocationAvailable = tripLocationAvailable,
+            tripContextReport = tripContextReport,
+            wazeObservationEnabled = wazeObservationEnabled,
+            wazeObservationGranted = wazeObservationGranted,
+            wazeObservation = WazeNotificationObservation.snapshot,
+            wazeScreenEnabled = wazeScreenEnabled,
+            wazeScreenGranted = wazeScreenGranted,
+            wazeScreen = WazeScreenState.snapshot,
             navigationContext = TripNavigationState.context,
+            observedRoute = observedRoute,
+            observedRouteAtElapsedMs = routeNow,
+            navigationNoticesReady = WazeObservationAccess.allowed(this@MainActivity),
             lastNavigationRequest = lastNavigationRequest?.label.orEmpty(),
             chatCapabilities = chatCapabilities,
             chatContactsGranted = chatContactsGranted,
@@ -360,6 +464,10 @@ class MainActivity : ComponentActivity() {
             audioDiagnostic = audioDiagnostic,
             audioBefore = TripTestState.audioBefore,
             audioDuring = TripTestState.audioDuring,
+            conversationAudioStatus = TripTestState.conversationAudioStatus,
+            informationalSpeechStatus = TripTestState.informationalSpeechStatus,
+            greetingWarning = TripTestState.greetingWarning,
+            musicSearchStatus = TripTestState.musicSearchStatus,
             audioAfter = TripTestState.audioAfter,
             callMessage = tripCallMessage,
             fixedContact = tripCallContact?.display,
@@ -371,8 +479,10 @@ class MainActivity : ComponentActivity() {
         LaunchedEffect(state.tripActive, state.switchingMode) {
             if (!state.switchingMode) syncTripPresentation()
         }
-        DisposableEffect(state.tripActive, state.keepScreenOnDuringTrip) {
-            if (state.tripActive && state.keepScreenOnDuringTrip) {
+        DisposableEffect(state.tripActive, state.keepScreenOnDuringTrip, state.overlayEnabled,
+            state.overlayPermissionGranted, state.overlayHidden) {
+            val bubbleActive = state.overlayEnabled && state.overlayPermissionGranted && !state.overlayHidden
+            if (state.tripActive && (state.keepScreenOnDuringTrip || bubbleActive)) {
                 window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             } else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
@@ -386,13 +496,23 @@ class MainActivity : ComponentActivity() {
             },
             actions = CopilotActions(
                 onVersionTap = {
-                    if (!developerEnabled && !audioBusy() && developerChallenge.tap(SystemClock.elapsedRealtime()))
-                        developerConfirmationRequested = true
+                    if (!audioBusy() && developerChallenge.tap(SystemClock.elapsedRealtime())) {
+                        if (developerEnabled) {
+                            developerChallenge.confirm()
+                            developerDiagnosticsUnlocked = !developerDiagnosticsUnlocked
+                            settingsStore.setDeveloperDiagnosticsUnlocked(developerDiagnosticsUnlocked)
+                            Toast.makeText(this@MainActivity, if (developerDiagnosticsUnlocked) R.string.diagnostics_enabled
+                                else R.string.diagnostics_disabled, Toast.LENGTH_SHORT).show()
+                        } else developerConfirmationRequested = true
+                    }
                 },
                 onConfirmDeveloper = {
                     if (!audioBusy() && developerChallenge.confirm()) {
                         settingsStore.setDeveloperEnabled(BuildConfig.DEBUG, true)
                         developerEnabled = true
+                        developerDiagnosticsUnlocked = true
+                        settingsStore.setDeveloperDiagnosticsUnlocked(true)
+                        Toast.makeText(this@MainActivity, R.string.diagnostics_enabled, Toast.LENGTH_SHORT).show()
                     }
                     developerConfirmationRequested = false
                 },
@@ -401,6 +521,12 @@ class MainActivity : ComponentActivity() {
                     if (!audioBusy()) {
                         developerEnabled = false
                         settingsStore.setDeveloperEnabled(BuildConfig.DEBUG, false)
+                        if (!BuildConfig.IS_PLAYSTORE_BUILD) {
+                            WazeObservationAccess.setEnabled(this@MainActivity, false)
+                            wazeObservationEnabled = false
+                        }
+                        WazeScreenAccess.setEnabled(this@MainActivity, false)
+                        wazeScreenEnabled = false
                         if (tripAudioMode == WakeAudioMode.PHONE_WAKE || manualActivationOnly) {
                             tripAudioMode = if (manualActivationOnly) WakeAudioMode.BUTTON else WakeAudioMode.BLUETOOTH
                             manualActivationOnly = false
@@ -462,7 +588,7 @@ class MainActivity : ComponentActivity() {
                 onRefreshApps = { refreshAppCatalog(force = true) },
                 onEnableChatContacts = {
                     if (!TripTestState.running && !TripTestState.restoringAudio && !listening && !running && !wakeEnabled && !wakeTransition) {
-                        chatContactsPermission.launch(Manifest.permission.READ_CONTACTS)
+                        disclose(DisclosureKind.CONTACTS) { chatContactsPermission.launch(Manifest.permission.READ_CONTACTS) }
                     }
                 },
                 onMusicPlayerChange = { selected ->
@@ -495,9 +621,11 @@ class MainActivity : ComponentActivity() {
                 },
                 onMediaAccessSettings = {
                     if (!audioBusy()) {
-                    runCatching { startActivity(TripMediaAccess.settingsIntent(this)) }
-                        .recoverCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
-                        .onFailure { assistantMessage = "No se pudieron abrir los ajustes de acceso multimedia." }
+                        disclose(DisclosureKind.NOTIFICATIONS) {
+                            runCatching { startActivity(TripMediaAccess.settingsIntent(this)) }
+                                .recoverCatching { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+                                .onFailure { assistantMessage = "No se pudieron abrir los ajustes de acceso multimedia." }
+                        }
                     }
                 },
                 onTestObservation = { event ->
@@ -512,15 +640,129 @@ class MainActivity : ComponentActivity() {
                 onOpenButtonProbe = { selectedScreen = if (developerEnabled) CopilotScreen.TESTS else CopilotScreen.DIAGNOSTICS },
                 onForgetNavigationRequest = {
                     if (!audioBusy()) {
-                        NavigationRequestStore.forget(this@MainActivity)
+                        NavigationRequestStore.forget(this@MainActivity, navigationProvider)
                         lastNavigationRequest = null
                     }
                 },
+                onNavigationProviderChange = { id ->
+                    if (!audioBusy() && !appCatalogLoading) {
+                        val selected = NavigationApp.fromId(id)
+                        NavigationPreferences.select(this@MainActivity, selected)
+                        navigationProvider = selected
+                        lastNavigationRequest = NavigationRequestStore.last(this@MainActivity, selected)
+                        navigationAvailable = false
+                        refreshAppCatalog(force = true)
+                    }
+                },
+                onNavigationAddressSave = { destination, address ->
+                    if (!audioBusy()) runCatching {
+                        NavigationPreferences.saveAddress(this@MainActivity, destination, address)
+                    }.onSuccess {
+                        if (destination == NavigationDestination.HOME) navigationHomeAddress = NavigationPreferences.address(this@MainActivity, destination)
+                        else navigationWorkAddress = NavigationPreferences.address(this@MainActivity, destination)
+                    }.onFailure { configurationNotice = it.message.orEmpty() }
+                },
+                onNavigationCoordinatesSave = { destination, coordinates ->
+                    if (!audioBusy()) runCatching {
+                        NavigationPreferences.saveCoordinates(this@MainActivity, destination, coordinates)
+                    }.onSuccess { refreshSavedCoordinates() }
+                        .onFailure { configurationNotice = it.message.orEmpty() }
+                },
+                onNavigationPinCurrentGps = { destination ->
+                    if (!audioBusy()) {
+                        val fix = TripLocationAccess.currentFix(this@MainActivity)
+                        if (fix == null) configurationNotice = "GPS no disponible o sin lectura reciente."
+                        else runCatching {
+                            NavigationPreferences.saveCoordinates(this@MainActivity, destination,
+                                "${fix.latitude},${fix.longitude}")
+                        }.onSuccess { refreshSavedCoordinates() }
+                    }
+                },
+                onTripDestinationChange = { destination ->
+                    val chosen = destination?.let { NavigationPreferences.coordinates(this@MainActivity, it) }
+                    if (destination != null && chosen == null) {
+                        configurationNotice = getString(R.string.trip_destination_missing_coordinates)
+                    } else if (TripTestState.running) {
+                        TripNavigationState.chooseOwnDestination(TripNavigationState.context.sessionId, chosen)
+                    } else runCatching {
+                        NavigationPreferences.planNextTripDestination(this@MainActivity, destination)
+                    }.onSuccess { nextTripDestination = destination }
+                        .onFailure { configurationNotice = it.message.orEmpty() }
+                },
+                onTripLocationChange = { enabled ->
+                    if (!audioBusy()) {
+                        if (!enabled) {
+                            settingsStore.setTripLocationEnabled(false)
+                            tripLocationEnabled = false
+                            tripLocationAvailable = false
+                        } else {
+                            configurationNotice = "El GPS del viaje queda solo en este teléfono. Concedé ubicación precisa para activarlo."
+                            if (TripLocationAccess.permission(this@MainActivity)) {
+                                settingsStore.setTripLocationEnabled(true)
+                                tripLocationEnabled = true
+                                tripLocationAvailable = TripLocationAccess.available(this@MainActivity)
+                            } else disclose(DisclosureKind.LOCATION) {
+                                tripLocationPermission.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION))
+                            }
+                        }
+                    }
+                },
+                onForgetTripHistory = {
+                    if (!audioBusy()) {
+                        TripRepository(filesDir).forget()
+                        TripRecordingState.clear()
+                        configurationNotice = "Historial de viajes eliminado del teléfono."
+                    }
+                },
+                onExportLastTrip = { gpx ->
+                    if (!audioBusy()) {
+                        val repository = TripRepository(filesDir)
+                        if (repository.lastTripLines().isEmpty()) {
+                            configurationNotice = getString(R.string.trip_export_empty)
+                        } else {
+                            runCatching {
+                                val payload = repository.exportLast(gpx)
+                                val share = Intent(Intent.ACTION_SEND).setType(if (gpx) "application/gpx+xml" else "application/json")
+                                    .putExtra(Intent.EXTRA_TEXT, payload)
+                                startActivity(Intent.createChooser(share, getString(R.string.trip_export_chooser)))
+                            }.onFailure { configurationNotice = getString(R.string.trip_export_failed) }
+                        }
+                    }
+                },
+                onWazeObservationChange = { enabled ->
+                    if ((BuildConfig.IS_PLAYSTORE_BUILD || canRunDeveloperTools()) && !audioBusy()) {
+                        WazeObservationAccess.setEnabled(this@MainActivity, enabled)
+                        wazeObservationEnabled = enabled
+                    }
+                },
+                onWazeScreenChange = { enabled ->
+                    if (BuildConfig.ALLOW_ACCESSIBILITY_WAZE && canRunDeveloperTools() && !audioBusy()) {
+                        WazeScreenAccess.setEnabled(this@MainActivity, enabled)
+                        wazeScreenEnabled = enabled
+                    }
+                },
+                onWazeScreenPermission = {
+                    if (BuildConfig.ALLOW_ACCESSIBILITY_WAZE && canRunDeveloperTools() && wazeScreenEnabled && !audioBusy()) startActivity(WazeScreenAccess.settingsIntent())
+                },
+                onWazeObservationPermission = {
+                    if ((BuildConfig.IS_PLAYSTORE_BUILD || canRunDeveloperTools()) && wazeObservationEnabled && !audioBusy())
+                        disclose(DisclosureKind.NOTIFICATIONS) {
+                            startActivity(WazeObservationAccess.settingsIntent(this@MainActivity))
+                        }
+                },
                 onOverlayEnabledChange = { enabled ->
-                    TripOverlayPreferences.setEnabled(this@MainActivity, enabled)
-                    overlayEnabled = enabled
-                    overlayMessage = ""
-                    if (enabled && !Settings.canDrawOverlays(this@MainActivity)) requestOverlayPermission()
+                    if (enabled && !Settings.canDrawOverlays(this@MainActivity)) {
+                        disclose(DisclosureKind.OVERLAY) {
+                            TripOverlayPreferences.setEnabled(this@MainActivity, true)
+                            overlayEnabled = true
+                            openOverlaySettings()
+                        }
+                    } else {
+                        TripOverlayPreferences.setEnabled(this@MainActivity, enabled)
+                        overlayEnabled = enabled
+                        overlayMessage = ""
+                    }
                 },
                 onOverlayPermission = ::requestOverlayPermission,
                 onShowOverlay = {
@@ -536,6 +778,11 @@ class MainActivity : ComponentActivity() {
                     tripCallContact = null
                     tripCallMessage = getString(R.string.contact_removed)
                     }
+                },
+                onOpenPrivacyPolicy = {
+                    runCatching { startActivity(Intent(Intent.ACTION_VIEW,
+                        Uri.parse("https://gust4av033.github.io/APP-Copiloto-Moto/privacy-policy.html"))) }
+                        .onFailure { configurationNotice = getString(R.string.privacy_policy_open_failed) }
                 }
             )
         )
@@ -675,10 +922,14 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        tripLocationEnabled = settingsStore.tripLocationEnabled()
+        tripLocationAvailable = TripLocationAccess.available(this)
+        refreshSavedCoordinates()
         microphoneGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         bluetoothGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
         notificationsGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
-        callsGranted = listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE).all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
+        callsGranted = !BuildConfig.ALLOW_DIRECT_CALL || listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+            .all { checkSelfPermission(it) == PackageManager.PERMISSION_GRANTED }
         TripTestState.appVisible = true
         syncTripPresentation()
         TripTestState.openPendingAppFromVoice = voiceAppOpener
@@ -701,7 +952,17 @@ class MainActivity : ComponentActivity() {
         val generation = ++presentationSyncGeneration
         val activityGeneration = presentationGeneration
         val prefs = getSharedPreferences("ui_settings", MODE_PRIVATE)
-        lastNavigationRequest = NavigationRequestStore.last(this)
+        navigationProvider = NavigationPreferences.selected(this)
+        navigationHomeAddress = NavigationPreferences.address(this, NavigationDestination.HOME)
+        navigationWorkAddress = NavigationPreferences.address(this, NavigationDestination.WORK)
+        nextTripDestination = NavigationPreferences.nextTripDestination(this)
+        lastNavigationRequest = NavigationRequestStore.last(this, navigationProvider)
+        wazeObservationEnabled = WazeObservationAccess.enabled(this)
+        wazeObservationGranted = WazeObservationAccess.granted(this)
+        wazeScreenEnabled = BuildConfig.ALLOW_ACCESSIBILITY_WAZE && WazeScreenAccess.enabled(this)
+        wazeScreenGranted = WazeScreenAccess.granted(this)
+        if (!WazeScreenAccess.allowed(this)) WazeScreenState.clear()
+        if (!WazeObservationAccess.allowed(this)) WazeNotificationObservation.clearSample()
         tripButtonBinding = TripButtonBinding.parse(prefs.getString(TripButtonBinding.PREFERENCE, null))
         manualActivationOnly = if (TripTestState.running) TripTestState.manualActivationOnly else
             prefs.getBoolean(TripActivationPolicy.PREFERENCE, false)
@@ -725,6 +986,10 @@ class MainActivity : ComponentActivity() {
 
     private fun requestOverlayPermission() {
         if (Settings.canDrawOverlays(this)) { syncTripPresentation(); return }
+        disclose(DisclosureKind.OVERLAY, ::openOverlaySettings)
+    }
+
+    private fun openOverlaySettings() {
         runCatching {
             startActivity(Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:$packageName")))
         }.recoverCatching {
@@ -936,9 +1201,12 @@ class MainActivity : ComponentActivity() {
 
     private fun requestNamedCallPermissions() {
         if (audioBusy()) return
-        val needed = listOf(Manifest.permission.READ_CONTACTS, Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE)
+        val needed = (listOf(Manifest.permission.READ_CONTACTS) + if (BuildConfig.ALLOW_DIRECT_CALL)
+            listOf(Manifest.permission.CALL_PHONE, Manifest.permission.READ_PHONE_STATE) else emptyList())
             .filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (needed.isEmpty()) tripCallMessage = "Los permisos ya están concedidos: decí ‘llama a [nombre]’."
+        else if (Manifest.permission.READ_CONTACTS in needed)
+            disclose(DisclosureKind.CONTACTS) { namedCallPermissions.launch(needed.toTypedArray()) }
         else namedCallPermissions.launch(needed.toTypedArray())
     }
 
@@ -948,7 +1216,9 @@ class MainActivity : ComponentActivity() {
         val missing = required.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isEmpty()) onGranted() else {
             pendingAction = onGranted
-            permissionRequest.launch(missing.toTypedArray())
+            if (Manifest.permission.RECORD_AUDIO in missing)
+                disclose(DisclosureKind.MICROPHONE) { permissionRequest.launch(missing.toTypedArray()) }
+            else permissionRequest.launch(missing.toTypedArray())
         }
     }
 
@@ -960,7 +1230,9 @@ class MainActivity : ComponentActivity() {
         val missing = required.filter { checkSelfPermission(it) != PackageManager.PERMISSION_GRANTED }
         if (missing.isEmpty()) startTripTest() else {
             pendingAction = ::startTripTest
-            permissionRequest.launch(missing.toTypedArray())
+            if (Manifest.permission.RECORD_AUDIO in missing)
+                disclose(DisclosureKind.MICROPHONE) { permissionRequest.launch(missing.toTypedArray()) }
+            else permissionRequest.launch(missing.toTypedArray())
         }
     }
 
@@ -971,6 +1243,7 @@ class MainActivity : ComponentActivity() {
             .putExtra(TripVoiceService.EXTRA_SENSITIVITY, wakeSensitivity)
             .putExtra(TripVoiceService.EXTRA_AUDIO_MODE, tripAudioMode.name)
             .putExtra(TripVoiceService.EXTRA_MANUAL_ONLY, manualActivationOnly)
+            .putExtra(TripVoiceService.EXTRA_STARTED_VISIBLE, lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
         runCatching { startForegroundService(intent) }.onFailure {
             TripTestState.status = "No se pudo iniciar la sesión: ${it.message ?: it.javaClass.simpleName}"
         }
@@ -1022,6 +1295,7 @@ class MainActivity : ComponentActivity() {
     private fun stopTripTest() {
         runCatching {
             startService(Intent(this, TripVoiceService::class.java).setAction(TripVoiceService.ACTION_STOP))
+            refreshSavedCoordinates()
         }.onFailure {
             TripTestState.status = "No se pudo detener la sesión: ${it.message ?: it.javaClass.simpleName}"
         }
@@ -1108,10 +1382,10 @@ class MainActivity : ComponentActivity() {
                                     return@fold "La escucha del título en inglés está disponible durante el viaje: decí ‘busca canción en inglés’."
                                 }
                                 val sent = actions.prepareMusicSearch(command).mapCatching { request ->
-                                    val result = if (request.player.backgroundSearch) actions.sendMusicSearch(request)
+                                    val result = if (request.route != MusicSearchRoute.VISIBLE_INTENT) actions.sendMusicSearch(request)
                                         else voiceMusicSearcher(request)
                                     result.getOrThrow()
-                                    if (fromWake && !request.player.backgroundSearch) endWakeTest("Búsqueda enviada a ${request.player.label}.")
+                                    if (fromWake && request.route == MusicSearchRoute.VISIBLE_INTENT) endWakeTest("Búsqueda enviada a ${request.player.label}.")
                                     request
                                 }
                                 if (sent.isFailure && pausedBySpeech) runCatching { media.resumePlayback() }
@@ -1121,6 +1395,7 @@ class MainActivity : ComponentActivity() {
                                 )
                             }
                             TestIntent.SWITCH_MODE -> "Se reconoció modo ${command.audioMode?.modeNumber}; el cambio por voz se ejecuta durante una sesión de viaje."
+                            TestIntent.RESET_MUSIC_PLAYER -> "No hay reproductor temporal fuera de una sesión de viaje."
                             TestIntent.OPEN_ASSISTANT -> { selectedScreen = CopilotScreen.TRIP; "APP abierta." }
                             TestIntent.STOP_TTS -> "Escuché: ‘$heard’. Orden Silencio reconocida; aún no hay voz sintetizada para interrumpir."
                             TestIntent.CANCEL -> "Escuché: ‘$heard’. Orden Cancelar reconocida; no se ejecutó ninguna acción."
@@ -1134,8 +1409,21 @@ class MainActivity : ComponentActivity() {
                                 ) },
                                 onFailure = { it.message ?: "No se encontró la aplicación." }
                             )
-                            TestIntent.SEARCH_PLACE -> "Búsqueda interpretada; se confirma en el viaje. No se abrió Waze."
-                            TestIntent.NAVIGATE -> "Destino interpretado; la ruta y su confirmación se prueban durante el viaje. No se abrió Waze."
+                            TestIntent.SEARCH_PLACE -> "Búsqueda interpretada; se confirma en el viaje. No se abrió ningún navegador."
+                            TestIntent.NEXT_TURN -> BriefTripContextTtsFormatter.nextTurn(
+                                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime())
+                            TestIntent.HOW_LONG -> BriefTripContextTtsFormatter.remaining(
+                                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime())
+                            TestIntent.TRIP_STATUS -> BriefTripContextTtsFormatter.status(
+                                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime(),
+                                TripRecordingState.movingMs,
+                                TripRecordingState.movement.takeIf { TripRecordingState.samples > 0 })
+                            TestIntent.MUSIC_CONTEXT -> DeviceMediaContextAnswers.playing(
+                                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime())
+                            TestIntent.BATTERY_CONTEXT -> DeviceMediaContextAnswers.battery(
+                                TripContextCollector.snapshot(this@MainActivity), SystemClock.elapsedRealtime())
+                            TestIntent.NAVIGATION_REQUEST_STATUS -> actions.navigationRequestAnswer()
+                            TestIntent.NAVIGATE -> "Destino interpretado; la ruta y su confirmación se prueban durante el viaje. No se abrió ningún navegador."
                             TestIntent.OPEN_CONTACT_CHAT -> "Escuché: ‘$heard’. Los chats con confirmación por voz se prueban en la sesión de viaje."
                             TestIntent.DRAFT_CONTACT_MESSAGE -> "Borrador interpretado; dictado y confirmación se prueban en el viaje. No se abrió ni envió un mensaje."
                             TestIntent.CALL_SELECTED, TestIntent.CALL_NAMED, TestIntent.CONFIRM_CALL -> "Escuché: ‘$heard’. Las llamadas por nombre se prueban en la sesión de viaje."
