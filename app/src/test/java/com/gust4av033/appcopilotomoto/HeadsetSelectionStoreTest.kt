@@ -9,7 +9,7 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [26, 35])
+@Config(sdk = [BuildConfig.MIN_SUPPORTED_SDK, 35])
 class HeadsetSelectionStoreTest {
     private val context get()=RuntimeEnvironment.getApplication()
     private val evo=HeadsetIdentity(12,7,"AA:BB:CC:DD:EE:FF","Dime Evo")

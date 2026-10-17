@@ -716,11 +716,18 @@ class MainActivity : ComponentActivity() {
                     }
                 },
                 onExportLastTrip = { gpx ->
-                    if (developerEnabled && !audioBusy()) {
-                        val payload = TripRepository(filesDir).exportLast(gpx)
-                        val share = Intent(Intent.ACTION_SEND).setType(if (gpx) "application/gpx+xml" else "application/json")
-                            .putExtra(Intent.EXTRA_TEXT, payload)
-                        startActivity(Intent.createChooser(share, "Compartir último viaje real recortado"))
+                    if (!audioBusy()) {
+                        val repository = TripRepository(filesDir)
+                        if (repository.lastTripLines().isEmpty()) {
+                            configurationNotice = getString(R.string.trip_export_empty)
+                        } else {
+                            runCatching {
+                                val payload = repository.exportLast(gpx)
+                                val share = Intent(Intent.ACTION_SEND).setType(if (gpx) "application/gpx+xml" else "application/json")
+                                    .putExtra(Intent.EXTRA_TEXT, payload)
+                                startActivity(Intent.createChooser(share, getString(R.string.trip_export_chooser)))
+                            }.onFailure { configurationNotice = getString(R.string.trip_export_failed) }
+                        }
                     }
                 },
                 onWazeObservationChange = { enabled ->

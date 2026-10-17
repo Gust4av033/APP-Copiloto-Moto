@@ -54,11 +54,13 @@ class TripContextTest {
         for (mask in 0..15) {
             val ready = locationForegroundReady(mask and 1 != 0, mask and 2 != 0,
                 mask and 4 != 0, mask and 8 != 0)
-            val type = tripForegroundTypes(false, ready)
+            val type = tripForegroundTypes(ready)
             assertEquals(mask == 15, type and ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION != 0)
+            assertEquals(0, type and ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK)
+            assertTrue(type and ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE != 0)
         }
         assertEquals(ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION,
-            tripForegroundTypes(false, true) and ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+            tripForegroundTypes(true) and ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
     }
 
     @Test fun movementHysteresisRejectsDriftAndEmitsShadowEvents() {

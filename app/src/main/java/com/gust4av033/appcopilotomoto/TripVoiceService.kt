@@ -363,8 +363,7 @@ class TripVoiceService : Service() {
                 TripLocationAccess.permission(this), TripLocationAccess.gpsOn(this),
                 intent.getBooleanExtra(EXTRA_STARTED_VISIBLE, false))
             locationReadyForSession = locationReady
-            val serviceTypes = tripForegroundTypes(
-                binding != TripButtonBinding.NONE && TripMediaAccess.granted(this), locationReady)
+            val serviceTypes = tripForegroundTypes(locationReady)
             ServiceCompat.startForeground(this, NOTIFICATION_ID, notice, serviceTypes)
             if (UserSettingsStore(this).tripLocationEnabled() && !locationReady)
                 TripTestState.status = "Contexto GPS no disponible: revisá permiso, GPS e inicio desde la app abierta."

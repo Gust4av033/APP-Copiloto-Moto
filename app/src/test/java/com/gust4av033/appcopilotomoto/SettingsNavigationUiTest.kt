@@ -61,6 +61,30 @@ class SettingsNavigationUiTest {
         compose.onNodeWithText("Si activás el contexto GPS", substring = true).assertExists()
         compose.onNodeWithText("Ahora no").assertExists()
     }
+    @Test fun privacyExportsAreAvailableWithoutDeveloperTools() {
+        var exports = 0
+        app(section = SettingsSection.PRIVACY, actions = CopilotActions(onExportLastTrip = { exports++ }))
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Compartir último viaje en GPX"))
+        compose.onNodeWithText("Compartir último viaje en GPX").performClick()
+        compose.runOnIdle { assertEquals(1, exports) }
+        saveRender("candidate-privacy-exports")
+    }
+    @Test fun bundledLicensesOpenOfflineAndClose() {
+        app(section = SettingsSection.ABOUT, scale = 2f)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Ver licencias"))
+        compose.onNodeWithText("Ver licencias").performClick()
+        compose.onNodeWithText("APP Copiloto Moto 1.2.1-rc1", substring = true).assertExists()
+        saveRender("candidate-licenses-200")
+        compose.onNodeWithText("Cerrar").performClick()
+        compose.onNodeWithText("APP Copiloto Moto 1.2.1-rc1", substring = true).assertDoesNotExist()
+    }
+    @Test @Config(sdk = [35], qualifiers = "w360dp-h800dp-night")
+    fun candidateNoticeIsReadableInDarkModeAtLargeFont() {
+        app(section = SettingsSection.ABOUT, scale = 2f)
+        compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Ver licencias"))
+        compose.onNodeWithText("Versión de pruebas no comerciales.", substring = true).assertExists()
+        saveRender("candidate-about-night-200")
+    }
     @Test fun greetingChoicesRemainReadableAtLargeFont() {
         app(section = SettingsSection.ACTIVATION, scale = 2f)
         compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Saludo y despedida"))

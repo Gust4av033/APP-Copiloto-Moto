@@ -16,9 +16,10 @@ class DistributionTest {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val info = context.packageManager.getPackageInfo(context.packageName,
             PackageManager.GET_PERMISSIONS or PackageManager.GET_SERVICES)
+        assertEquals(BuildConfig.MIN_SUPPORTED_SDK, info.applicationInfo!!.minSdkVersion)
         val common = setOf("SYSTEM_ALERT_WINDOW", "RECORD_AUDIO", "BLUETOOTH_CONNECT",
             "FOREGROUND_SERVICE", "FOREGROUND_SERVICE_MICROPHONE",
-            "FOREGROUND_SERVICE_MEDIA_PLAYBACK", "FOREGROUND_SERVICE_LOCATION",
+            "FOREGROUND_SERVICE_LOCATION",
             "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "POST_NOTIFICATIONS", "READ_CONTACTS")
             .map { "android.permission.$it" }.toSet() +
             "${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"

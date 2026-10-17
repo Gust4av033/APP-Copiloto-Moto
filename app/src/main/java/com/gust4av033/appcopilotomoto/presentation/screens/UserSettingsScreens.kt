@@ -136,6 +136,10 @@ fun LazyListScope.SettingsScreen(
             } }
             item("forget_trip_history") { SectionCard(stringResource(R.string.trip_history_title)) {
                 SupportingText(stringResource(R.string.trip_history_explanation))
+                ActionButton(stringResource(R.string.trip_export_gpx), enabled = !state.busy,
+                    onClick = { actions.onExportLastTrip(true) })
+                ActionButton(stringResource(R.string.trip_export_json), enabled = !state.busy,
+                    onClick = { actions.onExportLastTrip(false) })
                 ActionButton(stringResource(R.string.trip_history_forget), enabled = !state.busy, destructive = true,
                     onClick = actions.onForgetTripHistory)
             } }
@@ -155,6 +159,7 @@ fun LazyListScope.SettingsScreen(
                 onClick = actions.onOpenPrivacyPolicy) }
         }
         SettingsSection.ABOUT -> {
+            item("third_party_licenses") { ThirdPartyNoticesCard() }
             item("about_version") { SectionCard(stringResource(R.string.settings_category_about)) {
                 SupportingText(stringResource(R.string.settings_about_description))
                 ActionButton(stringResource(R.string.settings_installed_version, state.installedVersion),

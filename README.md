@@ -1,3 +1,5 @@
+> Candidato de pruebas no comerciales **1.2.1-rc1 (22)**: [preparación, verificación y puerta de Fase 3](docs/PLAY_RC1_2026-10-17.md). Play requiere Android 12+ y STT local disponible. No publicado en Google Play.
+
 # APP Copiloto Moto
 
 La rama por defecto `main` conserva la base estable de Fase 1 RC1 y el contexto de navegación aceptado de Fase 2. El trabajo actual continúa en `feature/ui-storm-refined`, descendiente de `feature/fase-2-integrada`. Reúne observación y lectura experimental de Waze, Google Maps seleccionable, los sabores `full`/`playstore` y [Glass UI refinada](docs/UI_TORMENTA_REFINADA_V3.md). La validación física en S22+ y casco sigue pendiente antes de integrar a `main`. [Auditoría anterior de ramas](docs/AUDITORIA_RAMAS_FASE_2_2026-10-14.md).

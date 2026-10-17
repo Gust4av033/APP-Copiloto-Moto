@@ -1,8 +1,8 @@
 # Inventario y declaraciones Play
 
-Fecha de auditoría local: 16 de octubre de 2026. Fuente de verdad técnica: manifiestos fusionados `playstoreRelease` y `fullRelease`, generados con `processPlaystoreReleaseMainManifest` y `processFullReleaseMainManifest`, y `DistributionTest`. La publicación y la ficha de Play Console no se pueden comprobar desde este repositorio.
+Fecha de auditoría local: 17 de octubre de 2026. Fuente de verdad técnica: manifiestos fusionados `playstoreRelease` y `fullRelease`, generados con `processPlaystoreReleaseMainManifest` y `processFullReleaseMainManifest`, y `DistributionTest`. La publicación y la ficha de Play Console no se pueden comprobar desde este repositorio.
 
-**Límite de verificación de política:** la red de este entorno bloquea `support.google.com`, `developer.android.com` y `developers.google.com`; la consulta directa a la política vigente no fue posible. Referencias para revisión humana antes de publicar: [Política de permisos y APIs que acceden a información sensible](https://support.google.com/googleplay/android-developer/answer/9888170), [Política de servicios en primer plano](https://support.google.com/googleplay/android-developer/answer/13392821), [Política de accesibilidad](https://support.google.com/googleplay/android-developer/answer/10964491), [Privacidad, uso de datos y divulgación destacada](https://support.google.com/googleplay/android-developer/answer/10144311). Son enlaces de revisión, no una afirmación de cumplimiento actual. Por ello `CALL_PHONE` y `READ_PHONE_STATE` siguen fuera del sabor Play hasta verificar política y la declaración real.
+Políticas consultadas el 17-10-2026: [API objetivo](https://support.google.com/googleplay/android-developer/answer/11926878), [FGS](https://support.google.com/googleplay/android-developer/answer/13392821), [Accesibilidad](https://support.google.com/googleplay/android-developer/answer/10964491), [datos y privacidad](https://support.google.com/googleplay/android-developer/answer/10144311), [canales de prueba](https://support.google.com/googleplay/android-developer/answer/9845334). La consulta fue posible en esta revisión. No acredita aprobación de Console. Se mantiene Play sin Accesibilidad, CALL_PHONE ni READ_PHONE_STATE. Ver candidato y pendientes en [PLAY_RC1_2026-10-17.md](PLAY_RC1_2026-10-17.md).
 
 ## Matriz del manifiesto fusionado
 
@@ -26,7 +26,7 @@ Fecha de auditoría local: 16 de octubre de 2026. Fuente de verdad técnica: man
 | `READ_PHONE_STATE` | F incluido; P candidato excluido | Detectar fin de llamada y reanudar música; teléfono | F: permiso Android; P no monitoriza llamada directa |
 | `TripMediaAccessService` (`BIND_NOTIFICATION_LISTENER_SERVICE`) | P,F incluido | Acceso especial a sesiones multimedia | Diálogo Notificaciones; sin acceso, controles por sesión limitados |
 | `WazeNavigationObservationService` (`BIND_NOTIFICATION_LISTENER_SERVICE`) | P,F incluido | Avisos de **Waze y Google Maps** durante viaje | Diálogo Notificaciones; sin acceso, no se obtiene contexto del navegador |
-| `TripVoiceService` (`microphone\|mediaPlayback\|location`) | P,F incluido | Sesión en primer plano y tipos declarados | Sesión y notificación; cada función conserva guardas por permiso y ajuste |
+| `TripVoiceService` (`microphone\|location`) | P,F incluido | Sesión en primer plano y tipos declarados | Sesión y notificación; cada función conserva guardas por permiso y ajuste |
 | `WazeScreenService` (`BIND_ACCESSIBILITY_SERVICE`) | F incluido; P excluido | Lectura experimental de texto visible, solo con herramientas de desarrollo en `full` | F: control de Accesibilidad y ajuste; P no ofrece lectura de pantalla |
 
 No se declara `ACCESS_BACKGROUND_LOCATION`, `QUERY_ALL_PACKAGES` ni lectura de mensajes personales. `BIND_*` son permisos de vinculación impuestos al servicio, no permisos `uses-permission` solicitados por APP.
@@ -40,3 +40,15 @@ Borrador de declaración para revisión: «Durante un viaje activo y solo despu�
 ## Política de privacidad
 
 El archivo [`privacy-policy.html`](../privacy-policy.html) describe la variante Play actual: marcador para llamadas, ubicación opcional solo con viaje activo, observación de avisos de Waze/Maps y servicio de accesibilidad solo en `full`. Hay que publicar esa versión y cotejarla con Data Safety y los formularios FGS de Play Console antes de subir el AAB. Esta auditoría local no comprueba la página ya publicada.
+
+## Borradores para Console · no enviados
+
+**FGS microphone:** durante un viaje iniciado por el usuario, APP recibe órdenes de voz y detecta una palabra local de activación. Si se interrumpe, deja de recibir órdenes; el usuario puede detener la sesión desde APP/notificación. Video pendiente: iniciar desde APP visible, mostrar aviso y micrófono activo, emitir una orden y detener. No incluir datos personales.
+
+**FGS location:** seguimiento GPS opcional del viaje iniciado por el usuario; posición y movimiento para contexto e historial local. Si se interrumpe se pierde continuidad del registro, sin inventar muestras. Video pendiente: activar ajuste, divulgación y permiso, iniciar viaje, mostrar seguimiento y detener. No solicita ACCESS_BACKGROUND_LOCATION.
+
+**mediaPlayback:** retirado en RC1. Los controles remotos y el botón no justifican declarar reproducción persistente de APP.
+
+**Data Safety:** evaluar la transferencia fuera del dispositivo, no solo los permisos. El audio STT y wake word se procesan localmente; agenda, nombre del saludo, favoritos y GPS permanecen locales. Las exportaciones y apertura de apps externas son acciones explícitas del usuario. No marcar respuestas definitivas sin revisar el AAB final y las definiciones/excepciones de Console. No hay cuentas, anuncios ni backend de APP en este candidato. La prueba interna no acredita cumplimiento para cerradas o producción.
+
+**Ficha sugerida:** asistente de comandos de voz durante viajes, con control multimedia por casco, búsquedas en Waze/Maps y contexto disponible con procedencia. Android 12+, servicio local de reconocimiento y casco compatibles. Modelos de activación fijos. Candidato de pruebas no comerciales, sin prometer giros propios, ETA continua, llamadas directas o conversación general.

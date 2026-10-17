@@ -483,7 +483,14 @@
     <string name="settings_open_android_permissions">Abrir permisos de APP en Android</string>
     <string name="settings_privacy_data">Información guardada</string>
     <string name="settings_privacy_scope">APP conserva preferencias, el contacto elegido, la última solicitud de navegación y métricas de diagnóstico en esta instalación. Los borradores se revisan antes de abrir WhatsApp.</string>
-    <string name="settings_privacy_future">Los controles de exportación y eliminación completa de datos aún no están implementados.</string>
+    <string name="settings_privacy_future">Si activas el GPS del viaje, puedes exportar el último viaje o borrar el historial aquí. Las muestras se conservan hasta 30 días y la exportación recorta 300 m en ambos extremos. Borrar almacenamiento en Android elimina todos los datos de APP.</string>
+    <string name="licenses_title">Licencias y atribuciones</string>
+    <string name="trip_export_empty">No hay un viaje guardado para compartir.</string>
+    <string name="trip_export_chooser">Compartir último viaje recortado</string>
+    <string name="trip_export_failed">No se pudo preparar el viaje para compartir. Inténtalo de nuevo al terminar la sesión.</string>
+    <string name="licenses_open">Ver licencias</string>
+    <string name="licenses_close">Cerrar</string>
+    <string name="candidate_noncommercial">Versión de pruebas no comerciales. Activación por voz: Alexa o Hey Jarvis. Sus modelos usan licencia CC BY-NC-SA 4.0.</string>
     <string name="settings_audio_help_title">Comprobar el audio</string>
     <string name="settings_audio_help_steps">1. Detén el viaje.\n2. Confirma que el casco está conectado en Bluetooth.\n3. Reproduce música en la app elegida.\n4. Actualiza los dispositivos y comprueba la selección antes de iniciar otra sesión.</string>
     <string name="settings_button_help_steps">Si el botón se detecta en una prueba pero no abre APP: selecciona la misma tecla en Voz y activación, concede acceso multimedia a esta instalación y reinicia el viaje. Escuchar con la burbuja permite comprobar la voz por separado.</string>
