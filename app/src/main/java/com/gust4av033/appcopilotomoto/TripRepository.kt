@@ -138,6 +138,19 @@ class TripRepository(private val filesDir: File) {
         val currentId = summaries.getJSONObject(summaries.length() - 1).getString("id")
         return File(directory, "trip_$currentId.jsonl").takeIf(File::exists)?.readLines().orEmpty()
     }
+    /** Summary of completed real GPS sessions, independent of any motorcycle odometer. */
+    fun recordedDistance(): Pair<Double, Int> {
+        if (!index.exists()) return 0.0 to 0
+        // Unlike the legacy export reader, surface unreadable history instead of inventing a zero.
+        val summaries = JSONArray(index.readText())
+        var meters = 0.0
+        for (i in 0 until summaries.length()) {
+            val value = summaries.getJSONObject(i).getDouble("distanceMeters")
+            check(value.isFinite() && value >= 0)
+            meters += value
+        }
+        return meters to summaries.length()
+    }
     fun exportLast(gpx: Boolean): String {
         val lines = lastTripLines()
         if (lines.isEmpty()) return "Sin viaje guardado para exportar."

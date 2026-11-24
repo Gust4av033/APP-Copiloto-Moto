@@ -13,6 +13,10 @@ import com.gust4av033.appcopilotomoto.presentation.upcomingModules
 
 fun LazyListScope.HomeScreen(state: CopilotUiState, actions: CopilotActions, onNavigate: (CopilotScreen) -> Unit) {
     item(key = "journey") { HomeDashboardPager(state, actions, onNavigate) }
+    item(key = "motorcycle") {
+        QuickLink(stringResource(R.string.module_motorcycle), stringResource(R.string.motorcycle_home_hint),
+            R.drawable.ic_motorcycle) { onNavigate(CopilotScreen.MOTORCYCLE) }
+    }
     if (state.pendingAppName != null) item(key = "pending") { PendingAppCard(state, actions) }
     item(key = "commands") {
         QuickLink(stringResource(R.string.home_view_commands), stringResource(R.string.home_commands_short),

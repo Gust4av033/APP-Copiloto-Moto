@@ -56,6 +56,7 @@ import com.gust4av033.appcopilotomoto.MinimalIntentRouter
 import com.gust4av033.appcopilotomoto.presentation.screens.BasicDiagnosticsScreen
 import com.gust4av033.appcopilotomoto.presentation.screens.CommandsScreen
 import com.gust4av033.appcopilotomoto.presentation.screens.HomeScreen
+import com.gust4av033.appcopilotomoto.presentation.screens.MotorcycleScreen
 import com.gust4av033.appcopilotomoto.presentation.screens.SettingsScreen
 import com.gust4av033.appcopilotomoto.presentation.screens.TestsScreen
 import com.gust4av033.appcopilotomoto.presentation.screens.TripScreen
@@ -209,6 +210,7 @@ fun CopilotApp(
                                 modifier = Modifier.semantics { heading() })
                             Text(stringResource(if (settingsDetail) settingsSection.hintRes else when (visibleScreen) {
                                 CopilotScreen.HOME -> R.string.home_subtitle
+                                CopilotScreen.MOTORCYCLE -> R.string.motorcycle_subtitle
                                 CopilotScreen.TRIP -> R.string.trip_subtitle
                                 CopilotScreen.SETTINGS -> R.string.settings_subtitle
                                 CopilotScreen.COMMANDS -> R.string.commands_subtitle
@@ -225,6 +227,7 @@ fun CopilotApp(
                             CopilotScreen.COMMANDS -> CommandsScreen(state, actions)
                             CopilotScreen.DIAGNOSTICS -> BasicDiagnosticsScreen(state, actions)
                             CopilotScreen.TESTS -> TestsScreen(state, actions)
+                            CopilotScreen.MOTORCYCLE -> MotorcycleScreen(state, actions)
                             CopilotScreen.SETTINGS -> SettingsScreen(state, actions,
                                 section = settingsSection,
                                 onOpenSection = openSettingsSection,

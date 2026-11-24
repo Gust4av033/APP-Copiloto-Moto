@@ -62,6 +62,7 @@ internal val LocalGlassDark = staticCompositionLocalOf { false }
 
 /** Shared surface, button and geometry tokens. */
 object Glass {
+    val motorcyclePhotoHeight = 224.dp
     val heroRadius = 28.dp
     val cardRadius = 20.dp
     val controlRadius = 16.dp

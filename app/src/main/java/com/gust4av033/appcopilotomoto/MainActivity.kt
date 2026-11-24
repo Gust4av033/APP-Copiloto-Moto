@@ -35,6 +35,9 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.activity.result.PickVisualMediaRequest
+import com.gust4av033.appcopilotomoto.presentation.MotorcycleUiState
 import kotlinx.coroutines.delay
 import com.gust4av033.appcopilotomoto.presentation.CopilotActions
 import com.gust4av033.appcopilotomoto.presentation.AudioDeviceUi
@@ -53,10 +56,67 @@ import java.util.concurrent.Executors
 
 class MainActivity : ComponentActivity() {
     companion object {
+        // Process-owned serial worker keeps photo/DB changes ordered across Activity recreation.
+        private val motorcycleWorker = Executors.newSingleThreadExecutor()
         const val ACTION_OPEN_PENDING_APP = "com.gust4av033.appcopilotomoto.OPEN_PENDING_APP"
         const val ACTION_OPEN_ASSISTANT = "com.gust4av033.appcopilotomoto.OPEN_ASSISTANT"
     }
     private val settingsStore by lazy { UserSettingsStore(this) }
+    private var motorcycleState by mutableStateOf(MotorcycleUiState())
+    private var pendingMotorcyclePhotoUri: Uri? = null
+    private val motorcyclePhotoPicker = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) {
+            pendingMotorcyclePhotoUri = uri
+            applyPendingMotorcyclePhoto()
+        }
+    }
+
+    private fun applyPendingMotorcyclePhoto() {
+        val uri = pendingMotorcyclePhotoUri ?: return
+        if (motorcycleState.working) return
+        pendingMotorcyclePhotoUri = null
+        if (audioBusy()) { motorcycleState = motorcycleState.copy(messageRes = R.string.motorcycle_locked); return }
+        motorcycleWork(R.string.motorcycle_photo_error, allowUnloaded = true) { repository, photos ->
+            val profile = checkNotNull(repository.load().profile)
+            val imported = photos.importPhoto(uri)
+            try { repository.setPhoto(imported) }
+            catch (failure: Exception) { photos.delete(imported); throw failure }
+            profile.photoName?.let { runCatching { photos.delete(it) } }
+        }
+    }
+
+    private fun motorcycleWork(failureRes: Int = R.string.motorcycle_load_error,
+        allowUnloaded: Boolean = false,
+        mutation: ((MotorcycleRepository, MotorcyclePhotoStore) -> Unit)? = null) {
+        if (isDestroyed || motorcycleState.working) return
+        if (mutation != null && (audioBusy() || !allowUnloaded && (!motorcycleState.loaded || motorcycleState.error))) return
+        val before = motorcycleState
+        motorcycleState = before.copy(working = true, error = false, messageRes = null)
+        val appContext = applicationContext
+        motorcycleWorker.execute {
+            val result = runCatching {
+                val photos = MotorcyclePhotoStore(appContext)
+                val data = MotorcycleRepository(appContext).use { repository ->
+                    mutation?.invoke(repository, photos)
+                    repository.load()
+                }
+                val photo = data.profile?.photoName?.let { runCatching { photos.read(it)?.asImageBitmap() }.getOrNull() }
+                val gps = runCatching { TripRepository(appContext.filesDir).recordedDistance() }
+                MotorcycleUiState(data = data, loaded = true, photo = photo,
+                    gpsDistanceMeters = gps.getOrNull()?.first, gpsTripCount = gps.getOrNull()?.second ?: 0,
+                    gpsReadFailed = gps.isFailure, revision = before.revision + if (mutation != null) 1 else 0,
+                    messageRes = if (mutation != null) R.string.motorcycle_saved else null)
+            }
+            mainHandler.post {
+                if (!isDestroyed) {
+                    motorcycleState = result.getOrElse {
+                        before.copy(working = false, error = true, messageRes = failureRes)
+                    }
+                    applyPendingMotorcyclePhoto()
+                }
+            }
+        }
+    }
     private val developerChallenge = DeveloperAccessChallenge()
     private var developerEnabled by mutableStateOf(false)
     private var developerDiagnosticsUnlocked by mutableStateOf(BuildConfig.SHOW_DIAGNOSTICS_BY_DEFAULT)
@@ -366,6 +426,7 @@ class MainActivity : ComponentActivity() {
             })
         }
         val state = CopilotUiState(
+            motorcycle = motorcycleState,
             developerAccess = DeveloperAccess(developerEnabled, BuildConfig.DEBUG),
             developerDiagnosticsUnlocked = developerDiagnosticsUnlocked,
             accessibilityWazeAvailable = BuildConfig.ALLOW_ACCESSIBILITY_WAZE,
@@ -478,6 +539,7 @@ class MainActivity : ComponentActivity() {
         )
         LaunchedEffect(state.tripActive, state.switchingMode) {
             if (!state.switchingMode) syncTripPresentation()
+            if (!state.tripActive && selectedScreen == CopilotScreen.MOTORCYCLE) motorcycleWork()
         }
         DisposableEffect(state.tripActive, state.keepScreenOnDuringTrip, state.overlayEnabled,
             state.overlayPermissionGranted, state.overlayHidden) {
@@ -491,10 +553,25 @@ class MainActivity : ComponentActivity() {
             state = state,
             selectedScreen = selectedScreen,
             onScreenChange = {
+                if (it == CopilotScreen.MOTORCYCLE) motorcycleWork()
                 if (it != CopilotScreen.TESTS && buttonProbeActive) buttonProbe.stop()
                 selectedScreen = if (it == CopilotScreen.TESTS && !developerEnabled) CopilotScreen.DIAGNOSTICS else it
             },
             actions = CopilotActions(
+                onRefreshMotorcycle = { motorcycleWork() },
+                onSaveMotorcycle = { draft -> motorcycleWork(R.string.motorcycle_save_error) { repository, _ -> repository.saveProfile(draft) } },
+                onChooseMotorcyclePhoto = {
+                    if (!audioBusy() && motorcycleState.loaded && !motorcycleState.working && !motorcycleState.error) {
+                        motorcyclePhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                    }
+                },
+                onRemoveMotorcyclePhoto = { motorcycleWork(R.string.motorcycle_save_error) { repository, photos ->
+                    val old = repository.load().profile?.photoName
+                    repository.setPhoto(null)
+                    old?.let { runCatching { photos.delete(it) } }
+                } },
+                onSaveMaintenance = { draft -> motorcycleWork(R.string.motorcycle_save_error) { repository, _ -> repository.saveMaintenance(draft) } },
+                onDeleteMaintenance = { id -> motorcycleWork(R.string.motorcycle_save_error) { repository, _ -> repository.deleteMaintenance(id) } },
                 onVersionTap = {
                     if (!audioBusy() && developerChallenge.tap(SystemClock.elapsedRealtime())) {
                         if (developerEnabled) {
@@ -712,6 +789,7 @@ class MainActivity : ComponentActivity() {
                     if (!audioBusy()) {
                         TripRepository(filesDir).forget()
                         TripRecordingState.clear()
+                        motorcycleWork()
                         configurationNotice = "Historial de viajes eliminado del teléfono."
                     }
                 },
@@ -922,6 +1000,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (selectedScreen == CopilotScreen.MOTORCYCLE) motorcycleWork()
         tripLocationEnabled = settingsStore.tripLocationEnabled()
         tripLocationAvailable = TripLocationAccess.available(this)
         refreshSavedCoordinates()
