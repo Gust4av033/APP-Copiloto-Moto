@@ -21,14 +21,17 @@ class AndroidLocationSource(private val context: Context) : LocationSource {
     @SuppressLint("MissingPermission") // available() checks precise permission and GPS; runCatching handles revocation races.
     override fun start(onSample: (LocationSample) -> Unit): Boolean {
         if (!TripLocationAccess.available(context) || listener != null) return false
-        val observer = LocationListener { onSample(it.toTripSample()) }
+        val observer = LocationListener {
+            if (TripLocationAccess.available(context)) onSample(it.toTripSample())
+            else stop()
+        }
         return runCatching {
             manager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000L, 0f, observer)
             listener = observer
             true
         }.getOrDefault(false)
     }
-    override fun stop() { listener?.let { manager.removeUpdates(it) }; listener = null }
+    override fun stop() { listener?.let { runCatching { manager.removeUpdates(it) } }; listener = null }
 }
 
 class ReplayLocationSource(private val fixture: List<LocationSample>) : LocationSource {
@@ -44,7 +47,8 @@ private fun Location.toTripSample() = LocationSample(time, elapsedRealtimeNanos 
     if (Build.VERSION.SDK_INT >= 26 && hasSpeedAccuracy()) speedAccuracyMetersPerSecond else null,
     bearing.takeIf { hasBearing() },
     if (Build.VERSION.SDK_INT >= 26 && hasBearingAccuracy()) bearingAccuracyDegrees else null,
-    accuracy.takeIf { hasAccuracy() }, provider ?: LocationManager.GPS_PROVIDER, false)
+    accuracy.takeIf { hasAccuracy() }, provider ?: LocationManager.GPS_PROVIDER,
+    if (Build.VERSION.SDK_INT >= 31) isMock else isFromMockProvider)
 
 internal object TripLocationAccess {
     fun permission(context: Context) = context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED

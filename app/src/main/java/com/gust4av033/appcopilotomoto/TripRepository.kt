@@ -52,6 +52,7 @@ class TripRepository(private val filesDir: File) {
     private var slows = 0
     val currentSampleCount get() = samples
     val currentEventCount get() = events
+    val currentDistanceMeters get() = distance
 
     fun start(epochMs: Long = System.currentTimeMillis()): String {
         check(id == null)

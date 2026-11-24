@@ -390,6 +390,9 @@ class TripVoiceService : Service() {
         TripMusicState.beginSession(TripNavigationState.context.sessionId)
         navigationSpeech.reset()
         TripRecordingState.clear()
+        TripNavigationState.context.let { session ->
+            session.sessionId?.let { TripRecordingState.startMapSession(it, session.startedAtElapsedRealtimeMs) }
+        }
         TripRecordingState.locationStatus = if (UserSettingsStore(this).tripLocationEnabled())
             if (locationReadyForSession) "AVAILABLE" else "UNAVAILABLE" else "OFF"
         lastMovingSampleElapsed = 0L
@@ -398,6 +401,7 @@ class TripVoiceService : Service() {
             movementDetector = MovementStateDetector()
             val source = AndroidLocationSource(this)
             if (source.start { sample ->
+                    if (!active || tripRepository == null) return@start
                     TripContextCollector.recordLocation(sample)
                     val detector = movementDetector
                     val repository = tripRepository
@@ -407,7 +411,10 @@ class TripVoiceService : Service() {
                             TripRecordingState.movingMs += (sample.elapsedRealtimeMs - lastMovingSampleElapsed)
                                 .coerceIn(0, 10_000)
                         lastMovingSampleElapsed = sample.elapsedRealtimeMs
+                        val priorSampleCount = repository.currentSampleCount
                         repository.append(sample, detector.state)
+                        if (repository.currentSampleCount > priorSampleCount)
+                            TripRecordingState.publishRecorded(sample, repository.currentDistanceMeters)
                         TripRecordingState.movement = detector.state
                         TripRecordingState.samples = repository.currentSampleCount
                         TripRecordingState.events = repository.currentEventCount
@@ -1948,6 +1955,7 @@ class TripVoiceService : Service() {
         tripLocationSource?.stop()
         tripLocationSource = null
         val tripSummary = tripRepository?.finish()
+        TripRecordingState.finishMapSession(SystemClock.elapsedRealtime())
         pendingFarewell = PendingFarewell(expected && !callWasDispatched && pendingDialContact == null,
             movingAtStop, cycleWasActive, locationWasEnabled, tripSummary)
         tripRepository = null

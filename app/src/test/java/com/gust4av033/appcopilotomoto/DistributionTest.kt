@@ -17,7 +17,7 @@ class DistributionTest {
         val info = context.packageManager.getPackageInfo(context.packageName,
             PackageManager.GET_PERMISSIONS or PackageManager.GET_SERVICES)
         assertEquals(BuildConfig.MIN_SUPPORTED_SDK, info.applicationInfo!!.minSdkVersion)
-        val common = setOf("SYSTEM_ALERT_WINDOW", "RECORD_AUDIO", "BLUETOOTH_CONNECT",
+        val common = setOf("INTERNET", "ACCESS_NETWORK_STATE", "SYSTEM_ALERT_WINDOW", "RECORD_AUDIO", "BLUETOOTH_CONNECT",
             "FOREGROUND_SERVICE", "FOREGROUND_SERVICE_MICROPHONE",
             "FOREGROUND_SERVICE_LOCATION",
             "ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "POST_NOTIFICATIONS", "READ_CONTACTS")

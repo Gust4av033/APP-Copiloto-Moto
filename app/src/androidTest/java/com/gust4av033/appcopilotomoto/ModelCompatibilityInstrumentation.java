@@ -13,12 +13,15 @@ import java.util.Collections;
 
 /** Synthetic inference only. Java avoids Kotlin helpers removed from the R8 target APK. */
 public final class ModelCompatibilityInstrumentation extends Instrumentation {
+    private boolean captureMap;
     @Override public void onCreate(Bundle arguments) {
         super.onCreate(arguments);
+        captureMap = arguments != null && "true".equals(arguments.getString("captureMap"));
         start();
     }
 
     @Override public void onStart() {
+        if (captureMap) { TripMapRenderSmoke.run(this); return; }
         Bundle result = new Bundle();
         try {
             OrtEnvironment env = OrtEnvironment.getEnvironment();

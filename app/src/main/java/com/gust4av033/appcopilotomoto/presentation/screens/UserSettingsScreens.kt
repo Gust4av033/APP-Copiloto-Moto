@@ -126,6 +126,11 @@ fun LazyListScope.SettingsScreen(
         }
         SettingsSection.CALLS -> CallsSettings(state, actions)
         SettingsSection.PRIVACY -> {
+            item("online_map") { SectionCard(stringResource(R.string.trip_map_online_title)) {
+                ToggleSettingRow(stringResource(R.string.trip_map_online_title), state.mapOnlineEnabled,
+                    enabled = state.mapOnlineEnabled || !state.busy, onCheckedChange = actions.onMapOnlineChange)
+                SupportingText(stringResource(R.string.trip_map_online_disclosure))
+            } }
             item("trip_location") { SectionCard(stringResource(R.string.trip_location_title)) {
                 ToggleSettingRow(stringResource(R.string.trip_location_title), state.tripLocationEnabled,
                     enabled = !state.busy, onCheckedChange = actions.onTripLocationChange)

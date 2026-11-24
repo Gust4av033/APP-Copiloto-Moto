@@ -153,6 +153,8 @@ data class CopilotUiState(
     val nextTripDestination: com.gust4av033.appcopilotomoto.NavigationDestination? = null,
     val tripLocationEnabled: Boolean = false,
     val tripLocationAvailable: Boolean = false,
+    val tripMap: com.gust4av033.appcopilotomoto.TripMapSession = com.gust4av033.appcopilotomoto.TripMapSession(),
+    val mapOnlineEnabled: Boolean = false,
     val tripContextReport: String = "",
     val wazeObservationEnabled: Boolean = false,
     val wazeScreenEnabled: Boolean = false,
@@ -199,6 +201,8 @@ fun CopilotScreen.visibleFor(state: CopilotUiState): CopilotScreen =
 
 /** La Activity adapta estas acciones al runtime existente. Los previews usan callbacks vacíos. */
 data class CopilotActions(
+    val onMapOnlineChange: (Boolean) -> Unit = {},
+    val onOpenTripNavigator: () -> Unit = {},
     val onRefreshMotorcycle: () -> Unit = {},
     val onSaveMotorcycle: (com.gust4av033.appcopilotomoto.MotorcycleDraft) -> Unit = {},
     val onChooseMotorcyclePhoto: () -> Unit = {},

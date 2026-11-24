@@ -35,3 +35,11 @@ variable font distributed in this project.
 
 Alexa, Jarvis, Google, Waze and other product names do not imply affiliation
 or endorsement. This notice does not grant trademark rights.
+MapLibre Native Android 13.7.1 (OpenGL ES)
+Source: https://github.com/maplibre/maplibre-native/tree/android-v13.7.1
+License: BSD 2-Clause; see MapLibre-Native-BSD-2-Clause.txt and
+MapLibre-Native-Android-ThirdParty.txt for bundled notices.
+Map data and standard raster tiles: © OpenStreetMap contributors, ODbL.
+https://www.openstreetmap.org/copyright
+Tile service terms: https://operations.osmfoundation.org/policies/tiles/
+Maps are optional; no offline download or guaranteed service is included.

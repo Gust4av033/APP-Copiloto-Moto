@@ -3,6 +3,8 @@ agp = "8.13.2"
 kotlin = "2.3.10"
 composeBom = "2026.03.01"
 activityCompose = "1.11.0"
+maplibre = "13.7.1"
+okhttp = "4.12.0"
 
 [libraries]
 compose-bom = { module = "androidx.compose:compose-bom", version.ref = "composeBom" }
@@ -10,6 +12,8 @@ compose-material3 = { module = "androidx.compose.material3:material3" }
 compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
 compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
+maplibre = { module = "org.maplibre.gl:android-sdk-opengl", version.ref = "maplibre" }
+okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

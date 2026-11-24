@@ -44,10 +44,13 @@ import com.gust4av033.appcopilotomoto.presentation.components.SupportingText
 import com.gust4av033.appcopilotomoto.presentation.components.ToggleSettingRow
 
 fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommands: () -> Unit, onOpenTests: () -> Unit) {
+    val mapAfterPrompts = state.pendingAppName != null || state.standaloneListening ||
+        (!state.tripActive && state.lastTestCommand != null)
     item(key = "TripScreen_0") {
         JourneyHero(state, tripScreen = true, onPrimary = actions.onToggleTrip,
             onCommand = actions.onManualTripCommand)
     }
+    if (!mapAfterPrompts) item(key = "trip_map") { com.gust4av033.appcopilotomoto.presentation.components.TripMapCard(state, actions) }
     if (state.tripActive && state.buttonMode && !state.canRequestTripCommand) item(key = "waiting") {
         SupportingText(stringResource(R.string.trip_wait_ready))
     }
@@ -82,6 +85,7 @@ fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onO
     if (!state.tripActive && state.lastTestCommand != null) item("standalone_result") {
         SectionCard(stringResource(R.string.trip_last_result)) { CommandInterpretation(state.lastTestCommand) }
     }
+    if (mapAfterPrompts) item(key = "trip_map") { com.gust4av033.appcopilotomoto.presentation.components.TripMapCard(state, actions) }
     if (state.buttonMode && state.tripButtonBinding != "NONE" && !state.mediaAccessGranted) item("trip_button_permission") { MediaAccessCard(state, actions) }
     item(key = "TripScreen_3") {
         SectionCard(stringResource(R.string.trip_last_result)) {

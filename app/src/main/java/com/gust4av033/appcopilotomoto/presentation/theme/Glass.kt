@@ -62,6 +62,12 @@ internal val LocalGlassDark = staticCompositionLocalOf { false }
 
 /** Shared surface, button and geometry tokens. */
 object Glass {
+    val mapHeight = 280.dp
+    const val mapRouteWidth = 4f
+    const val mapPointRadius = 7f
+    const val mapPointRimWidth = 2f
+    const val mapFitPadding = 40
+    const val mapNightBrightness = .82f
     val motorcyclePhotoHeight = 224.dp
     val heroRadius = 28.dp
     val cardRadius = 20.dp

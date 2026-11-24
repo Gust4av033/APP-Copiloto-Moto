@@ -40,16 +40,16 @@ fun JourneyHero(state: CopilotUiState, tripScreen: Boolean, onPrimary: () -> Uni
         else -> R.string.mode_voice_title
     }
     GlassPanel(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.large, strong = true) {
-        Column(Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.padding(if (tripScreen) 16.dp else 24.dp), verticalArrangement = Arrangement.spacedBy(if (tripScreen) 8.dp else 16.dp)) {
+            if (!tripScreen) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 IconTile(R.drawable.ic_motorcycle)
                 Text(stringResource(R.string.home_copilot), style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary)
             }
-            Text(stringResource(status), style = MaterialTheme.typography.headlineMedium,
+            Text(stringResource(status), style = if (tripScreen) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineMedium,
                 color = MaterialTheme.colorScheme.onSurface,
                 modifier = Modifier.semantics { liveRegion = LiveRegionMode.Polite })
-            Text(stringResource(if (state.tripActive) R.string.journey_active_hint else R.string.journey_ready_hint),
+            if (!tripScreen) Text(stringResource(if (state.tripActive) R.string.journey_active_hint else R.string.journey_ready_hint),
                 style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp)) {

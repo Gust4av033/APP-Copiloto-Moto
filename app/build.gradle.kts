@@ -112,6 +112,8 @@ dependencies {
     implementation(libs.compose.material3)
     implementation(libs.compose.ui.tooling.preview)
     implementation(libs.activity.compose)
+    implementation(libs.maplibre)
+    implementation(libs.okhttp)
     implementation("com.github.msnilsen:openwakeword-android:0.1.2")
     // The wrapper requests 1.17.1, whose 64-bit ELF libraries are only 4 KB aligned.
     implementation("com.microsoft.onnxruntime:onnxruntime-android:1.23.2")

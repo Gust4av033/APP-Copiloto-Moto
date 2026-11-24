@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="trip_map_title">Tu recorrido</string>
+    <string name="trip_map_current_session">Sesión actual</string>
+    <string name="trip_map_previous_session">Resumen de la última sesión</string>
+    <string name="trip_map_before_start">Preparado para tu próximo viaje</string>
+    <string name="trip_map_duration">Duración de la sesión</string>
+    <string name="trip_map_distance">Distancia estimada por GPS</string>
+    <string name="trip_map_speed">Velocidad GPS</string>
+    <string name="trip_map_metrics_hint">La distancia depende de muestras GPS válidas. La duración incluye las paradas. La velocidad se oculta si pierde vigencia o precisión.</string>
+    <string name="trip_map_no_value">—</string>
+    <string name="trip_map_km">%1$s km</string>
+    <string name="trip_map_kmh">%1$s km/h</string>
+    <string name="trip_map_gps_off">Activá el GPS del viaje con la moto detenida. El mapa usa la misma ubicación de la sesión.</string>
+    <string name="trip_map_gps_unavailable">GPS no disponible. Revisá la ubicación precisa y el GPS de Android. La sesión de voz puede continuar.</string>
+    <string name="trip_map_wait_fix">Esperando una ubicación GPS precisa. Todavía no hay posición ni distancia para mostrar.</string>
+    <string name="trip_map_start_to_locate">Iniciá la sesión para recibir tu ubicación. Abrir esta pantalla no inicia el GPS ni el micrófono.</string>
+    <string name="trip_map_projection_unavailable">La posición queda fuera de la cobertura de esta proyección del mapa.</string>
+    <string name="trip_map_fix_current">Posición GPS reciente</string>
+    <string name="trip_map_fix_last">Última posición observada · no es ubicación en vivo</string>
+    <string name="trip_map_accuracy">Fuente: GPS del teléfono · precisión informada ±%1$s m</string>
+    <string name="trip_map_simplified">Trazo simplificado para limitar memoria; puede omitir segmentos antiguos. La distancia guardada conserva el cálculo del registrador.</string>
+    <string name="trip_map_summary_memory">Este resumen es temporal: se conserva hasta la siguiente sesión o el cierre del proceso. El registro GPS queda en este teléfono y podés exportar el último viaje desde Privacidad.</string>
+    <string name="trip_map_online_title">Calles por Internet (OpenStreetMap)</string>
+    <string name="trip_map_online_disclosure">Para mostrar calles, APP solicita a OpenStreetMap las imágenes del área que mirás. El proveedor recibe tu IP y puede inferir el área consultada por los números de las imágenes; APP no envía tu historial ni el trazo completo. Puede consumir datos móviles y guardar caché privada. Es opcional: podés seguir registrando GPS y usando voz sin calles. Podés apagarlo en Viaje o Privacidad; para habilitarlo, terminá la sesión.</string>
+    <string name="trip_map_online_hint">OpenStreetMap carga las calles visibles desde caché o Internet. Su disponibilidad no está garantizada y no se descargan zonas para uso offline.</string>
+    <string name="trip_map_offline_hint">Calles por Internet apagadas. Con GPS podés ver el trazo local sobre fondo simple, sin cartografía de calles.</string>
+    <string name="trip_map_attribution">Mapa: © OpenStreetMap contributors · ODbL. Renderizado con MapLibre Native.</string>
+    <string name="trip_map_overlay_attribution">© OpenStreetMap contributors · licencia ODbL</string>
+    <string name="trip_map_engine">MapLibre Native · trazo local sin calles</string>
+    <string name="trip_map_attribution_link">Licencia y atribución del mapa</string>
+    <string name="trip_map_scope">El trazo muestra posiciones registradas, no una ruta vial planificada. Los giros, el tráfico y el recálculo siguen en el navegador externo.</string>
+    <string name="trip_map_open_navigator">Abrir %1$s</string>
+    <string name="trip_map_navigator_unavailable">El navegador elegido no está disponible. Revisá su instalación y selección en Ajustes.</string>
+    <string name="trip_map_initializing">Preparando el mapa…</string>
+    <string name="trip_map_local_only">Trazo local · calles por Internet apagadas</string>
+    <string name="trip_map_loading_tiles">Cargando calles de OpenStreetMap…</string>
+    <string name="trip_map_tiles_ready">Se recibieron imágenes de OpenStreetMap; puede haber zonas pendientes de carga.</string>
+    <string name="trip_map_tile_error">No se pudieron cargar algunas calles. El trazo y el registro GPS siguen disponibles. Revisá la conexión e intentá de nuevo.</string>
+    <string name="trip_map_load_error">El mapa no pudo cargar. Podés reintentarlo sin detener la sesión.</string>
+    <string name="trip_map_render_error">El mapa no pudo dibujarse en este dispositivo. Las métricas y el copiloto siguen disponibles.</string>
+    <string name="trip_map_center">Centrar última posición</string>
+    <string name="trip_map_fit">Ver trazo registrado</string>
+    <string name="trip_map_retry">Reintentar mapa</string>
+    <string name="trip_map_link_error">No se pudo abrir el enlace. Revisá que tengas un navegador web disponible.</string>
+</resources>

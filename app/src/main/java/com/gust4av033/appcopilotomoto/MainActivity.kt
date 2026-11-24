@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
         const val ACTION_OPEN_ASSISTANT = "com.gust4av033.appcopilotomoto.OPEN_ASSISTANT"
     }
     private val settingsStore by lazy { UserSettingsStore(this) }
+    private var mapOnlineEnabled by mutableStateOf(false)
     private var motorcycleState by mutableStateOf(MotorcycleUiState())
     private var pendingMotorcyclePhotoUri: Uri? = null
     private val motorcyclePhotoPicker = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -405,7 +406,8 @@ class MainActivity : ComponentActivity() {
             if (!TripTestState.running) routeRefresh = 0L
             while (TripTestState.running) {
                 routeRefresh = SystemClock.elapsedRealtime()
-                delay(5_000)
+                tripLocationAvailable = TripLocationAccess.available(this@MainActivity)
+                delay(if (selectedScreen == CopilotScreen.TRIP && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) 1_000 else 5_000)
             }
         }
         // The tick requests recomposition; observation age must use the clock at this render.
@@ -504,6 +506,8 @@ class MainActivity : ComponentActivity() {
             nextTripDestination = nextTripDestination,
             tripLocationEnabled = tripLocationEnabled,
             tripLocationAvailable = tripLocationAvailable,
+            tripMap = TripRecordingState.mapSession,
+            mapOnlineEnabled = mapOnlineEnabled,
             tripContextReport = tripContextReport,
             wazeObservationEnabled = wazeObservationEnabled,
             wazeObservationGranted = wazeObservationGranted,
@@ -558,6 +562,27 @@ class MainActivity : ComponentActivity() {
                 selectedScreen = if (it == CopilotScreen.TESTS && !developerEnabled) CopilotScreen.DIAGNOSTICS else it
             },
             actions = CopilotActions(
+                onMapOnlineChange = { enabled ->
+                    if (!enabled) {
+                        TripMapPreferences(this@MainActivity).setOnlineEnabled(false)
+                        mapOnlineEnabled = false
+                        TripMapNetwork.cancelRequests()
+                    } else if (!audioBusy()) disclose(DisclosureKind.ONLINE_MAP) {
+                        if (!audioBusy()) {
+                            TripMapPreferences(this@MainActivity).setOnlineEnabled(true)
+                            mapOnlineEnabled = true
+                        }
+                    }
+                },
+                onOpenTripNavigator = {
+                    runCatching {
+                        val launch = checkNotNull(packageManager.getLaunchIntentForPackage(navigationProvider.packageName))
+                        startActivity(launch)
+                    }.onFailure {
+                        configurationNotice = getString(R.string.trip_map_navigator_unavailable)
+                        Toast.makeText(this@MainActivity, configurationNotice, Toast.LENGTH_LONG).show()
+                    }
+                },
                 onRefreshMotorcycle = { motorcycleWork() },
                 onSaveMotorcycle = { draft -> motorcycleWork(R.string.motorcycle_save_error) { repository, _ -> repository.saveProfile(draft) } },
                 onChooseMotorcyclePhoto = {
@@ -1000,6 +1025,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        mapOnlineEnabled = TripMapPreferences(this).onlineEnabled()
         if (selectedScreen == CopilotScreen.MOTORCYCLE) motorcycleWork()
         tripLocationEnabled = settingsStore.tripLocationEnabled()
         tripLocationAvailable = TripLocationAccess.available(this)
