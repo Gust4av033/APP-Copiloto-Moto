@@ -27,25 +27,32 @@ internal object TripMapStyle {
             JSONObject().put("type", "Point").put("coordinates", JSONArray().put(it.longitude).put(it.latitude))).toString()
     } ?: emptyCollection().toString()
     fun json(online: Boolean, paint: TripMapPaint): String {
+        return json(online, paint, null)
+    }
+    fun json(online: Boolean, paint: TripMapPaint, base: String?): String {
         val sources = JSONObject()
-        for (id in listOf(ROUTE, FIX)) sources.put(id,
+        val layers = JSONArray()
+        val result = if (online && base != null) runCatching { JSONObject(base) }.getOrElse {
+            JSONObject().put("version", 8).put("sources", JSONObject()).put("layers", JSONArray())
+        } else JSONObject().put("version", 8).put("sources", JSONObject()).put("layers",
+            JSONArray().put(JSONObject().put("id", "background").put("type", "background")
+                .put("paint", JSONObject().put("background-color", paint.background))))
+        val resultSources = result.optJSONObject("sources") ?: JSONObject()
+        val resultLayers = result.optJSONArray("layers") ?: JSONArray()
+        for (id in listOf(ROUTE, FIX)) resultSources.put(id,
             JSONObject().put("type", "geojson").put("data", emptyCollection()))
-        val layers = JSONArray().put(JSONObject().put("id", "background").put("type", "background")
-            .put("paint", JSONObject().put("background-color", paint.background)))
-        if (online) {
-            sources.put(OSM, JSONObject().put("type", "raster").put("tileSize", 256).put("minzoom", 0)
-                .put("maxzoom", 19).put("tiles", JSONArray().put(TripTilePolicy.TEMPLATE))
-                .put("attribution", "© OpenStreetMap contributors"))
-            layers.put(JSONObject().put("id", "streets").put("type", "raster").put("source", OSM)
-                .put("paint", JSONObject().put("raster-fade-duration", 0).put("raster-brightness-max", paint.brightness)))
-        }
-        layers.put(JSONObject().put("id", ROUTE).put("type", "line").put("source", ROUTE)
+        resultLayers.put(JSONObject().put("id", ROUTE).put("type", "line").put("source", ROUTE)
             .put("layout", JSONObject().put("line-cap", "round").put("line-join", "round"))
             .put("paint", JSONObject().put("line-color", paint.route).put("line-width", paint.lineWidth)))
-        layers.put(JSONObject().put("id", FIX).put("type", "circle").put("source", FIX)
+        resultLayers.put(JSONObject().put("id", FIX).put("type", "circle").put("source", FIX)
             .put("paint", JSONObject().put("circle-color", paint.current).put("circle-radius", paint.pointRadius)
                 .put("circle-stroke-color", paint.rim).put("circle-stroke-width", paint.rimWidth)))
-        return JSONObject().put("version", 8).put("sources", sources).put("layers", layers)
-            .put("transition", JSONObject().put("duration", 0).put("delay", 0)).toString()
+        result.put("sources", resultSources).put("layers", resultLayers)
+        result.put("transition", JSONObject().put("duration", 0).put("delay", 0))
+        if (!online) {
+            resultSources.put(ROUTE, JSONObject().put("type", "geojson").put("data", emptyCollection()))
+            resultSources.put(FIX, JSONObject().put("type", "geojson").put("data", emptyCollection()))
+        }
+        return result.toString()
     }
 }

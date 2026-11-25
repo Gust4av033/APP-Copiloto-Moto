@@ -84,8 +84,8 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
         view.setMaximumFps(30)
         view.addOnDidFailLoadingMapListener { if (!destroyed) report(R.string.trip_map_load_error) }
         view.addOnRenderErrorListener { if (!destroyed) report(R.string.trip_map_render_error) }
-        view.addOnTileActionListener { operation, _, _, _, _, _, source ->
-            if (!destroyed && online && source == TripMapStyle.OSM) when (operation) {
+        view.addOnTileActionListener { operation, _, _, _, _, _, _ ->
+            if (!destroyed && online) when (operation) {
                 TileOperation.Error -> report(R.string.trip_map_tile_error)
                 TileOperation.LoadFromCache, TileOperation.LoadFromNetwork -> report(R.string.trip_map_tiles_ready)
                 else -> Unit
@@ -98,7 +98,11 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
             ready.addOnCameraMoveStartedListener { reason ->
                 if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) following = false
             }
-            ready.setStyle(Style.Builder().fromJson(TripMapStyle.json(online, paint))) {
+            val base = if (online) runCatching {
+                context.assets.open(if (paint.brightness < 1f) "map/liberty_dark.json" else "map/liberty.json")
+                    .bufferedReader().use { it.readText() }
+            }.getOrNull() else null
+            ready.setStyle(Style.Builder().fromJson(TripMapStyle.json(online, paint, base))) {
                 if (!destroyed) {
                     lastApplied = null; applyData()
                     report(if (online) R.string.trip_map_loading_tiles else R.string.trip_map_local_only)
@@ -177,7 +181,7 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
                             controller.visible(bounds.width > 0 && bounds.height > 0)
                         })
                 Surface(color = colors.surface, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().heightIn(min = Glass.iconButtonSize)
-                    .clickable { runCatching { uri.openUri(if (online) "https://www.openstreetmap.org/copyright" else "https://maplibre.org/") }
+                    .clickable { runCatching { uri.openUri(if (online) "https://openfreemap.org/" else "https://maplibre.org/") }
                         .onFailure { status = R.string.trip_map_link_error } }) {
                     Text(stringResource(if (online) R.string.trip_map_overlay_attribution else R.string.trip_map_engine),
                         Modifier.padding(8.dp), style = MaterialTheme.typography.labelMedium)
