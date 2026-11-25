@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.material3.MaterialTheme
@@ -158,6 +159,22 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
 
 @Composable
 private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
+    NativeTripMapInternal(session, now, online, Modifier, controls = true)
+}
+
+@Composable
+fun FullScreenTripMap(session: TripMapSession, now: Long, online: Boolean, modifier: Modifier = Modifier) {
+    NativeTripMapInternal(session, now, online, modifier, controls = false)
+}
+
+@Composable
+private fun NativeTripMapInternal(
+    session: TripMapSession,
+    now: Long,
+    online: Boolean,
+    modifier: Modifier,
+    controls: Boolean
+) {
     val context = LocalContext.current
     val uri = LocalUriHandler.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
@@ -171,7 +188,33 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
     key(online, retry, paint) {
         val creation = remember { runCatching { NativeTripMapController(context, session, online, paint) { status = it } } }
         val controller = creation.getOrNull()
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!controls) {
+            Box(modifier) {
+                if (controller != null) {
+                    AndroidView(factory = { controller.view }, update = { controller.update(session, now) },
+                        modifier = Modifier.fillMaxSize()
+                            .onGloballyPositioned { coordinates ->
+                                val bounds = coordinates.boundsInWindow()
+                                controller.visible(bounds.width > 0 && bounds.height > 0)
+                            })
+                    Surface(color = colors.surface, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().heightIn(min = Glass.iconButtonSize)
+                        .clickable { runCatching { uri.openUri(if (online) "https://openfreemap.org/" else "https://maplibre.org/") }
+                            .onFailure { status = R.string.trip_map_link_error } }) {
+                        Text(stringResource(if (online) R.string.trip_map_overlay_attribution else R.string.trip_map_engine),
+                            Modifier.padding(8.dp), style = MaterialTheme.typography.labelMedium)
+                    }
+                    DisposableEffect(controller, lifecycle) {
+                        val observer = LifecycleEventObserver { _, _ -> controller.lifecycle(lifecycle.currentState) }
+                        lifecycle.addObserver(observer); controller.lifecycle(lifecycle.currentState)
+                        onDispose { lifecycle.removeObserver(observer); controller.destroy() }
+                    }
+                } else {
+                    Text(stringResource(R.string.trip_map_render_error),
+                        modifier = Modifier.align(Alignment.Center),
+                        color = colors.error)
+                }
+            }
+        } else Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             if (controller != null) {
                 Box(Modifier.fillMaxWidth().height(Glass.mapHeight).clip(MaterialTheme.shapes.medium)) {
                 AndroidView(factory = { controller.view }, update = { controller.update(session, now) },

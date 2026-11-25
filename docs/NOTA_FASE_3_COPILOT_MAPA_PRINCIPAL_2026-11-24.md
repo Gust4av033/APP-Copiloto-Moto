@@ -36,8 +36,34 @@ Investigación consultada el 24-11-2026:
 
 ## Pendiente
 
-- Validar compilación y tests después de los cambios vectoriales.
+- Ejecutar el conjunto completo Full/Play, ensamblados y lint después de la
+  integración vectorial y de la vista principal.
 - Añadir edificios 3D con ajuste persistente todavía apagado.
 - Realizar red real, atribución visible y smoke nativo.
 - Completar Mi Moto o documentar el bloqueo real de las pruebas en Windows.
-- Implementar Etapas 1, 2, 3 y 5 solo después de validar esta integración.
+- Implementar Etapas 2, 3 y 5.
+
+## Etapa 1 — mapa principal
+
+Implementación realizada el 24-11-2026:
+
+- Inicio pasa a presentar el mapa como superficie principal.
+- Sin muestra GPS válida, muestra un estado vacío con la acción concreta:
+  activar GPS y iniciar una sesión con la moto detenida.
+- No existe un control de "ver mi ubicación" fuera de una sesión.
+- El chip superior distingue GPS, sesión y estado de audio.
+- El dock usa objetivos táctiles de 56 dp para Mi Moto, iniciar/detener Viaje
+  y Ajustes.
+- La hoja inferior conserva ayuda, ajustes, comandos y permisos sin iniciar
+  captura ni GPS al abrirse.
+- Se reutiliza `FullScreenTripMap` sobre `NativeTripMapController`; no se creó
+  un segundo motor GPS ni un renderer duplicado.
+- El mapa conserva BackHandler, navegación secundaria y el renderer existente.
+- La prueba de Inicio fue migrada de carrusel a la superficie principal.
+
+Validación real:
+
+- Compilación Full principal y de tests: aprobada.
+- Pruebas enfocadas de Inicio, política de mapa, sesión y UI: aprobadas.
+- No se abrió micrófono, GPS ni servicio en las pruebas.
+- Captura visual física, S22+, Y12 Pro, atajo del casco y red real: pendientes.

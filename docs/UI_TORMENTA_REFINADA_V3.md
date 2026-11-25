@@ -122,3 +122,11 @@ lugar de atribuir la ausencia de datos al navegador. Como respaldo no vial,
 presenta tiempo de sesión y distancia lineal al favorito solo con GPS preciso
 y coordenadas conocidas; ambos datos se distinguen de la información observada
 de Maps o Waze.
+
+## Actualización de mapa principal · Fase 3
+
+Inicio usa una superficie de mapa a pantalla completa con chip superior de GPS,
+sesión y audio, más un dock de 56 dp para Mi Moto, Viaje y Ajustes. El estado
+sin posición es explícito y no centra coordenadas ficticias. La hoja inferior
+conserva ajustes, permisos y ayuda sin efectos al abrirse. El trazo usa el
+renderer MapLibre existente y no activa un segundo GPS ni el micrófono.
