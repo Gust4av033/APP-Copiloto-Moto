@@ -30,4 +30,12 @@ class WakeActivationGateTest {
         listOf(0L, 1L, 2L).forEach { gate.waitBeforeCapture(it) }
         assertEquals(0L, gate.waitBeforeCapture(12_001L))
     }
+
+    @Test fun missingBluetoothInputDuringStartupIsRetryableButOnlyWithinBound() {
+        val notReady = "No se pudo verificar la entrada de Alexa: Android todavía no informó el micrófono activo."
+        assertEquals(true, shouldRetryWakeInputCheck(notReady, 0))
+        assertEquals(true, shouldRetryWakeInputCheck(notReady, 3))
+        assertEquals(false, shouldRetryWakeInputCheck(notReady, 4))
+        assertEquals(false, shouldRetryWakeInputCheck("Falló la escucha", 0))
+    }
 }

@@ -799,7 +799,7 @@ class TripVoiceService : Service() {
         val inputCheck = runCatching { (provider as OpenWakeWordProvider).wakeInputStatus() }
         if (inputCheck.isFailure) {
             val reason = inputCheck.exceptionOrNull()?.message.orEmpty()
-            if ((reason.startsWith("No se pudo verificar") || reason.contains("usa otro micrófono")) && retry < 4) {
+            if (shouldRetryWakeInputCheck(reason, retry)) {
                 schedule(1_000L) { armDetector(provider, cycle, retry + 1) }
             } else stopSession("${if (effectiveAudioMode == WakeAudioMode.PHONE_WAKE) "Modo experimental" else "Micrófono del casco"}: $reason")
             return

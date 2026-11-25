@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.Density
 import com.gust4av033.appcopilotomoto.presentation.CopilotApp
 import com.gust4av033.appcopilotomoto.presentation.CopilotScreen
 import com.gust4av033.appcopilotomoto.presentation.CopilotUiState
+import com.gust4av033.appcopilotomoto.presentation.AudioDevicesUi
 import com.gust4av033.appcopilotomoto.presentation.CopilotActions
 import org.junit.Rule
 import org.junit.Test
@@ -71,6 +72,18 @@ class HomeDashboardUiTest {
         compose.onNodeWithTag("home_map_dock_trip").performClick()
         assert(stops == 1)
         assert(screen == null)
+    }
+
+    @Test fun dockCannotStartWhileSavedHeadsetSelectionIsMissing() {
+        var starts = 0
+        app(
+            state = CopilotUiState(audioDevices = AudioDevicesUi(selectionMissing = true)),
+            actions = CopilotActions(onToggleTrip = { starts++ })
+        )
+        compose.onNodeWithTag("home_map_dock_trip").assertIsNotEnabled()
+        compose.onNodeWithTag("home_map_dock_motorcycle").assertIsEnabled()
+        compose.onNodeWithTag("home_map_dock_settings").assertIsEnabled()
+        assert(starts == 0)
     }
 
     @Test fun motorcycleAndSettingsDockNavigateWithoutTripCallbacks() {

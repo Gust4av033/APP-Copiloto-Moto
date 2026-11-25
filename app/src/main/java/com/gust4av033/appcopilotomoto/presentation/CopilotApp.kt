@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -155,7 +156,10 @@ fun CopilotApp(
                                     Triple(CopilotScreen.SETTINGS, R.drawable.ic_settings, R.string.home_map_dock_settings)
                                 ).forEach { (screen, icon, label) ->
                                     Column(
-                                        modifier = Modifier.weight(1f).padding(vertical = 4.dp).clickable {
+                                        modifier = Modifier.weight(1f).padding(vertical = 4.dp).clickable(
+                                            enabled = screen != CopilotScreen.TRIP || state.tripActive || state.canStartTrip,
+                                            role = Role.Button
+                                        ) {
                                             if (screen == CopilotScreen.TRIP) {
                                                 if (state.tripActive) actions.onToggleTrip()
                                                 else {

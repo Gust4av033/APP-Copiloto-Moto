@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
@@ -78,6 +79,16 @@ class TripMapUiTest {
         app(CopilotUiState(), CopilotActions(onToggleTrip = { sessions++ }))
         compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.trip_start)).performClick()
         assertEquals(1, sessions)
+    }
+    @Test fun cameraModeSelectorShowsSelectionAndChangesModeExplicitly() {
+        val selected = mutableStateOf(TripMapCameraMode.FOLLOW_HEADING)
+        compose.setContent {
+            TripMapCameraControls(selected.value, headingAvailable = false, onSelected = { selected.value = it })
+        }
+        compose.onNodeWithTag("trip_map_camera_FOLLOW_HEADING").assertIsSelected()
+        compose.onNodeWithTag("trip_map_camera_NORTH_UP").performClick()
+        compose.onNodeWithTag("trip_map_camera_NORTH_UP").assertIsSelected()
+        assertEquals(TripMapCameraMode.NORTH_UP, selected.value)
     }
     @Test fun standaloneCancelRemainsVisibleBeforeTheMap() {
         var cancels = 0

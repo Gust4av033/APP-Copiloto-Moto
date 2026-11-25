@@ -41,7 +41,7 @@ Investigación consultada el 24-11-2026:
 - Añadir edificios 3D con ajuste persistente todavía apagado.
 - Realizar red real, atribución visible y smoke nativo.
 - Completar Mi Moto o documentar el bloqueo real de las pruebas en Windows.
-- Implementar Etapas 2, 3 y 5.
+- Implementar Etapas 3 y 5.
 
 ## Etapa 1 — mapa principal
 
@@ -67,3 +67,41 @@ Validación real:
 - Pruebas enfocadas de Inicio, política de mapa, sesión y UI: aprobadas.
 - No se abrió micrófono, GPS ni servicio en las pruebas.
 - Captura visual física, S22+, Y12 Pro, atajo del casco y red real: pendientes.
+
+## Corrección de arranque y Etapa 2 — cámara
+
+Corrección local de la parada automática al iniciar:
+
+- Si Android aún no reporta una entrada activa `VOICE_RECOGNITION` durante el
+  arranque Bluetooth, el proveedor ahora informa un fallo de verificación.
+  El servicio reintenta hasta cuatro veces, con un segundo entre intentos; si
+  sigue sin poder verificar el micrófono, conserva el cierre seguro existente.
+- El dock de Inicio vuelve a respetar `canStartTrip`: no permite despachar
+  Inicio de viaje mientras falte el casco seleccionado.
+- No se modificaron permisos, GPS, llamadas, ciclo de audio, ni la sesión de
+  burbuja/notificación. La vista solo refleja estado; no dispara el servicio.
+
+Etapa 2 de cámara:
+
+- Inicio y Viaje ofrecen tres modos seleccionables con estado accesible:
+  **Rumbo**, **Norte** y **Libre**.
+- Rumbo sigue la última posición aceptada y solo orienta el mapa con rumbo GPS
+  reciente, velocidad de al menos 2 m/s y precisión de rumbo de hasta 30°.
+  Sin rumbo válido, permanece norte arriba y lo indica explícitamente.
+- Norte mantiene el seguimiento de posición con orientación norte arriba.
+  Libre interrumpe el seguimiento y habilita el giro manual; un gesto de mapa
+  cambia automáticamente a Libre. Ajustar el trazo también deja la cámara Libre.
+  **Centrar última posición** restablece Rumbo.
+- No se calcula una ruta vial ni se inicia una captura por cambiar la cámara.
+  No requiere permisos nuevos y no cambia comandos, burbuja o notificación.
+
+Validación local de esta entrega:
+
+- `WakeActivationGateTest`, `HomeDashboardUiTest`, `TripMapPolicyTest` y
+  `TripMapUiTest`: aprobados, incluida la selección visible de cámara, el filtro
+  del rumbo y el bloqueo del dock cuando falta el casco seleccionado.
+- `SettingsContrastTest`, `lintFullDebug` y las pruebas focalizadas Play de
+  activación y mapa: aprobadas. Lint no encontró errores.
+- Compilaciones Kotlin Full y Play: aprobadas. La prueba física del auto-stop con casco
+  Bluetooth (S22+/Y12 Pro), giro real de cámara, TalkBack y capturas reales queda
+  pendiente; las pruebas JVM no acreditan el comportamiento físico.

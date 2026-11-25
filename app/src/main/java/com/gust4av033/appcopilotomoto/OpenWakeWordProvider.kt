@@ -20,6 +20,9 @@ enum class WakeAudioMode(val label: String) {
     BUTTON("Botón: música A2DP hasta pedir una orden")
 }
 
+internal fun shouldRetryWakeInputCheck(reason: String, retry: Int): Boolean =
+    retry < 4 && (reason.startsWith("No se pudo verificar") || reason.contains("usa otro micrófono"))
+
 class OpenWakeWordProvider(
     context: Context,
     threshold: Float,
@@ -71,7 +74,7 @@ class OpenWakeWordProvider(
             .filter { it.clientAudioSource == MediaRecorder.AudioSource.VOICE_RECOGNITION }
             .mapNotNull { it.audioDevice }
         if (audioMode == WakeAudioMode.BLUETOOTH) {
-            if (inputs.isEmpty()) return "$phrase: Android no informó el micrófono activo."
+            if (inputs.isEmpty()) error("No se pudo verificar la entrada de $phrase: Android todavía no informó el micrófono activo.")
             val selected = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) audioManager.communicationDevice else null
             check(selected != null && inputs.all { input ->
                 input.type == selected.type &&

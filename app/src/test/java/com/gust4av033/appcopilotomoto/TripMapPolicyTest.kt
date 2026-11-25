@@ -13,12 +13,23 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import com.gust4av033.appcopilotomoto.presentation.components.TripMapPaint
 import com.gust4av033.appcopilotomoto.presentation.components.TripMapStyle
+import com.gust4av033.appcopilotomoto.presentation.components.tripMapHeadingDegrees
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class TripMapPolicyTest {
+    @Test fun cameraHeadingRequiresFreshUsableMotionAndAccurateBearing() {
+        fun fix(speed: Float?, accuracy: Float?, bearing: Float?) = LocationSample(
+            1_000, 1_000, 14.6, -90.5, null, speed, null, bearing, accuracy, 3f, "test-fixture", false
+        )
+        assertEquals(45.0, tripMapHeadingDegrees(fix(8f, 20f, 45f))!!, 0.0)
+        assertNull(tripMapHeadingDegrees(fix(1f, 10f, 45f)))
+        assertNull(tripMapHeadingDegrees(fix(8f, 31f, 45f)))
+        assertNull(tripMapHeadingDegrees(fix(8f, 10f, null)))
+    }
+
     @Test fun consentIsOffByDefaultAndSurvivesRecreationWithoutEnablingGps() {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("ui_settings", 0).edit().clear().commit()

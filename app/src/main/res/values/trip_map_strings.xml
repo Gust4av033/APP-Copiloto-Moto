@@ -41,6 +41,10 @@
     <string name="trip_map_render_error">El mapa no pudo dibujarse en este dispositivo. Las métricas y el copiloto siguen disponibles.</string>
     <string name="trip_map_center">Centrar última posición</string>
     <string name="trip_map_fit">Ver trazo registrado</string>
+    <string name="trip_map_camera_heading">Rumbo</string>
+    <string name="trip_map_camera_north">Norte</string>
+    <string name="trip_map_camera_free">Libre</string>
+    <string name="trip_map_camera_waiting_heading">Giro solo con rumbo GPS reciente y preciso; mientras tanto, norte arriba.</string>
     <string name="trip_map_retry">Reintentar mapa</string>
     <string name="trip_map_link_error">No se pudo abrir el enlace. Revisá que tengas un navegador web disponible.</string>
 </resources>
