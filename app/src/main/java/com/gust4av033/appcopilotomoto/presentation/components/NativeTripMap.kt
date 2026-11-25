@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Row
@@ -44,6 +46,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.gust4av033.appcopilotomoto.*
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.theme.Glass
+import com.gust4av033.appcopilotomoto.presentation.theme.GlassMode
+import com.gust4av033.appcopilotomoto.presentation.theme.GlassPanel
 import org.maplibre.android.MapLibre
 import org.maplibre.android.RenderingEngine
 import org.maplibre.android.WellKnownTileServer
@@ -59,6 +63,50 @@ import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.tile.TileOperation
 import java.util.Locale
 
+internal enum class TripMapCameraMode { FOLLOW_HEADING, NORTH_UP, FREE }
+
+internal fun tripMapHeadingDegrees(fix: LocationSample?): Double? {
+    if (fix == null || fix.speedMetersPerSec?.let { it.isFinite() && it >= 2f } != true) return null
+    if (fix.bearingAccuracyDegrees?.let { it.isFinite() && it in 0f..30f } != true) return null
+    return fix.bearing?.takeIf { it.isFinite() && it in 0f..360f }?.toDouble()
+}
+
+@Composable
+internal fun TripMapCameraControls(
+    mode: TripMapCameraMode,
+    headingAvailable: Boolean,
+    onSelected: (TripMapCameraMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    GlassPanel(modifier, mode = GlassMode.LITE) {
+        Column(Modifier.padding(4.dp)) {
+            Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                listOf(
+                    TripMapCameraMode.FOLLOW_HEADING to R.string.trip_map_camera_heading,
+                    TripMapCameraMode.NORTH_UP to R.string.trip_map_camera_north,
+                    TripMapCameraMode.FREE to R.string.trip_map_camera_free
+                ).forEach { (cameraMode, label) ->
+                    Surface(
+                        modifier = Modifier.weight(1f).heightIn(min = Glass.iconButtonSize)
+                            .selectable(selected = mode == cameraMode, role = Role.RadioButton,
+                                onClick = { onSelected(cameraMode) }),
+                        color = if (mode == cameraMode) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                        shape = MaterialTheme.shapes.small
+                    ) {
+                        Box(Modifier.fillMaxWidth().heightIn(min = Glass.iconButtonSize), contentAlignment = Alignment.Center) {
+                            Text(stringResource(label), Modifier.padding(horizontal = 4.dp),
+                                style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+            }
+            if (mode == TripMapCameraMode.FOLLOW_HEADING && !headingAvailable) {
+                SupportingText(stringResource(R.string.trip_map_camera_waiting_heading))
+            }
+        }
+    }
+}
+
 /** Test hosts may supply an explicitly labelled renderer; production always uses MapLibre. */
 fun interface TripMapRenderer {
     @Composable fun Render(session: TripMapSession, now: Long, online: Boolean)
@@ -68,13 +116,16 @@ val LocalTripMapRenderer = staticCompositionLocalOf<TripMapRenderer> { TripMapRe
 } }
 
 internal class NativeTripMapController(context: Context, first: TripMapSession, private val online: Boolean,
-    private val paint: TripMapPaint, private var inclined: Boolean, private val report: (Int) -> Unit) {
+    private val paint: TripMapPaint, initialCameraMode: TripMapCameraMode,
+    private var inclined: Boolean, private val onCameraModeChanged: (TripMapCameraMode) -> Unit,
+    private val report: (Int) -> Unit) {
     private val token = Any()
     private var destroyed = false
     private var visible = false
     private var lifecycle = Lifecycle.State.CREATED
     private var started = false
     private var resumed = false
+    private var cameraMode = initialCameraMode
     private var following = true
     private var map: MapLibreMap? = null
     private var data = first
@@ -121,8 +172,12 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
             map = ready
             ready.setPrefetchesTiles(false); ready.setPrefetchZoomDelta(0)
             ready.addOnCameraMoveStartedListener { reason ->
-                if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) following = false
+                if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) {
+                    setCameraMode(TripMapCameraMode.FREE)
+                    following = false
+                }
             }
+            ready.uiSettings.isRotateGesturesEnabled = cameraMode == TripMapCameraMode.FREE
             ready.addOnCameraMoveListener { positionMarker() }
             val style = Style.Builder().fromJson(TripMapStyle.json(online, paint))
             ready.setStyle(style) {
@@ -147,7 +202,10 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
             if (data.lastFix == null && lastApplied?.lastFix != null) {
                 ready.moveCamera(CameraUpdateFactory.newCameraPosition(worldCamera()))
                 following = true
-            } else if (following && lastApplied?.lastFix != data.lastFix) center()
+            } else if (following && lastApplied?.lastFix != data.lastFix) {
+                if (cameraMode == TripMapCameraMode.FREE) positionMarker()
+                else followPosition()
+            }
             positionMarker()
             lastApplied = data; lastFresh = fresh
         }
@@ -164,6 +222,8 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
         val point = ready.projection.toScreenLocation(LatLng(fix.latitude, fix.longitude))
         marker.translationX = point.x - marker.width / 2f
         marker.translationY = point.y - marker.height / 2f
+        val bearing = tripMapHeadingDegrees(data.currentFix(now)) ?: 0.0
+        marker.rotation = (bearing - ready.cameraPosition.bearing).toFloat()
         marker.visibility = if (point.x in 0f..view.width.toFloat() && point.y in 0f..view.height.toFloat())
             View.VISIBLE else View.INVISIBLE
     }
@@ -172,6 +232,28 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
 
     private fun worldCamera() = CameraPosition.Builder().target(LatLng(0.0, 0.0)).zoom(0.0).tilt(0.0).build()
     private fun pitch() = if (inclined) Glass.rideMapPitch else 0.0
+
+    fun setCameraMode(mode: TripMapCameraMode) {
+        if (destroyed || cameraMode == mode) return
+        cameraMode = mode
+        onCameraModeChanged(mode)
+        map?.uiSettings?.isRotateGesturesEnabled = mode == TripMapCameraMode.FREE
+        if (mode != TripMapCameraMode.FREE) followPosition()
+    }
+
+    private fun followPosition() {
+        val point = data.lastFix?.value ?: return
+        val ready = map ?: return
+        val bearing = if (cameraMode == TripMapCameraMode.FOLLOW_HEADING)
+            tripMapHeadingDegrees(data.currentFix(now)) ?: 0.0 else 0.0
+        ready.moveCamera(CameraUpdateFactory.newCameraPosition(
+            CameraPosition.Builder(ready.cameraPosition)
+                .target(LatLng(point.latitude, point.longitude))
+                .bearing(bearing)
+                .tilt(pitch())
+                .build()))
+        following = true
+    }
 
     fun setPerspective(value: Boolean) {
         if (inclined == value) return
@@ -182,18 +264,13 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
     }
     fun center() {
         if (destroyed) return
-        val fix = data.lastFix?.value ?: return
-        val ready = map ?: return
-        val position = ready.cameraPosition
-        val zoom = if (lastApplied?.lastFix == null || !following && position.zoom < 8) 16.0 else position.zoom
-        ready.moveCamera(CameraUpdateFactory.newCameraPosition(CameraPosition.Builder(position)
-            .target(LatLng(fix.latitude, fix.longitude)).zoom(zoom).tilt(pitch()).build()))
-        following = true
+        setCameraMode(TripMapCameraMode.FOLLOW_HEADING)
+        followPosition()
     }
     fun fitTrace() {
         val points = data.segments.flatten()
         if (destroyed || points.size < 2) return
-        following = false
+        setCameraMode(TripMapCameraMode.FREE)
         val bounds = LatLngBounds.Builder().includes(points.map { LatLng(it.latitude, it.longitude) }).build()
         map?.moveCamera(CameraUpdateFactory.newLatLngBounds(bounds, 0.0, pitch(), Glass.mapFitPadding))
     }
@@ -231,10 +308,12 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
         colors.secondaryContainer.css(), colors.outline.css())
     var retry by remember { mutableIntStateOf(0) }
     var inclined by rememberSaveable { mutableStateOf(true) }
+    var cameraMode by rememberSaveable { mutableStateOf(TripMapCameraMode.FOLLOW_HEADING) }
     key(online, retry, paint) {
         var status by remember { mutableIntStateOf(R.string.trip_map_initializing) }
         val controller = remember {
-            runCatching { NativeTripMapController(context, session, online, paint, inclined) { status = it } }.getOrNull()
+            runCatching { NativeTripMapController(context, session, online, paint, cameraMode, inclined,
+                { cameraMode = it }) { status = it } }.getOrNull()
         }
         if (controller == null) {
             MapRecovery(R.string.trip_map_render_error) { retry++ }
@@ -270,6 +349,12 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
                         }
                     }
                 }
+                TripMapCameraControls(
+                    cameraMode,
+                    tripMapHeadingDegrees(session.currentFix(now)) != null,
+                    controller::setCameraMode,
+                    Modifier.align(Alignment.BottomCenter).padding(bottom = 56.dp, start = 8.dp, end = 8.dp)
+                )
                 val link = if (online) "https://www.openstreetmap.org/copyright" else "https://www.naturalearthdata.com/"
                 Surface(modifier = Modifier.align(Alignment.BottomStart).padding(4.dp)
                     .clickable(role = Role.Button) { runCatching { uri.openUri(link) }.onFailure { status = R.string.trip_map_link_error } },

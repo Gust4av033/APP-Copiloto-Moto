@@ -189,13 +189,19 @@
       </p>
     </div>
 
-    <section><h2>Candidato de pruebas no comerciales</h2><p>La versión 1.2.1-rc1 conserva modelos Alexa y Hey Jarvis de openWakeWord bajo CC BY-NC-SA 4.0 y se destina a pruebas no comerciales. Las licencias están disponibles sin conexión en Ajustes → Acerca de → Licencias y atribuciones. La versión Play requiere Android 12 o posterior y un reconocedor de voz local disponible. El nombre opcional del saludo no modifica la palabra de activación.</p></section>
+    <section><h2>Candidato de pruebas no comerciales</h2><p>La versión 1.2.1-rc2 conserva modelos Alexa y Hey Jarvis de openWakeWord bajo CC BY-NC-SA 4.0 y se destina a pruebas no comerciales. Las licencias están disponibles sin conexión en Ajustes → Acerca de → Licencias y atribuciones. La versión Play requiere Android 12 o posterior y un reconocedor de voz local disponible. El nombre opcional del saludo no modifica la palabra de activación.</p></section>
 
     <section>
       <h2>Adenda: mapa integrado opcional</h2>
       <p>La opción «Calles por Internet (OpenStreetMap)» está apagada inicialmente. Antes de habilitarla, APP muestra una divulgación separada: las imágenes del área visible se solicitan por HTTPS a <code>tile.openstreetmap.org</code>. OpenStreetMap recibe la dirección IP y los números de las imágenes solicitadas, que permiten inferir la zona consultada. APP no envía el historial GPS, el trazo completo, contactos ni audio al proveedor de mapas. Se aplica la <a href="https://osmfoundation.org/wiki/Privacy_Policy">política de privacidad de OpenStreetMap Foundation</a>.</p>
       <p>Los permisos normales <code>INTERNET</code> y <code>ACCESS_NETWORK_STATE</code> permiten cargar imágenes y conocer la conectividad; no conceden ubicación ni activan el GPS. El mapa usa las muestras de la sesión local con el ajuste GPS y permiso preciso ya habilitados. El trazo puede verse sobre fondo simple y el copiloto puede funcionar con las calles por Internet apagadas.</p>
       <p>Podés apagar esta opción en Viaje o en Privacidad, incluso durante una sesión. Las solicitudes se cancelan al retirarla o al ocultarse el mapa. Las imágenes se almacenan en caché privada siguiendo las condiciones del proveedor; no hay descarga de zonas ni garantía de mapas offline. La eliminación del historial GPS y la caché cartográfica son datos distintos; borrar el almacenamiento de Android elimina ambos junto con los demás datos de la instalación.</p>
+    </section>
+
+    <section>
+      <h2>Adenda: clima opcional Open-Meteo</h2>
+      <p>La consulta de clima está apagada inicialmente y requiere consentimiento independiente. Al habilitarla, APP usa la ubicación GPS válida del viaje o del teléfono y solicita a Open-Meteo por HTTPS temperatura actual y lluvia. Open-Meteo recibe las coordenadas y la dirección IP de la consulta. APP conserva una caché privada limitada y muestra explícitamente una lectura vencida si una actualización falla. Podés desactivar el clima en el mapa o Ajustes; al hacerlo se interrumpen nuevas consultas.</p>
+      <p>Los datos pueden llevar vigencia de hasta dos horas como referencia vencida y no sustituyen avisos oficiales ni una medición meteorológica. Open-Meteo distribuye los datos con atribución Creative Commons BY 4.0; APP no contrata ni confirma disponibilidad de un servicio comercial.</p>
     </section>
 
     <section>

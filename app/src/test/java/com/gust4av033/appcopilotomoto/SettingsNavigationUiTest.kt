@@ -73,10 +73,10 @@ class SettingsNavigationUiTest {
         app(section = SettingsSection.ABOUT, scale = 2f)
         compose.onNodeWithTag("settings_content").performScrollToNode(hasText("Ver licencias"))
         compose.onNodeWithText("Ver licencias").performClick()
-        compose.onNodeWithText("APP Copiloto Moto 1.2.1-rc1", substring = true).assertExists()
+        compose.onNodeWithText("APP Copiloto Moto 1.2.1-rc2", substring = true).assertExists()
         saveRender("candidate-licenses-200")
         compose.onNodeWithText("Cerrar").performClick()
-        compose.onNodeWithText("APP Copiloto Moto 1.2.1-rc1", substring = true).assertDoesNotExist()
+        compose.onNodeWithText("APP Copiloto Moto 1.2.1-rc2", substring = true).assertDoesNotExist()
     }
     @Test @Config(sdk = [35], qualifiers = "w360dp-h800dp-night")
     fun candidateNoticeIsReadableInDarkModeAtLargeFont() {

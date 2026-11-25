@@ -10,6 +10,7 @@
     <string name="motorcycle_save_error">No se pudo guardar el cambio. Tus datos anteriores se conservan; volvé a leerlos para reintentar.</string>
     <string name="motorcycle_saved">Cambios guardados en este teléfono.</string>
     <string name="motorcycle_profile">Datos de mi moto</string>
+    <string name="motorcycle_catalog_hint">Catálogo local. Elegir un modelo no reemplaza tu nombre, foto, odómetro ni mantenimientos guardados.</string>
     <string name="motorcycle_name">Nombre de tu moto</string>
     <string name="motorcycle_model">Marca y modelo (opcional)</string>
     <string name="motorcycle_odometer">Kilometraje del tablero en km (opcional)</string>

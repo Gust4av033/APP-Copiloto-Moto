@@ -63,12 +63,52 @@ class MainActivity : ComponentActivity() {
     }
     private val settingsStore by lazy { UserSettingsStore(this) }
     private var mapOnlineEnabled by mutableStateOf(false)
+    private var weatherEnabled by mutableStateOf(false)
+    private var weatherSnapshot by mutableStateOf<WeatherSnapshot?>(null)
+    private var weatherLoading by mutableStateOf(false)
+    private var weatherError by mutableStateOf(false)
+    private var weatherLastRequestAt = 0L
+    private val weatherProvider by lazy { OpenMeteoWeatherProvider(this) }
     private var motorcycleState by mutableStateOf(MotorcycleUiState())
     private var pendingMotorcyclePhotoUri: Uri? = null
     private val motorcyclePhotoPicker = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) {
             pendingMotorcyclePhotoUri = uri
             applyPendingMotorcyclePhoto()
+        }
+    }
+
+    private fun refreshWeather(force: Boolean = false) {
+        if (!weatherEnabled) return
+        val fix = TripLocationAccess.currentFix(this) ?: return
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (!force && now - weatherLastRequestAt < WeatherPolicy.MAX_AGE_MS) return
+        val cached = weatherProvider.cached(fix.latitude, fix.longitude)
+        if (!force && cached != null && now - cached.capturedAtElapsedMs < WeatherPolicy.MAX_AGE_MS) {
+            weatherSnapshot = cached
+            weatherError = false
+            return
+        }
+        weatherLoading = true
+        weatherError = false
+        weatherLastRequestAt = now
+        presentationWorker.execute {
+            val result = weatherProvider.refresh(fix.latitude, fix.longitude, now)
+            mainHandler.post {
+                if (!isDestroyed) {
+                    weatherLoading = false
+                    result.onSuccess {
+                        weatherSnapshot = it
+                        weatherError = false
+                    }.onFailure {
+                        weatherSnapshot = weatherProvider.cached(fix.latitude, fix.longitude)?.copy(
+                            stale = true,
+                            capturedAtElapsedMs = now
+                        )
+                        weatherError = true
+                    }
+                }
+            }
         }
     }
 
@@ -508,6 +548,10 @@ class MainActivity : ComponentActivity() {
             tripLocationAvailable = tripLocationAvailable,
             tripMap = TripRecordingState.mapSession,
             mapOnlineEnabled = mapOnlineEnabled,
+            weatherEnabled = weatherEnabled,
+            weatherSnapshot = weatherSnapshot,
+            weatherLoading = weatherLoading,
+            weatherError = weatherError,
             tripContextReport = tripContextReport,
             wazeObservationEnabled = wazeObservationEnabled,
             wazeObservationGranted = wazeObservationGranted,
@@ -574,6 +618,18 @@ class MainActivity : ComponentActivity() {
                         }
                     }
                 },
+                onWeatherChange = { enabled ->
+                    if (!enabled) {
+                        WeatherPreferences(this@MainActivity).setEnabled(false)
+                        weatherEnabled = false
+                        weatherSnapshot = null
+                    } else if (!audioBusy()) disclose(DisclosureKind.WEATHER) {
+                        WeatherPreferences(this@MainActivity).setEnabled(true)
+                        weatherEnabled = true
+                        refreshWeather(force = true)
+                    }
+                },
+                onRefreshWeather = { refreshWeather(force = true) },
                 onOpenTripNavigator = {
                     runCatching {
                         val launch = checkNotNull(packageManager.getLaunchIntentForPackage(navigationProvider.packageName))
@@ -1026,6 +1082,8 @@ class MainActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         mapOnlineEnabled = TripMapPreferences(this).onlineEnabled()
+        weatherEnabled = WeatherPreferences(this).enabled()
+        if (weatherEnabled) refreshWeather()
         if (selectedScreen == CopilotScreen.MOTORCYCLE) motorcycleWork()
         tripLocationEnabled = settingsStore.tripLocationEnabled()
         tripLocationAvailable = TripLocationAccess.available(this)

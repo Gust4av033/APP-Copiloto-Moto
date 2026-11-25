@@ -43,4 +43,18 @@
     <string name="trip_map_fit">Ver trazo registrado</string>
     <string name="trip_map_retry">Reintentar mapa</string>
     <string name="trip_map_link_error">No se pudo abrir el enlace. Revisá que tengas un navegador web disponible.</string>
+    <string name="trip_map_camera_heading">Rumbo</string>
+    <string name="trip_map_camera_north">Norte</string>
+    <string name="trip_map_camera_free">Libre</string>
+    <string name="trip_map_camera_waiting_heading">Rumbo disponible con velocidad estable y precisión de orientación.</string>
+    <string name="weather_title">Clima actual</string>
+    <string name="weather_disclosure">Open-Meteo recibe las coordenadas GPS actuales para consultar temperatura, lluvia y código meteorológico. APP usa caché privada, no guarda el historial de viajes para ese servicio y no envía destinos. Los datos pueden retenerse temporalmente por el proveedor. Podés apagar el clima en cualquier momento.</string>
+    <string name="weather_loading">Consultando Open-Meteo…</string>
+    <string name="weather_value">Temperatura %1$s °C · lluvia %2$s mm</string>
+    <string name="weather_updated">Actualizado desde Open-Meteo · caché limitada a 30 minutos</string>
+    <string name="weather_stale">Datos anteriores conservados por falta de conexión. No son una lectura actual.</string>
+    <string name="weather_error">No se pudo actualizar. Revisá la conexión; se conserva caché si existe.</string>
+    <string name="weather_disabled">Clima apagado. No se consulta ni se envían coordenadas.</string>
+    <string name="weather_waiting">Esperando posición GPS y actualización.</string>
+    <string name="weather_refresh">Actualizar clima</string>
 </resources>

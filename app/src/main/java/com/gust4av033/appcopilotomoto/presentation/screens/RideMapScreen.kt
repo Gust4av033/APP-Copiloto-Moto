@@ -91,6 +91,12 @@ internal fun RideMapScreen(state: CopilotUiState, actions: CopilotActions, navig
                     actions.onMapOnlineChange(it)
                 }
                 SupportingText(stringResource(if (state.mapOnlineEnabled) R.string.trip_map_online_hint else R.string.ride_offline_hint))
+                ToggleSettingRow(stringResource(R.string.weather_title), state.weatherEnabled,
+                    enabled = state.weatherEnabled || !state.busy) {
+                    options = false
+                    actions.onWeatherChange(it)
+                }
+                WeatherCompactPanel(state, actions)
                 ActionButton(stringResource(R.string.trip_map_open_navigator, state.navigationProvider.label),
                     enabled = state.navigationAvailable) {
                     options = false
@@ -98,6 +104,31 @@ internal fun RideMapScreen(state: CopilotUiState, actions: CopilotActions, navig
                 }
             }
         }, confirmButton = { TextButton(onClick = { options = false }) { Text(stringResource(R.string.ride_done)) } })
+}
+
+@Composable
+private fun WeatherCompactPanel(state: CopilotUiState, actions: CopilotActions) {
+    val weatherSnapshot = state.weatherSnapshot
+    GlassPanel(mode = GlassMode.LITE) {
+        Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(R.string.weather_title), style = MaterialTheme.typography.labelLarge)
+            when {
+                state.weatherLoading -> SupportingText(stringResource(R.string.weather_loading))
+                weatherSnapshot != null -> {
+                    val weather = weatherSnapshot
+                    Text(stringResource(R.string.weather_value,
+                        String.format(Locale.getDefault(), "%.1f", weather.temperatureC),
+                        String.format(Locale.getDefault(), "%.1f", weather.rainMm)))
+                    SupportingText(stringResource(if (weather.stale) R.string.weather_stale else R.string.weather_updated))
+                }
+                state.weatherError -> SupportingText(stringResource(R.string.weather_error))
+                !state.weatherEnabled -> SupportingText(stringResource(R.string.weather_disabled))
+                else -> SupportingText(stringResource(R.string.weather_waiting))
+            }
+            if (state.weatherEnabled) ActionButton(stringResource(R.string.weather_refresh),
+                enabled = !state.weatherLoading, onClick = actions.onRefreshWeather)
+        }
+    }
 }
 
 @Composable

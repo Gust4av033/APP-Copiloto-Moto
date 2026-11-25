@@ -1,4 +1,4 @@
-> Candidato de pruebas no comerciales **1.2.1-rc1 (22)**: [preparación, verificación y puerta de Fase 3](docs/PLAY_RC1_2026-10-17.md). Play requiere Android 12+ y STT local disponible. No publicado en Google Play.
+> Recuperación RC2 de Fase 3 **1.2.1-rc2 (23)**: mapa principal, catálogo local Mi Moto y clima Open-Meteo opcional. Play requiere Android 12+ y STT local disponible. No publicado en Google Play.
 
 # APP Copiloto Moto
 

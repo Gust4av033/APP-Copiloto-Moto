@@ -96,6 +96,13 @@ private fun MotorcycleProfileCard(state: CopilotUiState, actions: CopilotActions
         if (saved?.photoName != null) ActionButton(stringResource(R.string.motorcycle_remove_photo),
             enabled = editable, destructive = true, onClick = actions.onRemoveMotorcyclePhoto)
         MotoField(name, { name = it }, R.string.motorcycle_name, editable, max = 60)
+        SupportingText(stringResource(R.string.motorcycle_catalog_hint))
+        MotorcycleCatalog.models.forEach { catalogModel ->
+            ActionButton(catalogModel.displayName,
+                enabled = editable,
+                primary = model.trim() == catalogModel.displayName,
+                onClick = { model = catalogModel.displayName })
+        }
         MotoField(model, { model = it }, R.string.motorcycle_model, editable, max = 100)
         MotoField(km, { km = it }, R.string.motorcycle_odometer, editable, decimal = true,
             error = km.isNotBlank() && parseManualKilometers(km) == null)
