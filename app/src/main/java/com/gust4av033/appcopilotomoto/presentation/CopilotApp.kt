@@ -107,11 +107,11 @@ fun CopilotApp(
     }
     val navigateBack: () -> Unit = {
         if (settingsDetail) settingsBack()
-        else navigate(if (!visibleScreen.inMainNavigation) secondaryParent else CopilotScreen.HOME)
+        else navigate(if (!visibleScreen.inMainNavigation) secondaryParent else CopilotScreen.MAP)
     }
     val mainSelection = if (!visibleScreen.inMainNavigation) secondaryParent else visibleScreen
     if (!LocalInspectionMode.current) {
-        BackHandler(enabled = visibleScreen != CopilotScreen.HOME, onBack = navigateBack)
+        BackHandler(enabled = visibleScreen != CopilotScreen.MAP, onBack = navigateBack)
     }
     CopilotTheme {
         if (state.developerConfirmationRequested) AlertDialog(
@@ -138,7 +138,7 @@ fun CopilotApp(
             },
             bottomBar = {
                 Column {
-                    if (state.tripActive && visibleScreen != CopilotScreen.TRIP) {
+                    if (state.tripActive && visibleScreen != CopilotScreen.TRIP && visibleScreen != CopilotScreen.MAP) {
                         Surface(color = Glass.surface(strong = true),
                             contentColor = MaterialTheme.colorScheme.onSurface) {
                             Row(
@@ -161,7 +161,7 @@ fun CopilotApp(
                         shape = MaterialTheme.shapes.large) {
                     NavigationBar(containerColor = Color.Transparent,
                         contentColor = MaterialTheme.colorScheme.onSurface) {
-                        CopilotScreen.entries.filter { it.inMainNavigation }.forEach { screen ->
+                        CopilotScreen.entries.filter { it.inMainNavigation && it != CopilotScreen.HOME }.forEach { screen ->
                             NavigationBarItem(
                                 selected = mainSelection == screen,
                                 onClick = { navigate(screen) },
@@ -183,6 +183,10 @@ fun CopilotApp(
             val screenState = rememberSaveableStateHolder()
             screenState.SaveableStateProvider(if (visibleScreen == CopilotScreen.SETTINGS)
                 "${visibleScreen.name}/${settingsSection.name}" else visibleScreen.name) {
+                if (visibleScreen == CopilotScreen.MAP) {
+                    com.gust4av033.appcopilotomoto.presentation.screens.RideMapScreen(state, actions, navigate, Modifier.fillMaxSize().padding(padding))
+                    return@SaveableStateProvider
+                }
                 LazyColumn(
                     modifier = Modifier.fillMaxSize().padding(padding).wrapContentSize(Alignment.TopCenter).widthIn(max = 680.dp).fillMaxWidth().testTag("settings_content"),
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 24.dp),
@@ -209,6 +213,7 @@ fun CopilotApp(
                             Text(stringResource(if (settingsDetail) settingsSection.titleRes else visibleScreen.titleRes), style = MaterialTheme.typography.headlineLarge,
                                 modifier = Modifier.semantics { heading() })
                             Text(stringResource(if (settingsDetail) settingsSection.hintRes else when (visibleScreen) {
+                                CopilotScreen.MAP -> R.string.nav_map
                                 CopilotScreen.HOME -> R.string.home_subtitle
                                 CopilotScreen.MOTORCYCLE -> R.string.motorcycle_subtitle
                                 CopilotScreen.TRIP -> R.string.trip_subtitle
@@ -220,6 +225,7 @@ fun CopilotApp(
                         }
                     }
                         when (visibleScreen) {
+                            CopilotScreen.MAP -> Unit // The map uses the full viewport above.
                             CopilotScreen.HOME -> HomeScreen(state, actions, navigate)
                             CopilotScreen.TRIP -> TripScreen(state, actions,
                                 onOpenCommands = { navigate(CopilotScreen.COMMANDS) },

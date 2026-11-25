@@ -103,6 +103,39 @@ class TripMapUiTest {
         reveal("Abrir Waze").performClick()
         assertEquals(1, opens); assertEquals(0, sessions)
     }
+    @Test fun mapHasPrimaryViewportAndMotorcycleShortcutWithoutStartingServices() {
+        var destination: CopilotScreen? = null
+        var starts = 0
+        compose.setContent {
+            CompositionLocalProvider(LocalTripMapRenderer provides fixtureRenderer) {
+                CopilotApp(CopilotUiState(), CopilotScreen.MAP, { destination = it },
+                    CopilotActions(onToggleTrip = { starts++ }))
+            }
+        }
+        val viewport = compose.onNodeWithTag("ride_map_viewport").fetchSemanticsNode().boundsInRoot
+        assertTrue(viewport.height > compose.onRoot().fetchSemanticsNode().boundsInRoot.height / 2)
+        compose.onNodeWithContentDescription("Mi moto", ignoreCase = true).performClick()
+        assertEquals(CopilotScreen.MOTORCYCLE, destination)
+        assertEquals(0, starts)
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.trip_start)).performClick()
+        assertEquals(1, starts)
+    }
+    @Test fun revokingGpsRemovesPreviousTraceAndMarkerFromMainMap() {
+        val recording = session()
+        val permitted = androidx.compose.runtime.mutableStateOf(true)
+        var presented: TripMapSession? = null
+        compose.setContent {
+            val renderer = TripMapRenderer { track, _, _ ->
+                androidx.compose.runtime.SideEffect { presented = track }
+            }
+            CompositionLocalProvider(LocalTripMapRenderer provides renderer) {
+                CopilotApp(CopilotUiState(tripActive = true, tripMap = recording, tripLocationEnabled = true,
+                    tripLocationAvailable = permitted.value), CopilotScreen.MAP, {}, CopilotActions())
+            }
+        }
+        compose.runOnIdle { assertEquals(recording, presented); permitted.value = false }
+        compose.runOnIdle { assertNull(presented!!.lastFix); assertTrue(presented!!.segments.isEmpty()) }
+    }
     private fun capture(theme: String, scale: Float) {
         RuntimeEnvironment.setQualifiers("w360dp-h800dp-${if (theme == "night") "night" else "notnight"}")
         app(CopilotUiState(tripActive = true, tripMap = session(), observedRouteAtElapsedMs = 2500,

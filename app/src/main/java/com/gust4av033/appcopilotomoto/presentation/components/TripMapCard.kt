@@ -8,7 +8,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import com.gust4av033.appcopilotomoto.presentation.theme.Glass
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -23,7 +25,6 @@ fun TripMapCard(state: CopilotUiState, actions: CopilotActions) {
     val now = state.observedRouteAtElapsedMs
     val fix = session.lastFix?.value
     val locationAllowed = state.tripLocationEnabled && state.tripLocationAvailable
-    val uri = LocalUriHandler.current
     SectionCard(stringResource(R.string.trip_map_title)) {
         Text(stringResource(if (session.endedAtElapsedMs != null) R.string.trip_map_previous_session
             else if (state.tripActive) R.string.trip_map_current_session else R.string.trip_map_before_start),
@@ -54,7 +55,9 @@ fun TripMapCard(state: CopilotUiState, actions: CopilotActions) {
                 style = MaterialTheme.typography.labelLarge)
             SupportingText(stringResource(R.string.trip_map_accuracy,
                 String.format(Locale.getDefault(), "%.0f", fix.horizontalAccuracyMeters ?: 0f)))
-            LocalTripMapRenderer.current.Render(session, now, state.mapOnlineEnabled)
+            Box(Modifier.fillMaxWidth().height(Glass.mapHeight)) {
+                LocalTripMapRenderer.current.Render(session, now, state.mapOnlineEnabled)
+            }
         } else SupportingText(stringResource(when {
             !state.tripLocationEnabled -> R.string.trip_map_gps_off
             !state.tripLocationAvailable -> R.string.trip_map_gps_unavailable

@@ -1,0 +1,16 @@
+<resources>
+    <item name="trip_map_motorcycle_marker" type="id" />
+    <string name="nav_map">Mapa</string>
+    <string name="map_options">Opciones del mapa</string>
+    <string name="map_atlas">Natural Earth · mapa local</string>
+    <string name="map_enable_location">Activar GPS</string>
+    <string name="map_world">Vista general</string>
+    <string name="map_locating">Buscando GPS</string>
+    <string name="map_gps_off_short">GPS del viaje apagado</string>
+    <string name="map_fix_short">GPS en vivo</string>
+    <string name="map_last_short">Última posición</string>
+    <string name="ride_done">Listo</string>
+    <string name="ride_offline_hint">El mapa local muestra los continentes. Activá las calles para ver detalle vial al acercarte.</string>
+    <string name="map_perspective">Vista inclinada</string>
+    <string name="map_flat">Vista cenital</string>
+</resources>

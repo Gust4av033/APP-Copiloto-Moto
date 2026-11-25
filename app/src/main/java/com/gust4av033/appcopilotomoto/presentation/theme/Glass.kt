@@ -62,6 +62,8 @@ internal val LocalGlassDark = staticCompositionLocalOf { false }
 
 /** Shared surface, button and geometry tokens. */
 object Glass {
+    val rideMarkerSize = 76.dp
+    const val rideMapPitch = 42.0
     val mapHeight = 280.dp
     const val mapRouteWidth = 4f
     const val mapPointRadius = 7f

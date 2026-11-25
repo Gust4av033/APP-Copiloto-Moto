@@ -7,6 +7,7 @@ import com.gust4av033.appcopilotomoto.MusicPlayer
 import com.gust4av033.appcopilotomoto.TripCallPhase
 
 enum class CopilotScreen(val titleRes: Int, val iconRes: Int, val inMainNavigation: Boolean = true) {
+    MAP(R.string.nav_map, R.drawable.ic_map),
     HOME(R.string.nav_home, R.drawable.ic_home),
     TRIP(R.string.nav_trip, R.drawable.ic_trip),
     SETTINGS(R.string.nav_settings, R.drawable.ic_settings),

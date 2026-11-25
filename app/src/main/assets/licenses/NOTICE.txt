@@ -43,3 +43,8 @@ Map data and standard raster tiles: © OpenStreetMap contributors, ODbL.
 https://www.openstreetmap.org/copyright
 Tile service terms: https://operations.osmfoundation.org/policies/tiles/
 Maps are optional; no offline download or guaranteed service is included.
+
+The bundled small-scale land outlines are from Natural Earth, 1:110m Physical
+Vectors, release v5.1.2 (public domain). Only feature geometry is included.
+https://www.naturalearthdata.com/about/terms-of-use/
+https://github.com/nvkelso/natural-earth-vector/blob/v5.1.2/geojson/ne_110m_land.geojson

@@ -36,7 +36,7 @@ class TripMapCaptureActivity : ComponentActivity() {
                     verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Text("PRUEBA NATIVA · DATOS SINTÉTICOS")
                     Text("MapLibre real, sin calles ni solicitudes de red. GPS y micrófono apagados.")
-                    LocalTripMapRenderer.current.Render(session, now, false)
+                    Box(Modifier.fillMaxWidth().height(320.dp)) { LocalTripMapRenderer.current.Render(session, now, false) }
                 }
             } }
         }

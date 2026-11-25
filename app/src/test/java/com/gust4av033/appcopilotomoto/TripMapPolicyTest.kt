@@ -61,7 +61,7 @@ class TripMapPolicyTest {
         assertEquals(1, requests)
     }
     @Test fun offlineStyleHasNoNetworkSourcesAndOnlineStyleOnlyHasTheApprovedProvider() {
-        val paint = TripMapPaint("#050C1D", "#2F6BFF", "#79DDFF", "#888888", "#050C1D", 4f, 7f, 2f, .82f)
+        val paint = TripMapPaint("#050C1D", "#2F6BFF", "#79DDFF", "#888888", "#050C1D", 4f, 7f, 2f, .82f, "#334455", "#668899")
         val offline = JSONObject(TripMapStyle.json(false, paint))
         assertFalse(offline.toString().contains("https://"))
         assertFalse(offline.getJSONObject("sources").has(TripMapStyle.OSM))

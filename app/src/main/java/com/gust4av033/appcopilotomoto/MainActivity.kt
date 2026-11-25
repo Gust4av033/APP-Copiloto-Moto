@@ -238,7 +238,7 @@ class MainActivity : ComponentActivity() {
         buttonProbeLog = log
         buttonProbeMessage = status
     } }
-    private var selectedScreen by mutableStateOf(CopilotScreen.HOME)
+    private var selectedScreen by mutableStateOf(CopilotScreen.MAP)
     private var result by mutableStateOf<AudioProbeResult?>(null)
     private var pendingAction: (() -> Unit)? = null
 
@@ -376,7 +376,7 @@ class MainActivity : ComponentActivity() {
         }.getOrDefault(WakeAudioMode.BLUETOOTH)
         savedInstanceState?.let { saved ->
             selectedScreen = runCatching { CopilotScreen.valueOf(saved.getString("ui_screen").orEmpty()) }
-                .getOrDefault(CopilotScreen.HOME)
+                .getOrDefault(CopilotScreen.MAP)
             wakePhrase = runCatching { WakePhrase.valueOf(saved.getString("ui_phrase").orEmpty()) }
                 .getOrDefault(WakePhrase.ALEXA)
             tripAudioMode = runCatching { WakeAudioMode.valueOf(saved.getString("ui_input").orEmpty()) }
@@ -407,7 +407,7 @@ class MainActivity : ComponentActivity() {
             while (TripTestState.running) {
                 routeRefresh = SystemClock.elapsedRealtime()
                 tripLocationAvailable = TripLocationAccess.available(this@MainActivity)
-                delay(if (selectedScreen == CopilotScreen.TRIP && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) 1_000 else 5_000)
+                delay(if ((selectedScreen == CopilotScreen.MAP || selectedScreen == CopilotScreen.TRIP) && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) 1_000 else 5_000)
             }
         }
         // The tick requests recomposition; observation age must use the clock at this render.

@@ -6,11 +6,13 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 internal data class TripMapPaint(val background: String, val route: String, val current: String,
-    val stale: String, val rim: String, val lineWidth: Float, val pointRadius: Float, val rimWidth: Float, val brightness: Float)
+    val stale: String, val rim: String, val lineWidth: Float, val pointRadius: Float, val rimWidth: Float, val brightness: Float,
+    val land: String, val coastline: String)
 
 internal object TripMapStyle {
     const val ROUTE = "trip-recorded-route"
     const val FIX = "trip-observed-fix"
+    const val LAND = "world-land"
     const val OSM = "osm-standard"
     const val MAX_LATITUDE = 85.05112878
     fun emptyCollection() = JSONObject().put("type", "FeatureCollection").put("features", JSONArray())
@@ -32,6 +34,10 @@ internal object TripMapStyle {
             JSONObject().put("type", "geojson").put("data", emptyCollection()))
         val layers = JSONArray().put(JSONObject().put("id", "background").put("type", "background")
             .put("paint", JSONObject().put("background-color", paint.background)))
+        // Small-scale geography bundled with the app. Hide it at street zoom.
+        sources.put(LAND, JSONObject().put("type", "geojson").put("data", "asset://maps/land-110m.geojson"))
+        layers.put(JSONObject().put("id", LAND).put("type", "fill").put("source", LAND).put("maxzoom", 7)
+            .put("paint", JSONObject().put("fill-color", paint.land).put("fill-outline-color", paint.coastline)))
         if (online) {
             sources.put(OSM, JSONObject().put("type", "raster").put("tileSize", 256).put("minzoom", 0)
                 .put("maxzoom", 19).put("tiles", JSONArray().put(TripTilePolicy.TEMPLATE))
