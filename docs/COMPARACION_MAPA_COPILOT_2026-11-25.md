@@ -1,0 +1,29 @@
+# Qué rama conviene para continuar el mapa
+
+Recomiendo continuar en `feature/fase-3-mapa-principal` y trasladar primero los modos Rumbo, Norte y Libre de Copilot. El mapa que abre al iniciar, la Ignitor sobre el recorrido y los controles de sesión son las prioridades probadas para esta entrega. Para una etapa con calles vectoriales y edificios, la rama de Copilot aporta trabajo aprovechable.
+
+Las dos ramas descienden de `917fd94`, con Mi Moto persistente y Viaje con MapLibre. Revisé [la entrega del mapa principal](https://github.com/Gust4av033/APP-Copiloto-Moto/commit/f53d8c8) y [los tres commits de Copilot](https://github.com/Gust4av033/APP-Copiloto-Moto/compare/917fd94...c0b10ad) en árboles separados. Ambas conservan el código de persistencia de Mi Moto. Clima, Mis viajes y Preparar viaje siguen pendientes en las dos.
+
+| Al usar la app | Mapa principal · f53d8c8 | Copilot · c0b10ad |
+| --- | --- | --- |
+| Abrir sin posición GPS | Atlas mundial local explorable. Activar GPS e iniciar la sesión son acciones explícitas. | Inicio muestra ayuda hasta que hay un punto GPS válido. El dock abre Mi Moto y Ajustes. Iniciar envía la acción y navega a la pantalla de detalle de Viaje. |
+| Localizar la moto | Dibujo azul de la Ignitor anclado a la posición. Perspectiva de 42° y vista cenital. El ensayo en Android comprueba que moto y trazo se desplazan juntos. | La ubicación se representa con un círculo. Permite seguir el rumbo, orientar al norte o explorar libremente. El modo Rumbo exige una muestra vigente, velocidad de al menos 2 m/s y precisión de rumbo de hasta 30°. |
+| Ver calles y edificios | Calles raster OSM opcionales. La impresión de profundidad procede de la cámara inclinada. | Proveedor vectorial OpenFreeMap con estilos Liberty de día y noche. Ambos incluyen la capa de extrusión de edificios desde zoom 14. La app inicia con cámara plana, deshabilita el gesto de inclinación y carece de selector de edificios. Falta verificar el resultado con datos reales. |
+| Activación por casco | La entrega no modifica el servicio de voz ni el proveedor de activación. | Si Android aún no informa la entrada Bluetooth de reconocimiento, se trata como fallo de verificación. El servicio puede reintentar cuatro veces, a un segundo por intento, y detener la sesión si la entrada sigue sin verificarse. El cambio merece una prueba independiente con S22+ y Y12 Pro. |
+
+**Proveedor y privacidad.** Copilot pide consentimiento v2, fija el host permitido y muestra OpenFreeMap en la divulgación dentro de la app. El archivo de política continúa describiendo el envío a `tile.openstreetmap.org`. Una consulta de metadatos a `https://tiles.openfreemap.org/planet` devolvió HTTP 403 desde este entorno. Las pruebas locales de política comprueban solicitudes permitidas con un transporte de prueba. La carga de calles, glifos y atribución con datos móviles queda pendiente. [Red de Copilot](https://github.com/Gust4av033/APP-Copiloto-Moto/blob/c0b10ad/app/src/main/java/com/gust4av033/appcopilotomoto/TripMapNetwork.kt) · [Política en esa rama](https://github.com/Gust4av033/APP-Copiloto-Moto/blob/c0b10ad/privacy-policy.html#L196)
+
+**Casco.** En la base, una lista vacía de entradas devolvía un mensaje informativo y el servicio podía seguir tras comprobar la ruta. Copilot convierte ese caso específico en una verificación obligatoria con reintentos. Su efecto depende de lo que reporte Android con el Y12 Pro conectado. Conviene comparar arranque, órdenes consecutivas, llamadas y recuperación de música antes de adoptar ese cambio. [Proveedor](https://github.com/Gust4av033/APP-Copiloto-Moto/blob/c0b10ad/app/src/main/java/com/gust4av033/appcopilotomoto/OpenWakeWordProvider.kt#L72) · [Decisión de arranque](https://github.com/Gust4av033/APP-Copiloto-Moto/blob/c0b10ad/app/src/main/java/com/gust4av033/appcopilotomoto/TripVoiceService.kt#L799)
+
+**Coste de integración.** La simulación de Git detectó conflictos de contenido en `CopilotApp.kt`, `NativeTripMap.kt` y `TripMapStyle.kt`. El último commit de Copilot combina los modos de cámara y el cambio de casco. Portaría el filtro de rumbo y los controles a la cámara actual, conservando la inclinación y la posición proyectada de la moto. Evaluaría el proveedor vectorial en otro cambio, con la política actualizada y pruebas de calles, edificios, consumo y temperatura. La comparación se hizo sin fusionar las ramas.
+
+## Comprobación en el mismo entorno
+
+| Código | Compilaciones comprobadas en esta revisión | Suite Full Debug |
+| --- | --- | --- |
+| Mapa principal `f53d8c8` | Full Campo y Play Debug | 365 aprobados, 2 omitidos, 0 fallos |
+| Copilot `c0b10ad` | Full Campo | 360 aprobados, 2 omitidos, 4 fallos |
+
+Los cuatro fallos de Copilot están en las capturas de Mi Moto en claro y oscuro al 100 y 200 %. El ensayo busca la tarjeta anterior y trata de desplazar una lista con la etiqueta `settings_content`, ausente en el nuevo Inicio. La prueba del acceso por el dock sí pasa. Pasan también las 12 pruebas del repositorio de Mi Moto y las dos de almacenamiento de fotos, incluidas las que su nota señalaba como fallidas en otro entorno. Las pruebas de política de mapa, cámara y activación focalizadas de Copilot pasaron dentro de la suite. [Prueba de entrada anterior](https://github.com/Gust4av033/APP-Copiloto-Moto/blob/c0b10ad/app/src/test/java/com/gust4av033/appcopilotomoto/MotorcycleUiTest.kt#L133) · [Pruebas del dock](https://github.com/Gust4av033/APP-Copiloto-Moto/blob/c0b10ad/app/src/test/java/com/gust4av033/appcopilotomoto/HomeDashboardUiTest.kt)
+
+Las dos compilaciones utilizaron JDK 17, el mismo SDK y la misma reconstrucción temporal de openWakeWord 0.1.2. La validación de la Ignitor y el trazo en Android corresponde a la rama del mapa principal. La revisión de Copilot cubrió código, APK Campo y pruebas JVM. El comportamiento de su proveedor en el S22+ y del arranque Bluetooth en el Y12 Pro queda pendiente.

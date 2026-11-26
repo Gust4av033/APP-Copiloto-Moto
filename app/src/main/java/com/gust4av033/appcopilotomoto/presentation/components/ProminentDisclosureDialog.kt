@@ -6,6 +6,10 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.annotation.StringRes
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import com.gust4av033.appcopilotomoto.R
 
 enum class DisclosureKind(@param:StringRes val title: Int, @param:StringRes val explanation: Int) {
@@ -14,6 +18,7 @@ enum class DisclosureKind(@param:StringRes val title: Int, @param:StringRes val 
     MICROPHONE(R.string.disclosure_microphone_title, R.string.disclosure_microphone_body),
     CONTACTS(R.string.disclosure_contacts_title, R.string.disclosure_contacts_body),
     LOCATION(R.string.disclosure_location_title, R.string.disclosure_location_body),
+    WEATHER(R.string.weather_title, R.string.weather_disclosure),
     ONLINE_MAP(R.string.trip_map_online_title, R.string.trip_map_online_disclosure)
 }
 
@@ -21,7 +26,7 @@ enum class DisclosureKind(@param:StringRes val title: Int, @param:StringRes val 
 fun ProminentDisclosureDialog(kind: DisclosureKind, onContinue: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(onDismissRequest = onDismiss,
         title = { Text(stringResource(kind.title)) },
-        text = { Text(stringResource(kind.explanation)) },
+        text = { Text(stringResource(kind.explanation), Modifier.testTag("disclosure_body").verticalScroll(rememberScrollState())) },
         confirmButton = { TextButton(onClick = onContinue) { Text(stringResource(R.string.disclosure_continue)) } },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.disclosure_cancel)) } })
 }

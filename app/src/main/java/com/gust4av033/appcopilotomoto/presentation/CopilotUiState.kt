@@ -7,6 +7,7 @@ import com.gust4av033.appcopilotomoto.MusicPlayer
 import com.gust4av033.appcopilotomoto.TripCallPhase
 
 enum class CopilotScreen(val titleRes: Int, val iconRes: Int, val inMainNavigation: Boolean = true) {
+    MAP(R.string.nav_map, R.drawable.ic_map),
     HOME(R.string.nav_home, R.drawable.ic_home),
     TRIP(R.string.nav_trip, R.drawable.ic_trip),
     SETTINGS(R.string.nav_settings, R.drawable.ic_settings),
@@ -155,6 +156,7 @@ data class CopilotUiState(
     val tripLocationAvailable: Boolean = false,
     val tripMap: com.gust4av033.appcopilotomoto.TripMapSession = com.gust4av033.appcopilotomoto.TripMapSession(),
     val mapOnlineEnabled: Boolean = false,
+    val weather: com.gust4av033.appcopilotomoto.WeatherUiState = com.gust4av033.appcopilotomoto.WeatherUiState(),
     val tripContextReport: String = "",
     val wazeObservationEnabled: Boolean = false,
     val wazeScreenEnabled: Boolean = false,
@@ -203,9 +205,11 @@ fun CopilotScreen.visibleFor(state: CopilotUiState): CopilotScreen =
 data class CopilotActions(
     val onMapOnlineChange: (Boolean) -> Unit = {},
     val onOpenTripNavigator: () -> Unit = {},
+    val onWeatherEnabled: (Boolean) -> Unit = {},
+    val onWeatherArea: (com.gust4av033.appcopilotomoto.WeatherArea) -> Unit = {},
+    val onRefreshWeather: () -> Unit = {},
     val onRefreshMotorcycle: () -> Unit = {},
     val onSaveMotorcycle: (com.gust4av033.appcopilotomoto.MotorcycleDraft) -> Unit = {},
-    val onChooseMotorcyclePhoto: () -> Unit = {},
     val onRemoveMotorcyclePhoto: () -> Unit = {},
     val onSaveMaintenance: (com.gust4av033.appcopilotomoto.MaintenanceDraft) -> Unit = {},
     val onDeleteMaintenance: (String) -> Unit = {},

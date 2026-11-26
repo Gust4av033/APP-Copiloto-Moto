@@ -26,7 +26,7 @@
     <string name="trip_map_online_hint">OpenFreeMap carga el mapa vectorial visible desde caché o Internet. Su disponibilidad no está garantizada y no se descargan zonas para uso offline.</string>
     <string name="trip_map_offline_hint">Calles por Internet apagadas. Con GPS podés ver el trazo local sobre fondo simple, sin cartografía de calles.</string>
     <string name="trip_map_attribution">OpenFreeMap · © OpenMapTiles · datos © OpenStreetMap. Renderizado con MapLibre Native.</string>
-    <string name="trip_map_overlay_attribution">OpenFreeMap · © OpenMapTiles · datos © OSM</string>
+    <string name="trip_map_overlay_attribution">OpenFreeMap · © OpenMapTiles · © OpenStreetMap</string>
     <string name="trip_map_engine">MapLibre Native · trazo local sin calles</string>
     <string name="trip_map_attribution_link">Licencia y atribución del mapa</string>
     <string name="trip_map_scope">El trazo muestra posiciones registradas, no una ruta vial planificada. Los giros, el tráfico y el recálculo siguen en el navegador externo.</string>
@@ -41,10 +41,6 @@
     <string name="trip_map_render_error">El mapa no pudo dibujarse en este dispositivo. Las métricas y el copiloto siguen disponibles.</string>
     <string name="trip_map_center">Centrar última posición</string>
     <string name="trip_map_fit">Ver trazo registrado</string>
-    <string name="trip_map_camera_heading">Rumbo</string>
-    <string name="trip_map_camera_north">Norte</string>
-    <string name="trip_map_camera_free">Libre</string>
-    <string name="trip_map_camera_waiting_heading">Giro solo con rumbo GPS reciente y preciso; mientras tanto, norte arriba.</string>
     <string name="trip_map_retry">Reintentar mapa</string>
     <string name="trip_map_link_error">No se pudo abrir el enlace. Revisá que tengas un navegador web disponible.</string>
 </resources>

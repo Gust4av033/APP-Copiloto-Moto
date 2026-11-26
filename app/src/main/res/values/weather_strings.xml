@@ -1,0 +1,36 @@
+<resources>
+    <string name="weather_title">Clima</string>
+    <string name="weather_online">Consultar Open-Meteo</string>
+    <string name="weather_disclosure">Para consultar el clima, APP enviará a api.open-meteo.com las coordenadas del área elegida (tu ubicación GPS actual o destino), redondeadas a dos decimales, junto con tu IP. No enviará el recorrido, historial, moto, contactos ni audio. Solo consulta mientras este mapa está visible, con caché temporal y actualización cada 15 minutos. Podés apagarlo desde Clima en el mapa o Privacidad. Servicio gratuito de uso no comercial, sin disponibilidad garantizada.</string>
+    <string name="weather_enable">Activar clima</string>
+    <string name="weather_off_hint">Elegí si querés consultar el clima por Internet.</string>
+    <string name="weather_finish_session">Para activar el servicio, terminá la sesión de voz. Luego podés consultar el clima durante el viaje.</string>
+    <string name="weather_waiting_gps">Necesita GPS reciente del viaje</string>
+    <string name="weather_no_destination">Elegí un destino con coordenadas en Viaje</string>
+    <string name="weather_loading">Consultando…</string>
+    <string name="weather_unavailable">Clima no disponible</string>
+    <string name="weather_previous">Consulta anterior</string>
+    <string name="weather_update_failed">No se pudo actualizar. Mostramos la consulta anterior mientras siga vigente.</string>
+    <string name="weather_here">Mi ubicación</string>
+    <string name="weather_destination">Destino · %1$s</string>
+    <string name="weather_not_selected">sin elegir</string>
+    <string name="weather_wind">Viento · %1$s km/h</string>
+    <string name="weather_at">Condiciones de %1$s · %2$s</string>
+    <string name="weather_model_hint">Estimación meteorológica de Open-Meteo para esta zona; no es una medición del teléfono.</string>
+    <string name="weather_hourly">Próximas horas</string>
+    <string name="weather_hour_details">%1$s · probabilidad de lluvia %2$s %%</string>
+    <string name="weather_hours_unavailable">Pronóstico por horas no disponible.</string>
+    <string name="weather_refresh">Actualizar clima</string>
+    <string name="weather_refresh_wait">Esperá un minuto entre consultas manuales.</string>
+    <string name="weather_attribution">Open-Meteo · CC BY 4.0</string>
+    <string name="weather_clear">Despejado</string>
+    <string name="weather_partly_cloudy">Parcialmente nublado</string>
+    <string name="weather_cloudy">Nublado</string>
+    <string name="weather_fog">Niebla</string>
+    <string name="weather_drizzle">Llovizna</string>
+    <string name="weather_freezing_rain">Precipitación helada</string>
+    <string name="weather_rain">Lluvia</string>
+    <string name="weather_snow">Nieve</string>
+    <string name="weather_storm">Tormenta</string>
+    <string name="weather_unknown">Condición no disponible</string>
+</resources>

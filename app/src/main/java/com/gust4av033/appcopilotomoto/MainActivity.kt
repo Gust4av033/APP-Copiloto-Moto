@@ -21,6 +21,7 @@ import android.provider.Settings
 import android.widget.Toast
 import android.view.KeyEvent
 import android.view.WindowManager
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.Lifecycle
 import androidx.activity.ComponentActivity
 import androidx.activity.enableEdgeToEdge
@@ -62,30 +63,17 @@ class MainActivity : ComponentActivity() {
         const val ACTION_OPEN_ASSISTANT = "com.gust4av033.appcopilotomoto.OPEN_ASSISTANT"
     }
     private val settingsStore by lazy { UserSettingsStore(this) }
+    private val weatherController by lazy { WeatherController(applicationContext) }
+    private fun updateWeather() {
+        val now = SystemClock.elapsedRealtime()
+        val fix = if (tripLocationEnabled && TripLocationAccess.available(this)) TripRecordingState.mapSession.currentFix(now) else null
+        val here = fix?.takeIf { !it.isSimulated }?.let { TargetDestination("", it.latitude, it.longitude) }
+        val destination = if (TripTestState.running) TripNavigationState.context.ownDestination
+            else nextTripDestination?.let { NavigationPreferences.coordinates(this, it) }
+        weatherController.update(selectedScreen == CopilotScreen.MAP, here, destination)
+    }
     private var mapOnlineEnabled by mutableStateOf(false)
     private var motorcycleState by mutableStateOf(MotorcycleUiState())
-    private var pendingMotorcyclePhotoUri: Uri? = null
-    private val motorcyclePhotoPicker = registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
-        if (uri != null) {
-            pendingMotorcyclePhotoUri = uri
-            applyPendingMotorcyclePhoto()
-        }
-    }
-
-    private fun applyPendingMotorcyclePhoto() {
-        val uri = pendingMotorcyclePhotoUri ?: return
-        if (motorcycleState.working) return
-        pendingMotorcyclePhotoUri = null
-        if (audioBusy()) { motorcycleState = motorcycleState.copy(messageRes = R.string.motorcycle_locked); return }
-        motorcycleWork(R.string.motorcycle_photo_error, allowUnloaded = true) { repository, photos ->
-            val profile = checkNotNull(repository.load().profile)
-            val imported = photos.importPhoto(uri)
-            try { repository.setPhoto(imported) }
-            catch (failure: Exception) { photos.delete(imported); throw failure }
-            profile.photoName?.let { runCatching { photos.delete(it) } }
-        }
-    }
-
     private fun motorcycleWork(failureRes: Int = R.string.motorcycle_load_error,
         allowUnloaded: Boolean = false,
         mutation: ((MotorcycleRepository, MotorcyclePhotoStore) -> Unit)? = null) {
@@ -101,9 +89,8 @@ class MainActivity : ComponentActivity() {
                     mutation?.invoke(repository, photos)
                     repository.load()
                 }
-                val photo = data.profile?.photoName?.let { runCatching { photos.read(it)?.asImageBitmap() }.getOrNull() }
                 val gps = runCatching { TripRepository(appContext.filesDir).recordedDistance() }
-                MotorcycleUiState(data = data, loaded = true, photo = photo,
+                MotorcycleUiState(data = data, loaded = true,
                     gpsDistanceMeters = gps.getOrNull()?.first, gpsTripCount = gps.getOrNull()?.second ?: 0,
                     gpsReadFailed = gps.isFailure, revision = before.revision + if (mutation != null) 1 else 0,
                     messageRes = if (mutation != null) R.string.motorcycle_saved else null)
@@ -113,7 +100,6 @@ class MainActivity : ComponentActivity() {
                     motorcycleState = result.getOrElse {
                         before.copy(working = false, error = true, messageRes = failureRes)
                     }
-                    applyPendingMotorcyclePhoto()
                 }
             }
         }
@@ -238,7 +224,7 @@ class MainActivity : ComponentActivity() {
         buttonProbeLog = log
         buttonProbeMessage = status
     } }
-    private var selectedScreen by mutableStateOf(CopilotScreen.HOME)
+    private var selectedScreen by mutableStateOf(CopilotScreen.MAP)
     private var result by mutableStateOf<AudioProbeResult?>(null)
     private var pendingAction: (() -> Unit)? = null
 
@@ -376,7 +362,7 @@ class MainActivity : ComponentActivity() {
         }.getOrDefault(WakeAudioMode.BLUETOOTH)
         savedInstanceState?.let { saved ->
             selectedScreen = runCatching { CopilotScreen.valueOf(saved.getString("ui_screen").orEmpty()) }
-                .getOrDefault(CopilotScreen.HOME)
+                .getOrDefault(CopilotScreen.MAP)
             wakePhrase = runCatching { WakePhrase.valueOf(saved.getString("ui_phrase").orEmpty()) }
                 .getOrDefault(WakePhrase.ALEXA)
             tripAudioMode = runCatching { WakeAudioMode.valueOf(saved.getString("ui_input").orEmpty()) }
@@ -401,13 +387,20 @@ class MainActivity : ComponentActivity() {
     /** Único puente entre el runtime de fase 1 y las pantallas Compose. */
     @Composable
     private fun AppUi() {
+        LaunchedEffect(selectedScreen, tripLocationEnabled, tripLocationAvailable, TripRecordingState.mapSession.lastFix,
+            nextTripDestination, TripNavigationState.context.ownDestination) {
+            updateWeather()
+            if (selectedScreen == CopilotScreen.MAP) lifecycle.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+                while (true) { updateWeather(); delay(5_000) }
+            }
+        }
         var routeRefresh by remember { mutableLongStateOf(0L) }
         LaunchedEffect(TripTestState.running) {
             if (!TripTestState.running) routeRefresh = 0L
             while (TripTestState.running) {
                 routeRefresh = SystemClock.elapsedRealtime()
                 tripLocationAvailable = TripLocationAccess.available(this@MainActivity)
-                delay(if (selectedScreen == CopilotScreen.TRIP && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) 1_000 else 5_000)
+                delay(if ((selectedScreen == CopilotScreen.MAP || selectedScreen == CopilotScreen.TRIP) && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) 1_000 else 5_000)
             }
         }
         // The tick requests recomposition; observation age must use the clock at this render.
@@ -508,6 +501,7 @@ class MainActivity : ComponentActivity() {
             tripLocationAvailable = tripLocationAvailable,
             tripMap = TripRecordingState.mapSession,
             mapOnlineEnabled = mapOnlineEnabled,
+            weather = weatherController.state,
             tripContextReport = tripContextReport,
             wazeObservationEnabled = wazeObservationEnabled,
             wazeObservationGranted = wazeObservationGranted,
@@ -562,6 +556,14 @@ class MainActivity : ComponentActivity() {
                 selectedScreen = if (it == CopilotScreen.TESTS && !developerEnabled) CopilotScreen.DIAGNOSTICS else it
             },
             actions = CopilotActions(
+                onWeatherEnabled = { enabled ->
+                    if (!enabled) weatherController.enabled(false)
+                    else if (!audioBusy()) disclose(DisclosureKind.WEATHER) {
+                        if (!audioBusy()) { updateWeather(); weatherController.enabled(true) }
+                    }
+                },
+                onWeatherArea = { weatherController.select(it) },
+                onRefreshWeather = { updateWeather(); weatherController.refresh() },
                 onMapOnlineChange = { enabled ->
                     if (!enabled) {
                         TripMapPreferences(this@MainActivity).setOnlineEnabled(false)
@@ -585,11 +587,6 @@ class MainActivity : ComponentActivity() {
                 },
                 onRefreshMotorcycle = { motorcycleWork() },
                 onSaveMotorcycle = { draft -> motorcycleWork(R.string.motorcycle_save_error) { repository, _ -> repository.saveProfile(draft) } },
-                onChooseMotorcyclePhoto = {
-                    if (!audioBusy() && motorcycleState.loaded && !motorcycleState.working && !motorcycleState.error) {
-                        motorcyclePhotoPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                    }
-                },
                 onRemoveMotorcyclePhoto = { motorcycleWork(R.string.motorcycle_save_error) { repository, photos ->
                     val old = repository.load().profile?.photoName
                     repository.setPhoto(null)
@@ -1030,6 +1027,8 @@ class MainActivity : ComponentActivity() {
         tripLocationEnabled = settingsStore.tripLocationEnabled()
         tripLocationAvailable = TripLocationAccess.available(this)
         refreshSavedCoordinates()
+        updateWeather()
+        weatherController.foreground(true)
         microphoneGranted = checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
         bluetoothGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.S || checkSelfPermission(Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
         notificationsGranted = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU || checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -1194,6 +1193,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onPause() {
+        weatherController.foreground(false)
         developerChallenge.reset()
         developerConfirmationRequested = false
         TripTestState.appVisible = false
@@ -1700,6 +1700,7 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
+        weatherController.destroy()
         if (testReadyCueLazy.isInitialized()) testReadyCue.cancel()
         presentationGeneration++
         presentationWorker.shutdown()

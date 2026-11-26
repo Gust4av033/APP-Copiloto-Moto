@@ -1,5 +1,12 @@
 package com.gust4av033.appcopilotomoto
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
+import com.gust4av033.appcopilotomoto.presentation.components.LocalTripMapRenderer
+import com.gust4av033.appcopilotomoto.presentation.components.TripMapRenderer
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.platform.LocalDensity
@@ -41,12 +48,15 @@ class VisualGlassCaptureTest {
         RuntimeEnvironment.setQualifiers("w360dp-h800dp-${if (theme == "night") "night" else "notnight"}")
         val screen = mutableStateOf(CopilotScreen.HOME)
         compose.setContent {
-            CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, scale)) {
+            CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, scale),
+                LocalTripMapRenderer provides TripMapRenderer { _, _, _ ->
+                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text("Área del mapa · prueba de interfaz") }
+                }) {
                 CopilotApp(CopilotUiState(installedVersion = "test"), screen.value,
                     { screen.value = it }, CopilotActions())
             }
         }
-        for (target in listOf(CopilotScreen.HOME, CopilotScreen.TRIP, CopilotScreen.SETTINGS)) {
+        for (target in listOf(CopilotScreen.MAP, CopilotScreen.HOME, CopilotScreen.TRIP, CopilotScreen.SETTINGS)) {
             compose.runOnIdle { screen.value = target }
             compose.runOnIdle {
                 val view = (compose as AndroidComposeTestRule<*, *>).activity.window.decorView

@@ -30,7 +30,7 @@ data class TripTileProvider(
     val attributionUrl: String
 )
 
-/** Explicit providers. Only OpenFreeMap is active; OSM remains a documented rollback. */
+/** Fixed vector provider adopted from Copilot c0b10ad. No fallback network hosts. */
 internal object TripTilePolicy {
     val OPEN_FREE_MAP = TripTileProvider(
         id = "openfreemap",
@@ -38,13 +38,6 @@ internal object TripTilePolicy {
         consentVersion = 2,
         attributionLabel = "OpenFreeMap · © OpenMapTiles · datos © OSM",
         attributionUrl = "https://openfreemap.org/"
-    )
-    val OSM_ROLLBACK = TripTileProvider(
-        id = "osm-raster",
-        hosts = setOf("tile.openstreetmap.org"),
-        consentVersion = 1,
-        attributionLabel = "© OpenStreetMap contributors",
-        attributionUrl = "https://www.openstreetmap.org/copyright"
     )
     val ACTIVE_PROVIDER = OPEN_FREE_MAP
     const val USER_AGENT = "APP-Copiloto-Moto/${BuildConfig.VERSION_NAME} (+https://github.com/Gust4av033/APP-Copiloto-Moto)"

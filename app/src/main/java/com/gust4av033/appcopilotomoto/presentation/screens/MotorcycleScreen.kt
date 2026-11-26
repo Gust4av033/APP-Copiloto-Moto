@@ -22,6 +22,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.RadioButton
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.layout.Row
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -79,33 +89,50 @@ private fun MotorcycleProfileCard(state: CopilotUiState, actions: CopilotActions
     var name by rememberSaveable(saved?.name) { mutableStateOf(saved?.name.orEmpty()) }
     var model by rememberSaveable(saved?.model) { mutableStateOf(saved?.model.orEmpty()) }
     var km by rememberSaveable(saved?.odometerMeters) { mutableStateOf(manualKilometers(saved?.odometerMeters)) }
-    val draft = MotorcycleDraft(name, model, km)
+    var catalogId by rememberSaveable(saved?.catalogId) { mutableStateOf(saved?.catalogId) }
+    var catalogOpen by rememberSaveable { mutableStateOf(false) }
+    val selected = MotorcycleCatalog.find(catalogId)
+    val draft = MotorcycleDraft(name, model, km, catalogId)
     val changed = saved == null || name != saved.name || model != saved.model ||
-        km != manualKilometers(saved.odometerMeters)
+        km != manualKilometers(saved.odometerMeters) || catalogId != saved.catalogId
     SectionCard(stringResource(R.string.motorcycle_profile)) {
-        moto.photo?.let {
-            Image(it, stringResource(R.string.motorcycle_photo_description),
-                Modifier.fillMaxWidth().heightIn(max = Glass.motorcyclePhotoHeight).clip(MaterialTheme.shapes.medium),
-                contentScale = ContentScale.Fit)
+        Image(painterResource(selected?.artwork ?: R.drawable.ic_ignitor_vector),
+            stringResource(R.string.motorcycle_catalog_art), Modifier.fillMaxWidth().heightIn(max = Glass.motorcyclePhotoHeight))
+        Text(selected?.model ?: saved?.model?.takeIf { it.isNotBlank() } ?: stringResource(R.string.motorcycle_catalog_unselected),
+            style = MaterialTheme.typography.titleLarge)
+        ActionButton(stringResource(R.string.motorcycle_catalog_choose), enabled = editable) { catalogOpen = true }
+        SupportingText(stringResource(R.string.motorcycle_catalog_hint))
+        if (saved != null && saved.catalogId == null) SupportingText(stringResource(R.string.motorcycle_legacy_model))
+        if (saved?.photoName != null) {
+            SupportingText(stringResource(R.string.motorcycle_legacy_photo))
+            ActionButton(stringResource(R.string.motorcycle_remove_photo), enabled = editable, destructive = true,
+                onClick = actions.onRemoveMotorcyclePhoto)
         }
-        if (saved?.photoName != null && moto.photo == null) SupportingText(stringResource(R.string.motorcycle_photo_missing))
-        ActionButton(stringResource(R.string.motorcycle_choose_photo), enabled = editable && saved != null,
-            onClick = actions.onChooseMotorcyclePhoto)
-        SupportingText(stringResource(R.string.motorcycle_photo_hint))
-        if (saved == null) SupportingText(stringResource(R.string.motorcycle_photo_save_first))
-        if (saved?.photoName != null) ActionButton(stringResource(R.string.motorcycle_remove_photo),
-            enabled = editable, destructive = true, onClick = actions.onRemoveMotorcyclePhoto)
+        if (catalogOpen) AlertDialog(onDismissRequest = { catalogOpen = false },
+            title = { Text(stringResource(R.string.motorcycle_catalog_choose)) }, text = {
+                Column(Modifier.selectableGroup().verticalScroll(rememberScrollState())) {
+                    MotorcycleCatalog.entries.forEach { entry ->
+                        Row(Modifier.fillMaxWidth().heightIn(min = Glass.iconButtonSize)
+                            .selectable(selected = entry.id == catalogId, enabled = editable, role = Role.RadioButton) {
+                                catalogId = entry.id; model = entry.model; catalogOpen = false
+                            }, verticalAlignment = Alignment.CenterVertically) {
+                            RadioButton(selected = entry.id == catalogId, onClick = null, enabled = editable)
+                            Text(entry.model)
+                        }
+                    }
+                    SupportingText(stringResource(R.string.motorcycle_catalog_hint))
+                }
+            }, confirmButton = { TextButton(onClick = { catalogOpen = false }) { Text(stringResource(R.string.ride_done)) } })
         MotoField(name, { name = it }, R.string.motorcycle_name, editable, max = 60)
-        MotoField(model, { model = it }, R.string.motorcycle_model, editable, max = 100)
         MotoField(km, { km = it }, R.string.motorcycle_odometer, editable, decimal = true,
             error = km.isNotBlank() && parseManualKilometers(km) == null)
         SupportingText(stringResource(R.string.motorcycle_odometer_hint))
         if (km.isNotBlank() && parseManualKilometers(km) == null) SupportingText(stringResource(R.string.motorcycle_km_invalid))
-        ActionButton(stringResource(R.string.motorcycle_save), enabled = editable && changed && draft.isValid(), primary = true) {
+        ActionButton(stringResource(R.string.motorcycle_save), enabled = editable && changed && draft.isValid() && (catalogId != null || saved != null), primary = true) {
             actions.onSaveMotorcycle(draft)
         }
         if (changed && saved != null) ActionButton(stringResource(R.string.motorcycle_discard), enabled = editable) {
-            name = saved.name; model = saved.model; km = manualKilometers(saved.odometerMeters)
+            name = saved.name; model = saved.model; km = manualKilometers(saved.odometerMeters); catalogId = saved.catalogId
         }
     }
 }

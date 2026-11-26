@@ -55,4 +55,10 @@
     <string name="motorcycle_due_km">Próxima revisión: %1$s km del tablero</string>
     <string name="motorcycle_due">Revisión pendiente según los datos ingresados</string>
     <string name="motorcycle_due_km_unknown">Sin kilometraje manual actual: no se puede evaluar el vencimiento por km.</string>
+    <string name="motorcycle_catalog_choose">Elegir moto del catálogo</string>
+    <string name="motorcycle_catalog_unselected">Elegí tu modelo</string>
+    <string name="motorcycle_catalog_art">Ilustración del avatar de moto</string>
+    <string name="motorcycle_catalog_hint">Nuestro catálogo empieza con la Hero Ignitor 125. Avatar azul estilizado; más modelos y personalización se agregarán después.</string>
+    <string name="motorcycle_legacy_model">Conservamos el modelo que habías escrito. Podés vincularlo al catálogo sin cambiar kilometraje ni mantenimiento.</string>
+    <string name="motorcycle_legacy_photo">Tu foto anterior sigue guardada en este teléfono. Ahora usamos ilustraciones del catálogo.</string>
 </resources>
