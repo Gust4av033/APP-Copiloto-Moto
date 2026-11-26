@@ -67,9 +67,39 @@ internal object TripMapStyle {
             }
         }
     }
+    /** Only explicit OMT oneway values establish direction; never infer it from the trace. */
+    internal fun roadDirection(value: Int): Int? = when (value) { 1 -> 0; -1 -> 180; else -> null }
+    private fun roadLegibility(style: JSONObject) {
+        val original = style.optJSONArray("layers") ?: return
+        val layers = JSONArray()
+        for (i in 0 until original.length()) {
+            val layer = original.getJSONObject(i)
+            if (layer.getString("id").startsWith("road_one_way_arrow")) continue
+            if (layer.getString("id").startsWith("highway-name-")) {
+                layer.getJSONObject("layout")
+                    .put("text-field", JSONArray("[\"coalesce\",[\"get\",\"name:es\"],[\"get\",\"name\"],[\"get\",\"name:latin\"]]"))
+                    .put("text-size", JSONArray("[\"interpolate\",[\"linear\"],[\"zoom\"],13,12,16,15,19,17]"))
+                layer.getJSONObject("paint").put("text-halo-width", 1.5)
+            }
+            layers.put(layer)
+        }
+        for (direction in listOf(1, -1)) layers.put(JSONObject()
+            .put("id", "app-road-direction-$direction").put("type", "symbol")
+            .put("source", VECTOR).put("source-layer", "transportation").put("minzoom", 16)
+            .put("filter", JSONArray().put("all")
+                .put(JSONArray().put("==").put(JSONArray().put("get").put("oneway")).put(direction))
+                .put(JSONArray("[\"match\",[\"get\",\"class\"],[\"motorway\",\"trunk\",\"primary\",\"secondary\",\"tertiary\",\"minor\",\"service\"],true,false]")))
+            .put("layout", JSONObject().put("symbol-placement", "line").put("symbol-spacing", 120)
+                .put("icon-image", "app-road-direction").put("icon-size", .75)
+                .put("icon-rotate", roadDirection(direction)).put("icon-rotation-alignment", "map")
+                .put("icon-pitch-alignment", "map").put("icon-keep-upright", false)
+                .put("icon-allow-overlap", false).put("icon-ignore-placement", false)))
+        style.put("layers", layers)
+    }
     fun json(online: Boolean, paint: TripMapPaint, base: String? = null): String {
         val result = if (online && base != null) JSONObject(base) else JSONObject()
         if (online && paint.brightness < 1f) applyNightPalette(result)
+        if (online && base != null) roadLegibility(result)
         val sources = result.optJSONObject("sources") ?: JSONObject()
         for (id in listOf(ROUTE, FIX, MOTO, TREES)) sources.put(id,
             JSONObject().put("type", "geojson").put("data", emptyCollection()))

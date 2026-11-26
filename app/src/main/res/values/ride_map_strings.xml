@@ -44,4 +44,5 @@
     <string name="map_audio_unknown">Sin acceso</string>
     <string name="map_start_short">Iniciar viaje</string>
     <string name="map_stop_short">Detener</string>
+    <string name="map_road_coverage">Las flechas indican el sentido único registrado en el mapa, no instrucciones de giro. La cobertura puede estar incompleta o desactualizada. Este mapa no incluye una capa verificada de stops ni semáforos; prevalece la señalización de la vía.</string>
 </resources>

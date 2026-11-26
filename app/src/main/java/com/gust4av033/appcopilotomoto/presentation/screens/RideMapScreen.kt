@@ -106,6 +106,7 @@ internal fun RideMapScreen(state: CopilotUiState, actions: CopilotActions, navig
                     actions.onMapOnlineChange(it)
                 }
                 SupportingText(stringResource(if (state.mapOnlineEnabled) R.string.trip_map_online_hint else R.string.ride_offline_hint))
+                SupportingText(stringResource(R.string.map_road_coverage))
                 SupportingText(stringResource(R.string.map_buildings_hint))
                 SupportingText(stringResource(R.string.map_forest_hint))
                 if (tripMapHeadingDegrees(state.tripMap.currentFix(now)) == null)

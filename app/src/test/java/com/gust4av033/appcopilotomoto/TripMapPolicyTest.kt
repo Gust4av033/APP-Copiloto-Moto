@@ -20,6 +20,23 @@ import java.util.concurrent.TimeUnit
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class TripMapPolicyTest {
+    @Test fun roadDirectionDoesNotGuessUnknownOrBidirectionalRoads() {
+        assertEquals(0, TripMapStyle.roadDirection(1))
+        assertEquals(180, TripMapStyle.roadDirection(-1))
+        assertNull(TripMapStyle.roadDirection(0))
+        assertNull(TripMapStyle.roadDirection(2))
+        val base = RuntimeEnvironment.getApplication().assets.open("map/liberty.json").bufferedReader().use { it.readText() }
+        val paint = TripMapPaint("#050C1D", "#2F6BFF", "#79DDFF", "#888888", "#050C1D", 4f, 7f, 2f, .82f, "#334455", "#668899")
+        val layers = JSONObject(TripMapStyle.json(true, paint, base)).getJSONArray("layers")
+        val arrows = (0 until layers.length()).map { layers.getJSONObject(it) }.filter { it.getString("id").startsWith("app-road-direction-") }
+        assertEquals(2, arrows.size)
+        for (layer in arrows) {
+            assertEquals("transportation", layer.getString("source-layer"))
+            assertFalse(layer.getJSONObject("layout").getBoolean("icon-keep-upright"))
+            assertFalse(layer.getJSONObject("layout").getBoolean("icon-allow-overlap"))
+            assertTrue(layer.getJSONArray("filter").toString().contains("oneway"))
+        }
+    }
     @Test fun cameraHeadingRequiresFreshUsableMotionAndAccurateBearing() {
         fun fix(speed: Float?, accuracy: Float?, bearing: Float?) = LocationSample(
             1_000, 1_000, 14.6, -90.5, null, speed, null, bearing, accuracy, 3f, "test-fixture", false

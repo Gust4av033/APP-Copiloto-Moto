@@ -147,7 +147,12 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
             ready.uiSettings.isRotateGesturesEnabled = cameraMode == TripMapCameraMode.FREE
             val base = if (online) context.assets.open("map/liberty.json")
                 .bufferedReader().use { it.readText() } else null
+            val direction = android.graphics.Bitmap.createBitmap(28, 20, android.graphics.Bitmap.Config.ARGB_8888)
+            context.getDrawable(R.drawable.ic_road_direction)?.apply {
+                setBounds(0, 0, 28, 20); draw(android.graphics.Canvas(direction))
+            }
             val style = Style.Builder().fromJson(TripMapStyle.json(online, paint, base))
+                .withImage("app-road-direction", direction)
             ready.setStyle(style) {
                 if (!destroyed) {
                     lastApplied = null; modelKey = null; applyData(); updateModel(); vegetation?.visible(online && inclined && resumed)
