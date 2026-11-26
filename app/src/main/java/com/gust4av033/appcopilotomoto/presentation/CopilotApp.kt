@@ -137,7 +137,7 @@ fun CopilotApp(
                 }
             },
             bottomBar = {
-                Column {
+                if (visibleScreen != CopilotScreen.MAP) Column {
                     if (state.tripActive && visibleScreen != CopilotScreen.TRIP && visibleScreen != CopilotScreen.MAP) {
                         Surface(color = Glass.surface(strong = true),
                             contentColor = MaterialTheme.colorScheme.onSurface) {

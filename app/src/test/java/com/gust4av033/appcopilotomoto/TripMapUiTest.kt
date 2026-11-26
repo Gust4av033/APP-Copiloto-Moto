@@ -117,7 +117,7 @@ class TripMapUiTest {
         compose.onNodeWithContentDescription("Mi moto", ignoreCase = true).performClick()
         assertEquals(CopilotScreen.MOTORCYCLE, destination)
         assertEquals(0, starts)
-        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.trip_start)).performClick()
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.map_start_short)).performClick()
         assertEquals(1, starts)
     }
     @Test fun revokingGpsRemovesPreviousTraceAndMarkerFromMainMap() {

@@ -59,18 +59,17 @@ public final class TripMapRenderSmoke {
             instrumentation.runOnMainSync(() -> {
                 try {
                     if (map.getPrefetchesTiles() || map.getPrefetchZoomDelta() != 0 ||
-                            map.getStyle().getSource("osm-standard") != null ||
-                            Math.abs(map.getCameraPosition().tilt - 42) > 1)
+                            map.getStyle().getSource("openmaptiles") != null ||
+                            Math.abs(map.getCameraPosition().tilt - 52) > 1)
                         throw new IllegalStateException("Unexpected camera or online source");
                     MapView view = find(activity.getWindow().getDecorView());
                     int id = activity.getResources().getIdentifier("trip_map_motorcycle_marker", "id", activity.getPackageName());
                     ImageView bike = view.findViewById(id);
                     PointF fix = map.getProjection().toScreenLocation(new org.maplibre.android.geometry.LatLng(14.6006, -90.5));
-                    PointF start = map.getProjection().toScreenLocation(new org.maplibre.android.geometry.LatLng(14.6, -90.5));
+                    PointF start = map.getProjection().toScreenLocation(new org.maplibre.android.geometry.LatLng(14.6004, -90.5));
                     if ((previous != null && Math.abs(fix.x - view.getWidth() / 2f) < 50) ||
-                        bike == null || !bike.isShown() ||
-                        Math.abs(bike.getX() + bike.getWidth()/2f - fix.x) > 2 ||
-                        Math.abs(bike.getY() + bike.getHeight()/2f - fix.y) > 2) {
+                        map.getStyle().getLayer("trip-motorcycle-3d") == null ||
+                        bike == null || bike.isShown()) {
                         copied.countDown();
                         return;
                     }
@@ -79,19 +78,18 @@ public final class TripMapRenderSmoke {
                     Rect rect = new Rect(origin[0], origin[1], origin[0] + view.getWidth(), origin[1] + view.getHeight());
                     Bitmap frame = Bitmap.createBitmap(view.getWidth(), view.getHeight(), Bitmap.Config.ARGB_8888);
                     PixelCopy.request(activity.getWindow(), rect, frame, status -> {
-                        // The navy tank badge is wider than the old seven-pixel circular fix.
-                        int navyPixels = 0;
-                        int half = bike.getWidth() / 2;
-                        for (int dy = -half; dy < half; dy++) for (int dx = -half; dx < half; dx++) {
-                            if (dx * dx + dy * dy < half * half / 9) continue;
+                        // A substantial blue body above the ground point proves the 3D avatar rendered.
+                        // The old ImageView must be hidden; the track approaches from below.
+                        int bodyPixels = 0;
+                        for (int dy = -85; dy < -12; dy++) for (int dx = -55; dx < 55; dx++) {
                             int x = Math.round(fix.x) + dx, y = Math.round(fix.y) + dy;
                             if (x < 0 || y < 0 || x >= frame.getWidth() || y >= frame.getHeight()) continue;
                             int pixel = frame.getPixel(x, y);
-                            if (android.graphics.Color.red(pixel) < 110 &&
-                                android.graphics.Color.blue(pixel) > android.graphics.Color.red(pixel) + 18)
-                                navyPixels++;
+                            if (android.graphics.Color.blue(pixel) > android.graphics.Color.red(pixel) + 65 &&
+                                android.graphics.Color.blue(pixel) > android.graphics.Color.green(pixel) + 45)
+                                bodyPixels++;
                         }
-                        if (status == PixelCopy.SUCCESS && navyPixels >= 100 && containsTrace(frame, traceColor, start) &&
+                        if (status == PixelCopy.SUCCESS && bodyPixels >= 100 && containsTrace(frame, traceColor, start) &&
                             (previous == null || !previous.sameAs(frame)))
                             result.set(frame);
                         else frame.recycle();
@@ -132,12 +130,33 @@ public final class TripMapRenderSmoke {
             }
             MapLibreMap map = readyMap.get();
             if (map == null) throw new IllegalStateException("Map style failed to initialize");
+            // Two explicitly synthetic buildings exercise depth and extrusion with no network.
+            instrumentation.runOnMainSync(() -> {
+                String buildings = "{\"type\":\"FeatureCollection\",\"features\":["
+                    + "{\"type\":\"Feature\",\"properties\":{},\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[-90.50035,14.60065],[-90.50016,14.60065],[-90.50016,14.6009],[-90.50035,14.6009],[-90.50035,14.60065]]]}} ,"
+                    + "{\"type\":\"Feature\",\"properties\":{},\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[-90.4998,14.6007],[-90.4996,14.6007],[-90.4996,14.6009],[-90.4998,14.6009],[-90.4998,14.6007]]]}}]}";
+                map.getStyle().addSource(new org.maplibre.android.style.sources.GeoJsonSource("test-buildings", buildings));
+                map.getStyle().addLayerBelow(new org.maplibre.android.style.layers.FillExtrusionLayer("test-buildings", "test-buildings")
+                    .withProperties(org.maplibre.android.style.layers.PropertyFactory.fillExtrusionColor("#4A5E78"),
+                        org.maplibre.android.style.layers.PropertyFactory.fillExtrusionHeight(24f),
+                        org.maplibre.android.style.layers.PropertyFactory.fillExtrusionOpacity(1f)), "trip-recorded-route");
+                // Fixture park is intentionally synthetic; production uses mapped green polygons only.
+                String park = "{\"type\":\"Feature\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[-90.50065,14.60075],[-90.5004,14.60075],[-90.5004,14.60115],[-90.50065,14.60115],[-90.50065,14.60075]]]}}";
+                com.gust4av033.appcopilotomoto.presentation.components.MapVegetation vegetation =
+                    com.gust4av033.appcopilotomoto.presentation.components.MapVegetation.INSTANCE;
+                String forest = vegetation.build(vegetation.polygons(java.util.Collections.singletonList(park)),
+                    java.util.Collections.emptyList(), java.util.Collections.emptyList(),
+                    new com.gust4av033.appcopilotomoto.presentation.components.MapBounds(-90.501,14.6002,-90.499,14.6013),18.0,true);
+                org.maplibre.android.style.sources.GeoJsonSource trees = map.getStyle().getSourceAs("map-stylised-vegetation");
+                trees.setGeoJson(forest);
+
+            });
             int expected = target.getIntent().getIntExtra("fixture_route_color", 0);
             if (expected == 0) throw new IllegalStateException("Fixture route color unavailable");
             Bitmap bitmap = displayedFrame(instrumentation, target, map, expected, null);
             saveFrame(target, bitmap, "trip-map-native.png");
             instrumentation.runOnMainSync(() -> map.moveCamera(org.maplibre.android.camera.CameraUpdateFactory
-                .newLatLng(new org.maplibre.android.geometry.LatLng(14.60045, -90.49900))));
+                .newLatLng(new org.maplibre.android.geometry.LatLng(14.60058, -90.49972))));
             Bitmap afterPan = displayedFrame(instrumentation, target, map, expected, bitmap);
             saveFrame(target, afterPan, "trip-map-panned.png");
             afterPan.recycle();
@@ -145,7 +164,7 @@ public final class TripMapRenderSmoke {
             if (screen != null) try (FileOutputStream file = new FileOutputStream(new File(instrumentation.getTargetContext().getFilesDir(), "trip-map-native-screen.png"))) {
                 screen.compress(Bitmap.CompressFormat.PNG, 100, file);
             }
-            result.putString("stream", "Motorcycle visible at the projected fix before and after moving the 42-degree camera; trace rendered; prefetch off; online source absent; GPS/audio never opened.\n");
+            result.putString("stream", "Native 3D motorcycle visible above the projected fix before and after moving the 52-degree camera; trace rendered; prefetch off; online source absent; GPS/audio never opened.\n");
             resultCode = Activity.RESULT_OK;
         } catch (Throwable failure) {
             result.putString("stream", "Map render FAILED: " + failure.getClass().getSimpleName() + ": " + failure.getMessage());

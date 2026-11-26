@@ -1,7 +1,7 @@
 package com.gust4av033.appcopilotomoto.presentation.components
 
 import com.gust4av033.appcopilotomoto.TripMapSession
-import com.gust4av033.appcopilotomoto.TripTilePolicy
+import com.gust4av033.appcopilotomoto.presentation.theme.Glass
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -13,7 +13,10 @@ internal object TripMapStyle {
     const val ROUTE = "trip-recorded-route"
     const val FIX = "trip-observed-fix"
     const val LAND = "world-land"
-    const val OSM = "osm-standard"
+    const val VECTOR = "openmaptiles"
+    const val TREES = "map-stylised-vegetation"
+    const val GLOW = "trip-route-glow"
+    const val MOTO = "trip-motorcycle-3d"
     const val MAX_LATITUDE = 85.05112878
     fun emptyCollection() = JSONObject().put("type", "FeatureCollection").put("features", JSONArray())
     fun route(session: TripMapSession): String {
@@ -28,30 +31,77 @@ internal object TripMapStyle {
         JSONObject().put("type", "Feature").put("properties", JSONObject()).put("geometry",
             JSONObject().put("type", "Point").put("coordinates", JSONArray().put(it.longitude).put(it.latitude))).toString()
     } ?: emptyCollection().toString()
-    fun json(online: Boolean, paint: TripMapPaint): String {
-        val sources = JSONObject()
-        for (id in listOf(ROUTE, FIX)) sources.put(id,
+    private fun applyNightPalette(style: JSONObject) {
+        val layers = style.optJSONArray("layers") ?: return
+        for (i in 0 until layers.length()) {
+            val layer = layers.getJSONObject(i)
+            val id = layer.getString("id")
+            val paint = layer.optJSONObject("paint") ?: JSONObject().also { layer.put("paint", it) }
+            val palette = Glass.MapNight
+            when (layer.getString("type")) {
+                "background" -> paint.put("background-color", palette.background)
+                "raster" -> paint.put("raster-brightness-max", .3)
+                "fill" -> {
+                    paint.put("fill-color", when {
+                        id.contains("water") -> palette.water
+                        id.contains("building") -> palette.building
+                        id.contains("park") || id.contains("wood") || id.contains("grass") -> palette.park
+                        else -> palette.land
+                    })
+                    if (paint.has("fill-outline-color")) paint.put("fill-outline-color", palette.edge)
+                }
+                "fill-extrusion" -> paint.put("fill-extrusion-color", palette.building)
+                "line" -> paint.put("line-color", when {
+                    id.contains("water") -> palette.water
+                    id.contains("casing") -> palette.edge
+                    id.contains("motorway") || id.contains("trunk") || id.contains("primary") -> palette.mainRoad
+                    else -> palette.road
+                })
+                "symbol" -> if (layer.optJSONObject("layout")?.has("text-field") == true) {
+                    paint.put("text-color", when {
+                        id.contains("water") -> palette.waterLabel
+                        id.startsWith("poi") -> palette.minorLabel
+                        else -> palette.label
+                    }).put("text-halo-color", palette.background).put("text-halo-width", 1.0)
+                }
+            }
+        }
+    }
+    fun json(online: Boolean, paint: TripMapPaint, base: String? = null): String {
+        val result = if (online && base != null) JSONObject(base) else JSONObject()
+        if (online && paint.brightness < 1f) applyNightPalette(result)
+        val sources = result.optJSONObject("sources") ?: JSONObject()
+        for (id in listOf(ROUTE, FIX, MOTO, TREES)) sources.put(id,
             JSONObject().put("type", "geojson").put("data", emptyCollection()))
-        val layers = JSONArray().put(JSONObject().put("id", "background").put("type", "background")
+        val layers = result.optJSONArray("layers") ?: JSONArray().put(JSONObject().put("id", "background").put("type", "background")
             .put("paint", JSONObject().put("background-color", paint.background)))
         // Small-scale geography bundled with the app. Hide it at street zoom.
+        if (!online || base == null) {
         sources.put(LAND, JSONObject().put("type", "geojson").put("data", "asset://maps/land-110m.geojson"))
         layers.put(JSONObject().put("id", LAND).put("type", "fill").put("source", LAND).put("maxzoom", 7)
             .put("paint", JSONObject().put("fill-color", paint.land).put("fill-outline-color", paint.coastline)))
-        if (online) {
-            sources.put(OSM, JSONObject().put("type", "raster").put("tileSize", 256).put("minzoom", 0)
-                .put("maxzoom", 19).put("tiles", JSONArray().put(TripTilePolicy.TEMPLATE))
-                .put("attribution", "© OpenStreetMap contributors"))
-            layers.put(JSONObject().put("id", "streets").put("type", "raster").put("source", OSM)
-                .put("paint", JSONObject().put("raster-fade-duration", 0).put("raster-brightness-max", paint.brightness)))
         }
+        layers.put(JSONObject().put("id", GLOW).put("type", "line").put("source", ROUTE)
+            .put("layout", JSONObject().put("line-cap", "round").put("line-join", "round"))
+            .put("paint", JSONObject().put("line-color", paint.route).put("line-width", Glass.routeGlowWidth)
+                .put("line-opacity", Glass.routeGlowOpacity)))
+        layers.put(JSONObject().put("id", TREES).put("type", "fill-extrusion").put("source", TREES).put("minzoom", 15)
+            .put("paint", JSONObject().put("fill-extrusion-color", JSONArray().put("get").put("color"))
+                .put("fill-extrusion-base", JSONArray().put("get").put("base"))
+                .put("fill-extrusion-height", JSONArray().put("get").put("height"))))
         layers.put(JSONObject().put("id", ROUTE).put("type", "line").put("source", ROUTE)
             .put("layout", JSONObject().put("line-cap", "round").put("line-join", "round"))
             .put("paint", JSONObject().put("line-color", paint.route).put("line-width", paint.lineWidth)))
         layers.put(JSONObject().put("id", FIX).put("type", "circle").put("source", FIX)
             .put("paint", JSONObject().put("circle-color", paint.current).put("circle-radius", paint.pointRadius)
                 .put("circle-stroke-color", paint.rim).put("circle-stroke-width", paint.rimWidth)))
-        return JSONObject().put("version", 8).put("sources", sources).put("layers", layers)
+        layers.put(JSONObject().put("id", MOTO).put("type", "fill-extrusion").put("source", MOTO)
+            .put("minzoom", 14).put("paint", JSONObject()
+                .put("fill-extrusion-color", JSONArray().put("get").put("color"))
+                .put("fill-extrusion-base", JSONArray().put("get").put("base"))
+                .put("fill-extrusion-height", JSONArray().put("get").put("height"))
+                .put("fill-extrusion-opacity", 1)))
+        return result.put("version", 8).put("sources", sources).put("layers", layers)
             .put("transition", JSONObject().put("duration", 0).put("delay", 0)).toString()
     }
 }

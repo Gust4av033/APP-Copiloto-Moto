@@ -179,7 +179,7 @@
       <h1>Política de Privacidad — APP Copiloto Moto</h1>
       <p class="meta">
         Paquete de aplicación: <code>com.gust4av033.appcopilotomoto</code><br />
-        Última actualización: 24 de noviembre de 2026
+        Última actualización: 25 de noviembre de 2026
       </p>
     </header>
 
@@ -193,9 +193,15 @@
 
     <section>
       <h2>Adenda: mapa integrado opcional</h2>
-      <p>La opción «Calles por Internet (OpenStreetMap)» está apagada inicialmente. Antes de habilitarla, APP muestra una divulgación separada: las imágenes del área visible se solicitan por HTTPS a <code>tile.openstreetmap.org</code>. OpenStreetMap recibe la dirección IP y los números de las imágenes solicitadas, que permiten inferir la zona consultada. APP no envía el historial GPS, el trazo completo, contactos ni audio al proveedor de mapas. Se aplica la <a href="https://osmfoundation.org/wiki/Privacy_Policy">política de privacidad de OpenStreetMap Foundation</a>.</p>
-      <p>Los permisos normales <code>INTERNET</code> y <code>ACCESS_NETWORK_STATE</code> permiten cargar imágenes y conocer la conectividad; no conceden ubicación ni activan el GPS. El mapa usa las muestras de la sesión local con el ajuste GPS y permiso preciso ya habilitados. El trazo puede verse sobre fondo simple y el copiloto puede funcionar con las calles por Internet apagadas.</p>
-      <p>Podés apagar esta opción en Viaje o en Privacidad, incluso durante una sesión. Las solicitudes se cancelan al retirarla o al ocultarse el mapa. Las imágenes se almacenan en caché privada siguiendo las condiciones del proveedor; no hay descarga de zonas ni garantía de mapas offline. La eliminación del historial GPS y la caché cartográfica son datos distintos; borrar el almacenamiento de Android elimina ambos junto con los demás datos de la instalación.</p>
+      <p>La opción «Mapa por Internet (OpenFreeMap)» está apagada inicialmente. APP pide autorización específica para este proveedor; una autorización anterior para el mapa raster de OpenStreetMap no la habilita. Por HTTPS solicita teselas del área visible, iconos y tipografías a <code>tiles.openfreemap.org</code>. El proveedor recibe la IP y los identificadores de teselas, que permiten inferir la zona consultada. APP no envía el trazo completo, historial, perfil de moto, contactos ni audio. Información del servicio: <a href="https://openfreemap.org/">OpenFreeMap</a>.</p>
+      <p>Los permisos normales <code>INTERNET</code> y <code>ACCESS_NETWORK_STATE</code> no conceden ubicación ni activan GPS. La posición proviene exclusivamente de la sesión local y requiere el ajuste GPS y permiso preciso. Podés apagar el mapa por Internet en Mapa, Viaje o Privacidad, incluso durante una sesión. Las solicitudes se cancelan al retirarlo o al ocultarse el mapa. La caché HTTP privada tiene un máximo de 64 MiB, además de la caché interna administrada por MapLibre; no hay descarga de zonas ni garantía de mapas offline. Borrar el almacenamiento de Android elimina esa caché junto con los datos locales.</p>
+    </section>
+
+    <section>
+      <h2>Adenda: clima opcional y catálogo de motos</h2>
+      <p>El clima de Open-Meteo está apagado inicialmente y tiene su propia divulgación y autorización. Al habilitarlo, APP envía por HTTPS a <code>api.open-meteo.com</code> las coordenadas de la zona elegida, redondeadas a dos decimales: ubicación GPS reciente o destino que elegiste con coordenadas guardadas. El servidor también recibe tu IP. No se envía el recorrido, historial, nombre de destino, moto, contactos ni audio. <a href="https://open-meteo.com/en/terms">Condiciones y privacidad de Open-Meteo</a>.</p>
+      <p>Se consulta mientras el mapa está visible y la app está en primer plano. La caché permanece solo en memoria, se renueva cada 15 minutos por zona y caduca a los 30 minutos; cambiar de zona puede requerir otra consulta. Al apagar Clima se cancelan solicitudes y se elimina esa caché. Podés apagarlo desde el panel Clima o Privacidad. No genera avisos de voz ni solicita GPS adicional. La API gratuita corresponde a esta versión de pruebas no comercial y sus datos tienen atribución CC BY 4.0.</p>
+      <p>Mi Moto usa un catálogo incluido en la app; elegir un modelo, guardar kilometraje o registrar mantenimiento no consulta servidores. Al actualizar se conservan tus datos previos y cualquier foto guardada; la foto anterior puede eliminarse desde Mi Moto. Ya no se ofrece importar fotos nuevas. No se solicitan permisos de cámara.</p>
     </section>
 
     <section>
@@ -279,7 +285,8 @@
     <section>
       <h2>5. Summary for Google Play Reviewers (English)</h2>
       <ul>
-        <li><strong>Optional online map:</strong> MapLibre renders the local trip trace. Online OpenStreetMap tiles require a separate in-app choice, off by default. Tile requests expose the IP address and viewed map area to OpenStreetMap Foundation, but do not upload the trip history, full trace, contacts or audio. Requests stop when consent is withdrawn or the map is hidden. INTERNET and ACCESS_NETWORK_STATE are normal permissions; no background location or Wi-Fi-state permission is added.</li>
+        <li><strong>Optional online map:</strong> MapLibre uses OpenFreeMap vector tiles, fonts and sprites after a separate opt-in. Prior consent for OSM raster tiles does not enable this provider. Requests expose the IP address and viewed area to OpenFreeMap, without uploading trip history, full trace, contacts or audio. Requests stop when consent is withdrawn or the map is hidden. INTERNET and ACCESS_NETWORK_STATE are normal permissions; no background-location permission is added.</li>
+        <li><strong>Optional weather:</strong> A separate opt-in allows Open-Meteo queries for the selected current GPS area or saved destination, rounded to two decimal places. The provider receives coordinates and IP, not trip history or the destination name. Queries run only while the map is visible in the foreground. The in-memory cache expires after 30 minutes and is cleared when weather is disabled. The free API is for non-commercial use; data attribution is CC BY 4.0.</li>
         <li><strong>No App-Operated Backend:</strong> <code>com.gust4av033.appcopilotomoto</code> has no app-operated server, accounts, ads, or analytics. Voice recognition and contact matching use on-device services. Optional trip exports leave the device only through an explicit Android share action chosen by the user.</li>
         <li><strong>Microphone &amp; Foreground Service (<code>RECORD_AUDIO</code>, <code>FOREGROUND_SERVICE_MICROPHONE</code>):</strong> Used strictly during user-initiated active motorcycle trips to process voice commands via Bluetooth headset buttons and on-device wake-word detection.</li>
         <li><strong>Notification Listener (<code>BIND_NOTIFICATION_LISTENER_SERVICE</code>):</strong> Android grants access to device notifications. APP uses media state for headset controls; phase 2 test builds can observe Waze or Google Maps navigation notifications during an active trip when enabled. A notification alone does not prove an active route.</li>

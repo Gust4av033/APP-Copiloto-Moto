@@ -23,6 +23,33 @@ class MotorcycleRepositoryTest {
     private fun draft() = MaintenanceDraft(title = "Aceite", date = "2026-10-24", odometerKm = "12000",
         notes = "Filtro cambiado", nextDate = "2027-01-24", nextOdometerKm = "15000")
 
+    @Test fun migratesVersionOneWithoutLosingTheBikePhotoOrMaintenance() {
+        val file = context.getDatabasePath("motorcycles.db").apply { parentFile?.mkdirs() }
+        android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(file, null).use { db ->
+            db.execSQL("CREATE TABLE motorcycles (id INTEGER PRIMARY KEY, user_id TEXT NOT NULL, name TEXT NOT NULL, model TEXT NOT NULL, odometer_meters INTEGER, photo_name TEXT)")
+            db.execSQL("CREATE TABLE maintenance (id TEXT PRIMARY KEY, motorcycle_id INTEGER, title TEXT, performed_date TEXT, odometer_meters INTEGER, notes TEXT, next_date TEXT, next_odometer_meters INTEGER)")
+            db.execSQL("INSERT INTO motorcycles VALUES (1, 'local', 'Mi moto anterior', 'Modelo escrito', 12345000, 'moto_abc.jpg')")
+            db.execSQL("INSERT INTO maintenance VALUES ('service', 1, 'Aceite', '2026-10-24', 12000000, 'Registro conservado', NULL, 15000000)")
+            db.version = 1
+        }
+        MotorcycleRepository(context).use {
+            val before = it.load()
+            assertNull(before.profile!!.catalogId)
+            it.saveProfile(MotorcycleDraft(before.profile.name, "ignored text", "12345", "hero_ignitor_125"))
+            val after = it.load()
+            assertEquals(before.maintenance, after.maintenance)
+            assertEquals(before.profile.photoName, after.profile!!.photoName)
+            assertEquals(before.profile.odometerMeters, after.profile.odometerMeters)
+        }
+        MotorcycleRepository(context).use {
+            assertEquals("hero_ignitor_125", it.load().profile!!.catalogId)
+            assertEquals("Hero Ignitor 125", it.load().profile!!.model)
+            val before = it.load()
+            assertTrue(runCatching { it.saveProfile(MotorcycleDraft("Moto", "Unknown", "0", "missing-model")) }.isFailure)
+            assertEquals(before, it.load())
+        }
+    }
+
     @Test fun profileAndMaintenanceSurviveClosingAndReopeningDatabase() {
         MotorcycleRepository(context).use {
             assertNull(it.load().profile)

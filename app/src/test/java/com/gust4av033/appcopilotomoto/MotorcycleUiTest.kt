@@ -67,12 +67,27 @@ class MotorcycleUiTest {
             CopilotApp(CopilotUiState(motorcycle = saved, tripActive = true), CopilotScreen.MOTORCYCLE,
                 { back = it }, CopilotActions())
         }
-        reveal("Elegir foto").assertIsNotEnabled()
+        reveal("Elegir moto del catálogo").assertIsNotEnabled()
         reveal("Nombre de tu moto").assertIsNotEnabled()
         reveal("Guardar Mi Moto").assertIsNotEnabled()
         compose.onNodeWithTag("settings_content").performScrollToIndex(0)
         compose.onNodeWithContentDescription("Volver a Ajustes").performClick()
         assertEquals(CopilotScreen.SETTINGS, back)
+    }
+
+    @Test fun aNewBikeIsChosenFromTheCatalogueAndSavedWithoutPhotoAccess() {
+        var draft: MotorcycleDraft? = null
+        compose.setContent {
+            CopilotApp(CopilotUiState(motorcycle = MotorcycleUiState(loaded = true)), CopilotScreen.MOTORCYCLE, {},
+                CopilotActions(onSaveMotorcycle = { draft = it }))
+        }
+        reveal("Elegir moto del catálogo").performClick()
+        compose.onNodeWithText("Hero Ignitor 125").performClick()
+        reveal("Nombre de tu moto").performTextReplacement("Ignitor azul")
+        reveal("Guardar Mi Moto").performClick()
+        assertEquals("hero_ignitor_125", draft!!.catalogId)
+        assertEquals("Hero Ignitor 125", draft!!.model)
+        compose.onNodeWithText("Elegir foto").assertDoesNotExist()
     }
 
     @Test fun loadFailureShowsRetryAndNeverAnEditableEmptyProfile() {

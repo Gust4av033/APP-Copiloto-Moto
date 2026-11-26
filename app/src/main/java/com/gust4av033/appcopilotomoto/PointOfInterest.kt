@@ -23,7 +23,10 @@ interface WeatherProvider {
     suspend fun at(latitude: Double, longitude: Double, epochMs: Long): ContextValue<WeatherObservation>?
 }
 
-data class WeatherObservation(val temperatureCelsius: Double?, val condition: String)
+data class WeatherObservation(val temperatureCelsius: Double?, val condition: String,
+    val weatherCode: Int? = null, val windKmh: Double? = null, val currentEpochMs: Long = 0,
+    val timeZoneId: String = "UTC", val hourly: List<WeatherHour> = emptyList())
+data class WeatherHour(val epochMs: Long, val temperatureCelsius: Double?, val rainProbability: Int?, val weatherCode: Int?)
 
 data class PoiPoint(val latitude: Double, val longitude: Double) {
     init { require(latitude in -90.0..90.0 && longitude in -180.0..180.0) }

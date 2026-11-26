@@ -62,8 +62,42 @@ internal val LocalGlassDark = staticCompositionLocalOf { false }
 
 /** Shared surface, button and geometry tokens. */
 object Glass {
+    const val mapOverlayOpacity = .96f
+    val cockpitGap = 8.dp
+    val cockpitSideWidth = 60.dp
+    val cockpitButtonHeight = 64.dp
+    const val cockpitBorderAlpha = .38f
+    const val routeGlowOpacity = .18f
+    const val routeGlowWidth = 11f
+    const val modelDisplayLength = 76
+    const val nightRoute = "#26D3F2"
+    const val treeNight = "#285648"
+    const val treeNightTop = "#397464"
+    const val treeDay = "#398657"
+    const val treeDayTop = "#6CAE72"
+    const val treeTrunk = "#4B5346"
+    object MapNight {
+        const val background = "#050C1D"
+        const val land = "#101D33"
+        const val park = "#112D36"
+        const val water = "#09172E"
+        const val building = "#314F70"
+        const val road = "#38546F"
+        const val mainRoad = "#6486A6"
+        const val edge = "#182D46"
+        const val label = "#D5E6F5"
+        const val waterLabel = "#83BEDC"
+        const val minorLabel = "#A4BACF"
+    }
     val rideMarkerSize = 76.dp
-    const val rideMapPitch = 42.0
+    const val rideMapPitch = 52.0
+    const val rideStreetZoom = 18.0
+    const val motoBlue = "#2F6BFF"
+    const val motoTrim = "#79DDFF"
+    const val motoRubber = "#101B2D"
+    const val motoMetal = "#A7BDD2"
+    const val motoLight = "#F2E6AD"
+    const val motoTail = "#E65A69"
     val mapHeight = 280.dp
     const val mapRouteWidth = 4f
     const val mapPointRadius = 7f

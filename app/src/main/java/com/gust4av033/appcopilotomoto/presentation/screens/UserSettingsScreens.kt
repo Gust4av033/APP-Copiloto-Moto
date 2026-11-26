@@ -131,6 +131,11 @@ fun LazyListScope.SettingsScreen(
                     enabled = state.mapOnlineEnabled || !state.busy, onCheckedChange = actions.onMapOnlineChange)
                 SupportingText(stringResource(R.string.trip_map_online_disclosure))
             } }
+            item("weather_privacy") { SectionCard(stringResource(R.string.weather_title)) {
+                ToggleSettingRow(stringResource(R.string.weather_online), state.weather.enabled,
+                    enabled = state.weather.enabled || !state.busy, onCheckedChange = actions.onWeatherEnabled)
+                SupportingText(stringResource(R.string.weather_disclosure))
+            } }
             item("trip_location") { SectionCard(stringResource(R.string.trip_location_title)) {
                 ToggleSettingRow(stringResource(R.string.trip_location_title), state.tripLocationEnabled,
                     enabled = !state.busy, onCheckedChange = actions.onTripLocationChange)

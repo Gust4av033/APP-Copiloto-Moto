@@ -13,22 +13,60 @@ import java.util.concurrent.TimeUnit
 
 internal class TripMapPreferences(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("ui_settings", Context.MODE_PRIVATE)
-    fun onlineEnabled() = prefs.getBoolean("trip_map_online_consent_v1", false)
-    fun setOnlineEnabled(value: Boolean) { prefs.edit().putBoolean("trip_map_online_consent_v1", value).apply() }
+    fun onlineEnabled() = prefs.getBoolean("trip_map_online_consent_v2", false)
+    fun setOnlineEnabled(value: Boolean) {
+        prefs.edit()
+            .putBoolean("trip_map_online_consent_v2", value)
+            .putBoolean("trip_map_online_consent_v1", false)
+            .apply()
+    }
 }
 
-/** Explicit, fixed provider. No arbitrary style URLs, tokens, coordinates, or redirects. */
+data class TripTileProvider(
+    val id: String,
+    val hosts: Set<String>,
+    val consentVersion: Int,
+    val attributionLabel: String,
+    val attributionUrl: String
+)
+
+/** Fixed vector provider adopted from Copilot c0b10ad. No fallback network hosts. */
 internal object TripTilePolicy {
-    const val TEMPLATE = "https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+    val OPEN_FREE_MAP = TripTileProvider(
+        id = "openfreemap",
+        hosts = setOf("tiles.openfreemap.org"),
+        consentVersion = 2,
+        attributionLabel = "OpenFreeMap · © OpenMapTiles · datos © OSM",
+        attributionUrl = "https://openfreemap.org/"
+    )
+    val ACTIVE_PROVIDER = OPEN_FREE_MAP
     const val USER_AGENT = "APP-Copiloto-Moto/${BuildConfig.VERSION_NAME} (+https://github.com/Gust4av033/APP-Copiloto-Moto)"
     fun allows(url: HttpUrl): Boolean {
-        if (url.scheme != "https" || url.host != "tile.openstreetmap.org" || url.port != 443 ||
-            url.encodedQuery != null || url.encodedFragment != null || url.username.isNotEmpty() || url.password.isNotEmpty()) return false
-        val match = Regex("/([0-9]{1,2})/([0-9]+)/([0-9]+)\\.png").matchEntire(url.encodedPath) ?: return false
-        val z = match.groupValues[1].toIntOrNull()?.takeIf { it in 0..19 } ?: return false
-        val x = match.groupValues[2].toLongOrNull() ?: return false
-        val y = match.groupValues[3].toLongOrNull() ?: return false
-        return x in 0 until (1L shl z) && y in 0 until (1L shl z)
+        if (url.scheme != "https" || url.port != 443 ||
+            url.host !in ACTIVE_PROVIDER.hosts || url.encodedQuery != null ||
+            url.encodedFragment != null || url.username.isNotEmpty() || url.password.isNotEmpty()) return false
+        val path = url.encodedPath
+        if (path == "/planet") return true
+        val tilePbf = Regex("^/planet/[0-9]{8}_[0-9]{6}_pt/([0-9]{1,2})/([0-9]+)/([0-9]+)\\.pbf$")
+            .matchEntire(path)?.let { match ->
+                val z = match.groupValues[1].toIntOrNull() ?: -1
+                val x = match.groupValues[2].toLongOrNull() ?: -1L
+                val y = match.groupValues[3].toLongOrNull() ?: -1L
+                z in 0..14 && x in 0 until (1L shl z) && y in 0 until (1L shl z)
+            } == true
+        if (tilePbf) return true
+        val natural = Regex("^/natural_earth/ne2sr/([0-9]{1,2})/([0-9]+)/([0-9]+)\\.png$")
+            .matchEntire(path)?.let { match ->
+                val z = match.groupValues[1].toIntOrNull() ?: -1
+                val x = match.groupValues[2].toLongOrNull() ?: -1L
+                val y = match.groupValues[3].toLongOrNull() ?: -1L
+                z in 0..6 && x in 0 until (1L shl z) && y in 0 until (1L shl z)
+            } == true
+        if (natural) return true
+        val sprite = Regex("^/sprites/ofm_[^/]+/ofm(?:@2x)?\\.(json|png)$").matches(path)
+        if (sprite) return true
+        val glyph = Regex("^/fonts/[^/]+/[0-9]+-[0-9]+\\.pbf$").matches(path)
+        return glyph
     }
 }
 

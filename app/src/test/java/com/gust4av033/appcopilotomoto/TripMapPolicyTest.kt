@@ -13,15 +13,29 @@ import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import com.gust4av033.appcopilotomoto.presentation.components.TripMapPaint
 import com.gust4av033.appcopilotomoto.presentation.components.TripMapStyle
+import com.gust4av033.appcopilotomoto.presentation.components.tripMapHeadingDegrees
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class TripMapPolicyTest {
+    @Test fun cameraHeadingRequiresFreshUsableMotionAndAccurateBearing() {
+        fun fix(speed: Float?, accuracy: Float?, bearing: Float?) = LocationSample(
+            1_000, 1_000, 14.6, -90.5, null, speed, null, bearing, accuracy, 3f, "test-fixture", false
+        )
+        assertEquals(45.0, tripMapHeadingDegrees(fix(8f, 20f, 45f))!!, 0.0)
+        assertNull(tripMapHeadingDegrees(fix(1f, 10f, 45f)))
+        assertNull(tripMapHeadingDegrees(fix(8f, 31f, 45f)))
+        assertNull(tripMapHeadingDegrees(fix(8f, 10f, null)))
+    }
+
     @Test fun consentIsOffByDefaultAndSurvivesRecreationWithoutEnablingGps() {
         val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("ui_settings", 0).edit().clear().commit()
+        assertFalse(TripMapPreferences(context).onlineEnabled())
+        context.getSharedPreferences("ui_settings", 0).edit()
+            .putBoolean("trip_map_online_consent_v1", true).commit()
         assertFalse(TripMapPreferences(context).onlineEnabled())
         TripMapPreferences(context).setOnlineEnabled(true)
         assertTrue(TripMapPreferences(context).onlineEnabled())
@@ -30,12 +44,24 @@ class TripMapPolicyTest {
         assertFalse(TripMapPreferences(context).onlineEnabled())
     }
     @Test fun onlyHttpsGetTilesInTheAllowedZoomRangeCanLeaveTheDevice() {
-        val allowed = "https://tile.openstreetmap.org/16/16293/30082.png"
-        assertTrue(TripTilePolicy.allows(allowed.toHttpUrl()))
-        for (url in listOf("http://tile.openstreetmap.org/1/1/1.png", "https://example.com/1/1/1.png",
-            "https://tile.openstreetmap.org/20/1/1.png", "https://tile.openstreetmap.org/1/4/1.png",
-            "https://tile.openstreetmap.org/1/1/1.png?lat=14.6", "https://tile.openstreetmap.org/1/1/1.png#private",
-            "https://tile.openstreetmap.org/style.json", "https://tile.openstreetmap.org:444/1/1/1.png")) {
+        val allowed = "https://tiles.openfreemap.org/planet/20261122_124456_pt/14/123/456.pbf"
+        for (url in listOf(
+            allowed,
+            "https://tiles.openfreemap.org/planet",
+            "https://tiles.openfreemap.org/natural_earth/ne2sr/6/12/20.png",
+            "https://tiles.openfreemap.org/sprites/ofm_f384/ofm.json",
+            "https://tiles.openfreemap.org/fonts/NotoSans/0-255.pbf"
+        )) assertTrue(url, TripTilePolicy.allows(url.toHttpUrl()))
+        for (url in listOf(
+            "http://tiles.openfreemap.org/planet",
+            "https://example.com/planet",
+            "https://tiles.openfreemap.org/planet/20261122_124456_pt/15/123/456.pbf",
+            "https://tile.openstreetmap.org/16/16293/30082.png",
+            "https://tiles.openfreemap.org/planet/20261122_124456_pt/14/123/456.pbf?secret=1",
+            "https://tiles.openfreemap.org/planet/20261122_124456_pt/14/123/456.pbf#private",
+            "https://tiles.openfreemap.org/../admin",
+            "https://tiles.openfreemap.org:444/planet"
+        )) {
             assertFalse(url, TripTilePolicy.allows(url.toHttpUrl()))
         }
         var canRequest = false
@@ -64,10 +90,12 @@ class TripMapPolicyTest {
         val paint = TripMapPaint("#050C1D", "#2F6BFF", "#79DDFF", "#888888", "#050C1D", 4f, 7f, 2f, .82f, "#334455", "#668899")
         val offline = JSONObject(TripMapStyle.json(false, paint))
         assertFalse(offline.toString().contains("https://"))
-        assertFalse(offline.getJSONObject("sources").has(TripMapStyle.OSM))
-        val online = JSONObject(TripMapStyle.json(true, paint))
-        assertEquals(TripTilePolicy.TEMPLATE, online.getJSONObject("sources").getJSONObject(TripMapStyle.OSM).getJSONArray("tiles").getString(0))
-        assertFalse(online.has("glyphs")); assertFalse(online.has("sprite"))
+        assertFalse(offline.getJSONObject("sources").has(TripMapStyle.VECTOR))
+        val base = "{\"version\":8,\"sources\":{\"openmaptiles\":{\"type\":\"vector\",\"url\":\"https://tiles.openfreemap.org/planet\"}},\"layers\":[],\"glyphs\":\"https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf\",\"sprite\":\"https://tiles.openfreemap.org/sprites/ofm_f384/ofm\"}"
+        val online = JSONObject(TripMapStyle.json(true, paint, base))
+        assertEquals("https://tiles.openfreemap.org/planet",
+            online.getJSONObject("sources").getJSONObject("openmaptiles").getString("url"))
+        assertEquals("https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf", online.getString("glyphs"))
         assertEquals(0, online.getJSONObject("transition").getInt("duration"))
     }
 }
