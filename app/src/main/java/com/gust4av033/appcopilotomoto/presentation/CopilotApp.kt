@@ -226,7 +226,9 @@ fun CopilotApp(
                     }
                         when (visibleScreen) {
                             CopilotScreen.MAP -> Unit // The map uses the full viewport above.
-                            CopilotScreen.HOME -> HomeScreen(state, actions, navigate)
+                            CopilotScreen.HOME -> item(key = "home_dashboard") {
+                                HomeScreen(state, actions, navigate)
+                            }
                             CopilotScreen.TRIP -> TripScreen(state, actions,
                                 onOpenCommands = { navigate(CopilotScreen.COMMANDS) },
                                 onOpenTests = { navigate(CopilotScreen.TESTS) })

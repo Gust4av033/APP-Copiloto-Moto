@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.Surface
@@ -36,9 +37,11 @@ import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.semantics.role
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.RadioButton
@@ -56,6 +59,8 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.gust4av033.appcopilotomoto.*
 import com.gust4av033.appcopilotomoto.R
 import com.gust4av033.appcopilotomoto.presentation.theme.Glass
+import com.gust4av033.appcopilotomoto.presentation.theme.GlassMode
+import com.gust4av033.appcopilotomoto.presentation.theme.GlassPanel
 import org.maplibre.android.MapLibre
 import org.maplibre.android.RenderingEngine
 import org.maplibre.android.WellKnownTileServer
@@ -77,6 +82,7 @@ fun interface TripMapRenderer {
 }
 val LocalTripMapTopInset = staticCompositionLocalOf<Dp> { 0.dp }
 val LocalTripMapBottomInset = staticCompositionLocalOf<Dp> { 0.dp }
+val LocalTripMapActive = staticCompositionLocalOf { false }
 val LocalTripMapRenderer = staticCompositionLocalOf<TripMapRenderer> { TripMapRenderer { session, now, online ->
     NativeTripMap(session, now, online)
 } }
@@ -303,12 +309,18 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
     val bottomInset = LocalTripMapBottomInset.current
     val topInset = LocalTripMapTopInset.current
     var cameraMode by rememberSaveable { mutableStateOf(TripMapCameraMode.NORTH_UP) }
+    var previousFollowMode by rememberSaveable { mutableStateOf(TripMapCameraMode.NORTH_UP) }
     var attributionOpen by remember { mutableStateOf(false) }
     var inclined by rememberSaveable { mutableStateOf(true) }
+    val tripActive = LocalTripMapActive.current
+    val rememberCameraMode: (TripMapCameraMode) -> Unit = { mode ->
+        if (mode != TripMapCameraMode.FREE) previousFollowMode = mode
+        cameraMode = mode
+    }
     key(online, retry, paint) {
         var status by remember { mutableIntStateOf(R.string.trip_map_initializing) }
         val controller = remember {
-            runCatching { NativeTripMapController(context, session, online, paint, inclined, cameraMode, { cameraMode = it }) { status = it } }.getOrNull()
+            runCatching { NativeTripMapController(context, session, online, paint, inclined, cameraMode, rememberCameraMode) { status = it } }.getOrNull()
         }
         if (controller == null) {
             MapRecovery(R.string.trip_map_render_error) { retry++ }
@@ -327,36 +339,30 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
                     val bounds = it.boundsInWindow()
                     controller.visible(bounds.width > 0 && bounds.height > 0)
                 })
-                if (online || session.lastFix != null) {
-                    Column(Modifier.align(Alignment.TopEnd).padding(top = topInset, bottom = bottomInset)
-                        .padding(8.dp).width(Glass.cockpitSideWidth).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        CockpitButton(if (inclined) "3D" else "2D", R.drawable.ic_map_layers, Modifier.fillMaxWidth(),
-                            selected = inclined, description = stringResource(if (inclined) R.string.map_flat else R.string.map_perspective)) { inclined = !inclined }
-                        CockpitButton(stringResource(R.string.map_heading_short), R.drawable.ic_heading, Modifier.fillMaxWidth(),
-                            selected = cameraMode == TripMapCameraMode.FOLLOW_HEADING, enabled = session.lastFix != null,
-                            description = stringResource(R.string.trip_map_camera_heading)) { controller.setCameraMode(TripMapCameraMode.FOLLOW_HEADING) }
-                        CockpitButton(stringResource(R.string.map_north_short), R.drawable.ic_north, Modifier.fillMaxWidth(),
-                            selected = cameraMode == TripMapCameraMode.NORTH_UP,
-                            description = stringResource(R.string.trip_map_camera_north)) { controller.setCameraMode(TripMapCameraMode.NORTH_UP) }
-                        CockpitButton(stringResource(R.string.map_free_short), R.drawable.ic_pan, Modifier.fillMaxWidth(),
-                            selected = cameraMode == TripMapCameraMode.FREE,
-                            description = stringResource(R.string.trip_map_camera_free)) { controller.setCameraMode(TripMapCameraMode.FREE) }
-                        CockpitButton(stringResource(R.string.map_center_short), R.drawable.ic_center_fix, Modifier.fillMaxWidth(),
-                            enabled = session.lastFix != null, description = stringResource(R.string.trip_map_center), onClick = controller::center)
-                        if (session.segments.any { it.size >= 2 }) CockpitButton(stringResource(R.string.map_trace_short),
-                            R.drawable.ic_trip, Modifier.fillMaxWidth(), description = stringResource(R.string.trip_map_fit), onClick = controller::fitTrace)
-                    }
+                if (!tripActive) {
+                    TripMapCameraControls(
+                        cameraMode = cameraMode,
+                        previousFollowMode = previousFollowMode,
+                        inclined = inclined,
+                        hasTrace = session.segments.any { it.size >= 2 },
+                        onModeSelected = controller::setCameraMode,
+                        onPerspectiveChanged = { inclined = it },
+                        onCenter = { controller.setCameraMode(previousFollowMode) },
+                        onFitTrace = controller::fitTrace,
+                        modifier = Modifier.align(Alignment.TopEnd)
+                            .padding(top = topInset + Glass.mapControlGap, end = Glass.mapScreenInset)
+                    )
                 }
                 val link = "https://www.naturalearthdata.com/"
-                Surface(modifier = Modifier.align(Alignment.BottomStart).padding(bottom = bottomInset).padding(4.dp)
-                    .clickable(role = Role.Button) { if (online) attributionOpen = true else runCatching { uri.openUri(link) }.onFailure { status = R.string.trip_map_link_error } },
-                    shape = MaterialTheme.shapes.medium, color = colors.surface) {
-                    Box(Modifier.heightIn(min = Glass.iconButtonSize).padding(horizontal = 8.dp), contentAlignment = Alignment.Center) {
-                        Text(stringResource(if (online) R.string.trip_map_overlay_attribution else R.string.map_atlas),
-                            style = MaterialTheme.typography.labelSmall)
+                MapAttributionButton(
+                    online = online,
+                    modifier = Modifier.align(Alignment.BottomStart).padding(start = Glass.mapScreenInset,
+                        bottom = bottomInset + Glass.mapControlGap),
+                    onClick = {
+                        if (online) attributionOpen = true
+                        else runCatching { uri.openUri(link) }.onFailure { status = R.string.trip_map_link_error }
                     }
-                }
+                )
                 if (attributionOpen) AlertDialog(onDismissRequest = { attributionOpen = false },
                     title = { Text(stringResource(R.string.map_sources)) }, text = {
                         Column(Modifier.verticalScroll(rememberScrollState())) {
@@ -376,6 +382,118 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
                 }
             }
         }
+    }
+}
+
+@Composable
+fun FullScreenTripMap(session: TripMapSession, now: Long, online: Boolean, modifier: Modifier = Modifier) {
+    Box(modifier) {
+        NativeTripMap(session, now, online)
+    }
+}
+
+@Composable
+internal fun TripMapCameraControls(
+    cameraMode: TripMapCameraMode,
+    previousFollowMode: TripMapCameraMode,
+    inclined: Boolean,
+    hasTrace: Boolean,
+    onModeSelected: (TripMapCameraMode) -> Unit,
+    onPerspectiveChanged: (Boolean) -> Unit,
+    onCenter: () -> Unit,
+    onFitTrace: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    if (cameraMode == TripMapCameraMode.FREE) {
+        Column(modifier, horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(Glass.mapControlGap)) {
+            MapControlPill(
+                label = stringResource(R.string.map_center_short),
+                description = stringResource(R.string.map_center_follow_mode,
+                    stringResource(if (previousFollowMode == TripMapCameraMode.NORTH_UP)
+                        R.string.trip_map_camera_north else R.string.trip_map_camera_heading)),
+                tag = "map_center",
+                onClick = onCenter
+            )
+            if (hasTrace) MapControlPill(
+                label = stringResource(R.string.map_trace_short),
+                description = stringResource(R.string.trip_map_fit),
+                tag = "map_trace",
+                onClick = onFitTrace
+            )
+            GlassIconButton(
+                iconRes = if (inclined) R.drawable.ic_map_3d else R.drawable.ic_map_2d,
+                description = stringResource(R.string.map_perspective_description,
+                    stringResource(if (inclined) R.string.map_perspective else R.string.map_flat),
+                    stringResource(if (inclined) R.string.map_switch_2d else R.string.map_switch_3d)),
+                modifier = Modifier.testTag("map_perspective"),
+                onClick = { onPerspectiveChanged(!inclined) }
+            )
+        }
+    } else {
+        val nextMode = if (cameraMode == TripMapCameraMode.NORTH_UP)
+            TripMapCameraMode.FOLLOW_HEADING else TripMapCameraMode.NORTH_UP
+        val currentMode = if (cameraMode == TripMapCameraMode.NORTH_UP)
+            R.string.trip_map_camera_north else R.string.trip_map_camera_heading
+        val nextAction = if (nextMode == TripMapCameraMode.NORTH_UP)
+            R.string.map_camera_switch_north else R.string.map_camera_switch_heading
+        Row(modifier, horizontalArrangement = Arrangement.spacedBy(Glass.mapControlGap)) {
+            GlassIconButton(
+                iconRes = if (cameraMode == TripMapCameraMode.NORTH_UP) R.drawable.ic_north else R.drawable.ic_heading,
+                description = stringResource(R.string.map_camera_mode_description,
+                    stringResource(currentMode), stringResource(nextAction)),
+                modifier = Modifier.testTag("map_camera_mode"),
+                onClick = { onModeSelected(nextMode) }
+            )
+            GlassIconButton(
+                iconRes = if (inclined) R.drawable.ic_map_3d else R.drawable.ic_map_2d,
+                description = stringResource(R.string.map_perspective_description,
+                    stringResource(if (inclined) R.string.map_perspective else R.string.map_flat),
+                    stringResource(if (inclined) R.string.map_switch_2d else R.string.map_switch_3d)),
+                modifier = Modifier.testTag("map_perspective"),
+                onClick = { onPerspectiveChanged(!inclined) }
+            )
+        }
+    }
+}
+
+@Composable
+internal fun MapAttributionButton(online: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val description = stringResource(if (online) R.string.trip_map_attribution else R.string.map_atlas)
+    GlassPanel(
+        modifier = modifier
+            .heightIn(min = Glass.iconButtonSize)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics {
+                contentDescription = description
+            }
+            .testTag("map_attribution"),
+        shape = RoundedCornerShape(Glass.controlRadius),
+        mode = GlassMode.LITE
+    ) {
+        Text(
+            stringResource(if (online) R.string.trip_map_overlay_attribution else R.string.map_atlas),
+            Modifier.padding(horizontal = Glass.mapStatusHorizontalPadding, vertical = Glass.mapStatusVerticalPadding),
+            style = MaterialTheme.typography.labelSmall.copy(fontSize = Glass.mapAttributionTextSize)
+        )
+    }
+}
+
+@Composable
+private fun MapControlPill(label: String, description: String, tag: String, onClick: () -> Unit) {
+    GlassPanel(
+        modifier = Modifier.heightIn(min = Glass.iconButtonSize)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics {
+                contentDescription = description
+                role = Role.Button
+            }
+            .testTag(tag),
+        shape = RoundedCornerShape(Glass.controlRadius),
+        mode = GlassMode.LITE
+    ) {
+        Text(label, Modifier.padding(horizontal = Glass.mapStatusHorizontalPadding,
+            vertical = Glass.mapStatusVerticalPadding), style = MaterialTheme.typography.labelMedium)
     }
 }
 

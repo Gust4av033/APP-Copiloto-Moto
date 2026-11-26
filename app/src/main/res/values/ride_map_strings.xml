@@ -45,4 +45,27 @@
     <string name="map_start_short">Iniciar viaje</string>
     <string name="map_stop_short">Detener</string>
     <string name="map_road_coverage">Las flechas indican el sentido único registrado en el mapa, no instrucciones de giro. La cobertura puede estar incompleta o desactualizada. Este mapa no incluye una capa verificada de stops ni semáforos; prevalece la señalización de la vía.</string>
+    <string name="map_details_title">Estado del mapa y del viaje</string>
+    <string name="map_more_options">Más opciones</string>
+    <string name="map_status_description">GPS: %1$s. Audio: %2$s. Sesión: %3$s. Abrir detalles.</string>
+    <string name="map_speed_label">Velocidad</string>
+    <string name="map_speed_unavailable">Velocidad no disponible</string>
+    <string name="module_motorcycle_short">Mi Moto</string>
+    <string name="map_camera_switch_north">Cambiar a Norte arriba</string>
+    <string name="map_camera_switch_heading">Cambiar a seguir rumbo</string>
+    <string name="map_camera_mode_description">%1$s. %2$s.</string>
+    <string name="map_perspective_description">%1$s. %2$s.</string>
+    <string name="map_switch_2d">Cambiar a 2D</string>
+    <string name="map_switch_3d">Cambiar a 3D</string>
+    <string name="map_center_follow_mode">Centrar y volver a %1$s</string>
+    <string name="map_gps_short_live">Activo</string>
+    <string name="map_gps_short_last">Última</string>
+    <string name="map_gps_short_disabled">Apagado</string>
+    <string name="map_gps_short_unavailable">Sin señal</string>
+    <string name="map_gps_short_projection">Sin mapa</string>
+    <string name="map_gps_short_waiting">Buscando</string>
+    <string name="map_gps_short_world">Vista mapa</string>
+    <string name="map_audio_short_unknown">Audio?</string>
+    <string name="map_audio_short_headset">Casco</string>
+    <string name="map_audio_short_none">Sin casco</string>
 </resources>

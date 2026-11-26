@@ -39,6 +39,7 @@ import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlin.math.roundToInt
 
 /** Backdrop, tint and contrast tokens for both themes. */
@@ -99,6 +100,29 @@ object Glass {
     const val motoLight = "#F2E6AD"
     const val motoTail = "#E65A69"
     val mapHeight = 280.dp
+    val mapStatusHeight = 48.dp
+    val mapStatusHorizontalPadding = 12.dp
+    val mapStatusVerticalPadding = 8.dp
+    val mapStatusAvatarSize = 24.dp
+    val mapStatusIconSize = 18.dp
+    val mapStatusGap = 8.dp
+    val mapStatusIconGap = 4.dp
+    val mapScreenInset = 12.dp
+    val mapControlGap = 8.dp
+    val mapCameraControlsWidth = 104.dp
+    val mapAttributionGap = 76.dp
+    val mapAttributionTextSize = 11.sp
+    val mapDockRadius = 28.dp
+    val mapDockHeight = 80.dp
+    val mapDockButtonHeight = 56.dp
+    val mapDockPadding = 8.dp
+    val mapDockVerticalPadding = 8.dp
+    val mapDockOuterInset = 12.dp
+    val mapDockGap = 8.dp
+    val mapDockButtonHorizontalPadding = 12.dp
+    val mapDockIconSize = 20.dp
+    val mapLandscapeDockWidth = 240.dp
+    val mapDetailsGap = 12.dp
     const val mapRouteWidth = 4f
     const val mapPointRadius = 7f
     const val mapPointRimWidth = 2f

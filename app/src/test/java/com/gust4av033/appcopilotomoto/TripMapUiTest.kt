@@ -4,14 +4,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.*
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.gust4av033.appcopilotomoto.presentation.*
 import com.gust4av033.appcopilotomoto.presentation.components.*
 import com.gust4av033.appcopilotomoto.presentation.theme.Glass
@@ -27,6 +28,39 @@ import org.robolectric.annotation.GraphicsMode
 import org.robolectric.annotation.LooperMode
 import java.io.File
 
+internal fun labeledTripMapRenderer(): TripMapRenderer = TripMapRenderer { session, _, online ->
+    var cameraMode by remember { mutableStateOf(TripMapCameraMode.NORTH_UP) }
+    var previousMode by remember { mutableStateOf(TripMapCameraMode.NORTH_UP) }
+    var inclined by remember { mutableStateOf(true) }
+    val active = LocalTripMapActive.current
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)) {
+        Text(
+            "RENDERIZADOR DE PRUEBA\nMapa sustituido; sin cartografía real.",
+            Modifier.align(Alignment.Center).padding(20.dp)
+        )
+        if (!active) TripMapCameraControls(
+            cameraMode = cameraMode,
+            previousFollowMode = previousMode,
+            inclined = inclined,
+            hasTrace = session.segments.any { it.size >= 2 },
+            onModeSelected = {
+                if (it != TripMapCameraMode.FREE) previousMode = it
+                cameraMode = it
+            },
+            onPerspectiveChanged = { inclined = it },
+            onCenter = { cameraMode = previousMode },
+            onFitTrace = { cameraMode = TripMapCameraMode.FREE },
+            modifier = Modifier.align(Alignment.TopEnd).padding(top = Glass.mapControlGap, end = Glass.mapScreenInset)
+        )
+        MapAttributionButton(
+            online = online,
+            onClick = {},
+            modifier = Modifier.align(Alignment.BottomStart)
+                .padding(start = Glass.mapScreenInset, bottom = LocalTripMapBottomInset.current + Glass.mapControlGap)
+        )
+    }
+}
+
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35], qualifiers = "w360dp-h800dp-night")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -36,110 +70,191 @@ class TripMapUiTest {
     @get:Rule val host = org.junit.rules.TestRule { base, description -> object : org.junit.runners.model.Statement() {
         override fun evaluate() { assumeTrue(BuildConfig.DEBUG); compose.apply(base, description).evaluate() }
     } }
+
     private fun session(): TripMapSession {
-        val track = TripTrackAccumulator(); track.start("test-fixture", 1000)
+        val track = TripTrackAccumulator()
+        track.start("test-fixture", 1000)
         fun sample(t: Long, lon: Double) = LocationSample(t, t, 14.6, lon, null, 10f, .3f, null, null, 3f, "test-fixture", false)
         track.acceptRecorded(sample(1000, -90.5), 0.0)
         track.acceptRecorded(sample(2000, -90.4999), 12.5)
         return track.snapshot
     }
-    private val fixtureRenderer = TripMapRenderer { _, _, _ ->
-        Box(Modifier.fillMaxWidth().height(Glass.mapHeight).background(MaterialTheme.colorScheme.surfaceVariant)) {
-            Text("RENDERIZADOR DE PRUEBA\nSin cartografía real; solo prueba de controles Compose.")
-        }
-    }
-    private fun app(state: CopilotUiState, actions: CopilotActions = CopilotActions(), scale: Float = 1f) {
+
+    private fun app(
+        state: CopilotUiState,
+        actions: CopilotActions = CopilotActions(),
+        screen: CopilotScreen = CopilotScreen.MAP,
+        scale: Float = 1f
+    ) {
         compose.setContent {
-            CompositionLocalProvider(LocalTripMapRenderer provides fixtureRenderer,
-                LocalDensity provides Density(LocalDensity.current.density, scale)) {
-                CopilotApp(state, CopilotScreen.TRIP, {}, actions)
+            val density = LocalDensity.current
+            CompositionLocalProvider(
+                LocalTripMapRenderer provides labeledTripMapRenderer(),
+                LocalDensity provides Density(density.density, scale)
+            ) {
+                CopilotApp(state, screen, {}, actions)
             }
         }
     }
+
     private fun reveal(text: String): SemanticsNodeInteraction {
         val node = compose.onNodeWithText(text)
-        if (!node.isDisplayed()) compose.onNodeWithTag("settings_content").performScrollToIndex(0)
         repeat(30) {
-            if (!node.isDisplayed()) compose.onNodeWithTag("settings_content").performTouchInput {
+            if (!node.isDisplayed()) compose.onNodeWithTag("map_details_content").performTouchInput {
                 swipeUp(startY = height * .8f, endY = height * .35f, durationMillis = 250)
             }
         }
         return node.assertIsDisplayed()
     }
-    @Test fun openingTripWithoutGpsShowsRealRequirementsAndDoesNotStartAudio() {
-        var audio = 0; var gps = false
-        app(CopilotUiState(), CopilotActions(onToggleTrip = { audio++ }, onManualTripCommand = { audio++ },
-            onTripLocationChange = { gps = it }))
-        reveal(RuntimeEnvironment.getApplication().getString(R.string.trip_map_gps_off))
-        reveal(RuntimeEnvironment.getApplication().getString(R.string.trip_location_title)).performClick()
-        assertTrue(gps); assertEquals(0, audio)
+
+    @Test fun openingStatusShowsGpsRequirementsWithoutStartingGpsOrAudio() {
+        var audioActions = 0
+        var enabledGps: Boolean? = null
+        app(CopilotUiState(), CopilotActions(
+            onToggleTrip = { audioActions++ },
+            onManualTripCommand = { audioActions++ },
+            onTripLocationChange = { enabledGps = it }
+        ))
+        compose.onNodeWithTag("map_status_pill").performClick()
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.map_enable_location))
+            .performClick()
+        assertEquals(true, enabledGps)
+        assertEquals(0, audioActions)
     }
-    @Test fun onlyAnExplicitSessionActionDispatchesStartOrStop() {
+
+    @Test fun onlyExplicitDockActionStartsASession() {
         var sessions = 0
         app(CopilotUiState(), CopilotActions(onToggleTrip = { sessions++ }))
-        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.trip_start)).performClick()
+        compose.onNodeWithTag("map_start").performClick()
         assertEquals(1, sessions)
     }
-    @Test fun cameraModeSelectorShowsSelectionAndChangesModeExplicitly() {
-        val selected = mutableStateOf(TripMapCameraMode.FOLLOW_HEADING)
+
+    @Test fun cameraButtonAlternatesModesAndUsesDifferentPerspectiveAction() {
+        val selected = mutableStateOf(TripMapCameraMode.NORTH_UP)
+        val perspective = mutableStateOf(true)
         compose.setContent {
-            TripMapCameraControls(selected.value, headingAvailable = false, onSelected = { selected.value = it })
+            TripMapCameraControls(
+                cameraMode = selected.value,
+                previousFollowMode = TripMapCameraMode.NORTH_UP,
+                inclined = perspective.value,
+                hasTrace = false,
+                onModeSelected = { selected.value = it },
+                onPerspectiveChanged = { perspective.value = it },
+                onCenter = {},
+                onFitTrace = {}
+            )
         }
-        compose.onNodeWithTag("trip_map_camera_FOLLOW_HEADING").assertIsSelected()
-        compose.onNodeWithTag("trip_map_camera_NORTH_UP").performClick()
-        compose.onNodeWithTag("trip_map_camera_NORTH_UP").assertIsSelected()
+        val northDescription = compose.onNodeWithTag("map_camera_mode").fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].single()
+        assertTrue(northDescription.contains("Norte arriba"))
+        compose.onNodeWithTag("map_camera_mode").performClick()
+        assertEquals(TripMapCameraMode.FOLLOW_HEADING, selected.value)
+        val headingDescription = compose.onNodeWithTag("map_camera_mode").fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].single()
+        assertTrue(headingDescription.contains("Cambiar a Norte arriba"))
+        val perspectiveDescription = compose.onNodeWithTag("map_perspective").fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].single()
+        assertTrue(perspectiveDescription.contains("Vista inclinada"))
+        compose.onNodeWithTag("map_perspective").performClick()
+        assertFalse(perspective.value)
+        val flatDescription = compose.onNodeWithTag("map_perspective").fetchSemanticsNode()
+            .config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].single()
+        assertTrue(flatDescription.contains("Cambiar a 3D"))
+    }
+
+    @Test fun freeCameraShowsOnlyCenterAndAvailableTraceActions() {
+        val selected = mutableStateOf(TripMapCameraMode.FREE)
+        compose.setContent {
+            TripMapCameraControls(
+                cameraMode = selected.value,
+                previousFollowMode = TripMapCameraMode.NORTH_UP,
+                inclined = true,
+                hasTrace = true,
+                onModeSelected = { selected.value = it },
+                onPerspectiveChanged = {},
+                onCenter = { selected.value = TripMapCameraMode.NORTH_UP },
+                onFitTrace = {}
+            )
+        }
+        compose.onNodeWithTag("map_camera_mode").assertDoesNotExist()
+        compose.onNodeWithTag("map_center").assertIsDisplayed()
+        compose.onNodeWithTag("map_trace").assertIsDisplayed()
+        compose.onNodeWithTag("map_center").performClick()
         assertEquals(TripMapCameraMode.NORTH_UP, selected.value)
+        compose.onNodeWithTag("map_center").assertDoesNotExist()
     }
-    @Test fun standaloneCancelRemainsVisibleBeforeTheMap() {
-        var cancels = 0
-        app(CopilotUiState(standaloneListening = true), CopilotActions(onCancelStandaloneCommand = { cancels++ }))
-        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.listen_cancel))
-            .assertIsDisplayed().performClick()
-        assertEquals(1, cancels)
+
+    @Test fun activeTripKeepsOnlySpeedStopAndAttributionOnMap() {
+        app(CopilotUiState(
+            tripActive = true,
+            tripMap = session(),
+            observedRouteAtElapsedMs = 2500,
+            tripLocationEnabled = true,
+            tripLocationAvailable = true
+        ))
+        compose.onNodeWithTag("map_status_pill").assertDoesNotExist()
+        compose.onNodeWithTag("map_camera_mode").assertDoesNotExist()
+        compose.onNodeWithTag("map_perspective").assertDoesNotExist()
+        compose.onNodeWithTag("map_speed").assertIsDisplayed()
+        compose.onNodeWithTag("map_stop").assertIsDisplayed()
+        compose.onNodeWithTag("map_attribution").assertIsDisplayed()
     }
-    @Test fun activeTripAllowsRevokingOnlineMapsButCannotEnableThemOrGps() {
+
+    @Test fun activeTripCanRevokeOnlineMapsAndOpenTheChosenNavigatorSeparately() {
         var online: Boolean? = null
-        app(CopilotUiState(tripActive = true, mapOnlineEnabled = true), CopilotActions(onMapOnlineChange = { online = it }))
-        reveal(RuntimeEnvironment.getApplication().getString(R.string.trip_location_title)).assertIsNotEnabled()
+        var opens = 0
+        val state = CopilotUiState(
+            tripActive = true,
+            tripMap = session(),
+            observedRouteAtElapsedMs = 2500,
+            tripLocationEnabled = true,
+            tripLocationAvailable = true,
+            mapOnlineEnabled = true,
+            navigationAvailable = true
+        )
+        app(state, CopilotActions(onMapOnlineChange = { online = it }, onOpenTripNavigator = { opens++ }))
+        compose.onNodeWithTag("map_speed").performClick()
         reveal(RuntimeEnvironment.getApplication().getString(R.string.trip_map_online_title)).performClick()
         assertEquals(false, online)
+        reveal(RuntimeEnvironment.getApplication().getString(
+            R.string.trip_map_open_navigator, state.navigationProvider.label
+        )).performClick()
+        assertEquals(1, opens)
     }
-    @Test fun staleSpeedIsUnavailableAndOpeningWazeIsASeparateAction() {
-        var opens = 0; var sessions = 0
-        app(CopilotUiState(tripActive = true, tripMap = session(), observedRouteAtElapsedMs = 15_000,
-            tripLocationEnabled = true, tripLocationAvailable = true, navigationAvailable = true),
-            CopilotActions(onOpenTripNavigator = { opens++ }, onToggleTrip = { sessions++ }))
-        reveal(RuntimeEnvironment.getApplication().getString(R.string.trip_map_fix_last))
-        compose.onNodeWithText("36 km/h").assertDoesNotExist()
-        reveal("Abrir Waze").performClick()
-        assertEquals(1, opens); assertEquals(0, sessions)
-    }
-    @Test fun mapHasPrimaryViewportAndMotorcycleShortcutWithoutStartingServices() {
+
+    @Test fun mainMapHasFiveIdleItemsAndMotorcycleShortcutDoesNotStartServices() {
         var destination: CopilotScreen? = null
         var starts = 0
         compose.setContent {
-            CompositionLocalProvider(LocalTripMapRenderer provides fixtureRenderer) {
+            CompositionLocalProvider(LocalTripMapRenderer provides labeledTripMapRenderer()) {
                 CopilotApp(CopilotUiState(), CopilotScreen.MAP, { destination = it },
                     CopilotActions(onToggleTrip = { starts++ }))
             }
         }
         val viewport = compose.onNodeWithTag("ride_map_viewport").fetchSemanticsNode().boundsInRoot
-        assertTrue(viewport.height > compose.onRoot().fetchSemanticsNode().boundsInRoot.height / 2)
-        compose.onNodeWithContentDescription("Mi moto", ignoreCase = true).performClick()
+        val status = compose.onNodeWithTag("map_status_pill").fetchSemanticsNode().boundsInRoot
+        val camera = compose.onNodeWithTag("map_camera_mode").fetchSemanticsNode().boundsInRoot
+        val perspective = compose.onNodeWithTag("map_perspective").fetchSemanticsNode().boundsInRoot
+        val attribution = compose.onNodeWithTag("map_attribution").fetchSemanticsNode().boundsInRoot
+        val dock = compose.onNodeWithTag("map_dock").fetchSemanticsNode().boundsInRoot
+        assertTrue(status.right <= camera.left)
+        assertTrue(camera.bottom <= attribution.top)
+        assertTrue(perspective.bottom <= attribution.top)
+        assertTrue(attribution.bottom <= dock.top)
+        assertTrue(attribution.top - maxOf(status.bottom, camera.bottom, perspective.bottom) >= viewport.height * .70f)
+        compose.onNodeWithTag("map_motorcycle").performClick()
         assertEquals(CopilotScreen.MOTORCYCLE, destination)
         assertEquals(0, starts)
-        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.map_start_short)).performClick()
-        assertEquals(1, starts)
     }
+
     @Test fun revokingGpsRemovesPreviousTraceAndMarkerFromMainMap() {
         val recording = session()
-        val permitted = androidx.compose.runtime.mutableStateOf(true)
+        val permitted = mutableStateOf(true)
         var presented: TripMapSession? = null
         compose.setContent {
-            val renderer = TripMapRenderer { track, _, _ ->
-                androidx.compose.runtime.SideEffect { presented = track }
-            }
-            CompositionLocalProvider(LocalTripMapRenderer provides renderer) {
+            CompositionLocalProvider(LocalTripMapRenderer provides TripMapRenderer { track, _, _ ->
+                SideEffect { presented = track }
+            }) {
                 CopilotApp(CopilotUiState(tripActive = true, tripMap = recording, tripLocationEnabled = true,
                     tripLocationAvailable = permitted.value), CopilotScreen.MAP, {}, CopilotActions())
             }
@@ -147,22 +262,31 @@ class TripMapUiTest {
         compose.runOnIdle { assertEquals(recording, presented); permitted.value = false }
         compose.runOnIdle { assertNull(presented!!.lastFix); assertTrue(presented!!.segments.isEmpty()) }
     }
+
     private fun capture(theme: String, scale: Float) {
         RuntimeEnvironment.setQualifiers("w360dp-h800dp-${if (theme == "night") "night" else "notnight"}")
-        app(CopilotUiState(tripActive = true, tripMap = session(), observedRouteAtElapsedMs = 2500,
-            tripLocationEnabled = true, tripLocationAvailable = true), scale = scale)
-        reveal("Velocidad GPS")
-        compose.onNodeWithText("36 km/h").assertExists()
+        app(CopilotUiState(
+            tripActive = true,
+            tripMap = session(),
+            observedRouteAtElapsedMs = 2500,
+            tripLocationEnabled = true,
+            tripLocationAvailable = true
+        ), scale = scale)
+        compose.onNodeWithTag("map_speed").assertExists()
+        compose.onNodeWithTag("map_stop").assertExists()
+        compose.onNodeWithTag("map_attribution").assertExists()
         compose.runOnIdle {
             val view = (compose as AndroidComposeTestRule<*, *>).activity.window.decorView
             val image = android.graphics.Bitmap.createBitmap(view.width, view.height, android.graphics.Bitmap.Config.ARGB_8888)
             view.draw(android.graphics.Canvas(image))
-            val file = File("build/reports/trip-map/trip-$theme-${if (scale == 2f) "200" else "100"}.png")
-            file.parentFile?.mkdirs(); file.outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+            val file = File("build/reports/trip-map/active-$theme-${if (scale == 2f) "200" else "100"}-portrait.png")
+            file.parentFile?.mkdirs()
+            file.outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         }
     }
-    @Test fun nightNormal() = capture("night", 1f)
-    @Test fun dayNormal() = capture("day", 1f)
-    @Test fun nightLarge() = capture("night", 2f)
-    @Test fun dayLarge() = capture("day", 2f)
+
+    @Test fun activeNightNormalCapture() = capture("night", 1f)
+    @Test fun activeDayNormalCapture() = capture("day", 1f)
+    @Test fun activeNightLargeCapture() = capture("night", 2f)
+    @Test fun activeDayLargeCapture() = capture("day", 2f)
 }

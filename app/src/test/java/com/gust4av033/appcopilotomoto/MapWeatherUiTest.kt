@@ -1,9 +1,6 @@
 package com.gust4av033.appcopilotomoto
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
@@ -15,6 +12,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.gust4av033.appcopilotomoto.presentation.*
 import com.gust4av033.appcopilotomoto.presentation.components.*
+import com.gust4av033.appcopilotomoto.presentation.theme.CopilotTheme
 import org.junit.Assert.*
 import org.junit.Rule
 import org.junit.Test
@@ -37,37 +35,64 @@ class MapWeatherUiTest {
         destinationLabel = "Destino de prueba", nowElapsedMs = 1000, nowEpochMs = epoch,
         data = ContextValue(WeatherObservation(24.0, "identified fixture", 61, 12.0, epoch, "America/El_Salvador",
             listOf(WeatherHour(epoch + 3600_000, 23.0, 80, 61))), ContextSource.REPLAY_FIXTURE, epoch, 1000, 1f, 60_000, true))
-    private val renderer = TripMapRenderer { _, _, _ ->
-        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)) {
-            Text("PRUEBA DE INTERFAZ\nMapa sustituido; clima sintético.", Modifier.align(androidx.compose.ui.Alignment.Center).padding(20.dp))
-        }
-    }
-    @Test fun expiredWeatherIsNotDisplayedAsCurrentAndOpeningPanelDoesNotStartAudio() {
+
+    @Test fun onlyUsableTemperatureAppearsInThePillAndWeatherDetailsRemainAccessible() {
         val data = mutableStateOf(weather)
-        var audio = 0
+        var audioActions = 0
         var area: WeatherArea? = null
+        var weatherEnabled: Boolean? = null
         compose.setContent {
-            CompositionLocalProvider(LocalTripMapRenderer provides renderer) {
+            CompositionLocalProvider(LocalTripMapRenderer provides labeledTripMapRenderer()) {
                 CopilotApp(CopilotUiState(weather = data.value), CopilotScreen.MAP, {},
-                    CopilotActions(onToggleTrip = { audio++ }, onManualTripCommand = { audio++ }, onWeatherArea = { area = it }))
+                    CopilotActions(
+                        onToggleTrip = { audioActions++ },
+                        onManualTripCommand = { audioActions++ },
+                        onWeatherArea = { area = it },
+                        onWeatherEnabled = { weatherEnabled = it }
+                    ))
             }
         }
-        compose.onNodeWithText("24 °C").assertIsDisplayed().performClick()
-        compose.onNodeWithText("Próximas horas").assertExists()
-        compose.onNodeWithText("Mi ubicación").assertExists()
-        compose.onNodeWithText("Listo").performClick()
+        compose.onNodeWithText("24 °C").assertIsDisplayed()
+        compose.onNodeWithTag("map_status_pill").performClick()
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_hourly)).assertExists()
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_here))
+            .performClick()
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_online))
+            .performClick()
+        assertEquals(WeatherArea.HERE, area)
+        assertEquals(false, weatherEnabled)
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_attribution)).assertExists()
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.ride_done)).performClick()
         compose.runOnIdle { data.value = weather.copy(nowElapsedMs = 61_000) }
         compose.onNodeWithText("24 °C").assertDoesNotExist()
-        compose.onNodeWithText("Clima no disponible").assertIsDisplayed()
-        assertEquals(0, audio)
+        compose.onNodeWithTag("map_status_pill").performClick()
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_unavailable)).assertExists()
+        assertEquals(0, audioActions)
     }
+
+    @Test fun activatingWeatherIsAnExplicitActionFromTheMapDetails() {
+        var enabled: Boolean? = null
+        var audioActions = 0
+        compose.setContent {
+            CompositionLocalProvider(LocalTripMapRenderer provides labeledTripMapRenderer()) {
+                CopilotApp(CopilotUiState(), CopilotScreen.MAP, {},
+                    CopilotActions(onWeatherEnabled = { enabled = it }, onToggleTrip = { audioActions++ }))
+            }
+        }
+        compose.onNodeWithTag("map_status_pill").performClick()
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_online))
+            .performClick()
+        assertEquals(true, enabled)
+        assertEquals(0, audioActions)
+    }
+
     @Test @Config(sdk = [35], qualifiers = "w320dp-h480dp-night")
     fun weatherDisclosureCanBeReadToTheEndAtTwoHundredPercentFont() {
         RuntimeEnvironment.setFontScale(2f)
         var accepted = 0
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, 2f)) {
-                com.gust4av033.appcopilotomoto.presentation.theme.CopilotTheme {
+                CopilotTheme {
                     ProminentDisclosureDialog(DisclosureKind.WEATHER, { accepted++ }, {})
                 }
             }
@@ -83,27 +108,34 @@ class MapWeatherUiTest {
         compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.disclosure_continue)).performClick()
         assertEquals(1, accepted)
     }
+
     private fun capture(theme: String, scale: Float) {
         RuntimeEnvironment.setQualifiers("w360dp-h800dp-${if (theme == "night") "night" else "notnight"}")
         compose.setContent {
-            CompositionLocalProvider(LocalTripMapRenderer provides renderer,
-                LocalDensity provides Density(LocalDensity.current.density, scale)) {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalTripMapRenderer provides labeledTripMapRenderer(),
+                LocalDensity provides Density(density.density, scale)) {
                 CopilotApp(CopilotUiState(weather = weather), CopilotScreen.MAP, {}, CopilotActions())
             }
         }
         compose.onNodeWithText("24 °C").assertIsDisplayed()
-        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.map_start_short)).assertIsDisplayed()
+        compose.onNodeWithTag("map_status_pill").assertIsDisplayed()
+        compose.onNodeWithTag("map_camera_mode").assertIsDisplayed()
+        compose.onNodeWithTag("map_perspective").assertIsDisplayed()
+        compose.onNodeWithTag("map_attribution").assertIsDisplayed()
+        compose.onNodeWithTag("map_dock").assertIsDisplayed()
         compose.runOnIdle {
             val view = (compose as AndroidComposeTestRule<*, *>).activity.window.decorView
             val bitmap = android.graphics.Bitmap.createBitmap(view.width, view.height, android.graphics.Bitmap.Config.ARGB_8888)
             view.draw(android.graphics.Canvas(bitmap))
-            val file = File("build/reports/map-weather/map-$theme-${if (scale == 2f) "200" else "100"}.png")
+            val file = File("build/reports/trip-map/idle-$theme-${if (scale == 2f) "200" else "100"}-portrait.png")
             file.parentFile?.mkdirs()
             file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         }
     }
-    @Test fun nightNormal() = capture("night", 1f)
-    @Test fun dayNormal() = capture("day", 1f)
-    @Test fun nightLarge() = capture("night", 2f)
-    @Test fun dayLarge() = capture("day", 2f)
+
+    @Test fun idleNightNormalCapture() = capture("night", 1f)
+    @Test fun idleDayNormalCapture() = capture("day", 1f)
+    @Test fun idleNightLargeCapture() = capture("night", 2f)
+    @Test fun idleDayLargeCapture() = capture("day", 2f)
 }
