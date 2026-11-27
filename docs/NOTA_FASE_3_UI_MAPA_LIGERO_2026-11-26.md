@@ -9,8 +9,7 @@
 - Integración no lineal de la base: `4a0c6ce`. No se usaron
   `feature/fase-3-recuperacion-rc2` ni `archive/copilot-mapa-2026-11-25` como
   base.
-- Etapa A: `5893248`. Etapa B: `c1fded0`. Etapa C se registra en este documento
-  junto con su commit al terminar.
+- Etapa A: `5893248`. Etapa B: `c1fded0`. Etapa C: `7017e22`.
 
 ## Cambios realizados
 
