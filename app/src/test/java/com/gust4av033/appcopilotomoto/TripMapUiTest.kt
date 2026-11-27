@@ -43,7 +43,7 @@ class TripMapUiTest {
         return track.snapshot
     }
     private val fixtureRenderer = TripMapRenderer { _, _, _ ->
-        Box(Modifier.fillMaxWidth().height(Glass.mapHeight).background(MaterialTheme.colorScheme.surfaceVariant)) {
+        Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = androidx.compose.ui.Alignment.Center) {
             Text("RENDERIZADOR DE PRUEBA\nSin cartografía real; solo prueba de controles Compose.")
         }
     }
@@ -136,22 +136,154 @@ class TripMapUiTest {
         compose.runOnIdle { assertEquals(recording, presented); permitted.value = false }
         compose.runOnIdle { assertNull(presented!!.lastFix); assertTrue(presented!!.segments.isEmpty()) }
     }
-    private fun capture(theme: String, scale: Float) {
+    @Test fun movingMapHidesSecondaryActionsAndDoesNotUnlockOnStaleGps() {
+        var picks = 0
+        val current = androidx.compose.runtime.mutableStateOf(CopilotUiState(tripActive = true,
+            tripMap = session(), observedRouteAtElapsedMs = 2000, tripLocationEnabled = true,
+            tripLocationAvailable = true, audioDevices = AudioDevicesUi(permissionGranted = true,
+                bluetoothOutputs = listOf("Fixture headset"))))
+        compose.setContent {
+            CompositionLocalProvider(LocalTripMapRenderer provides fixtureRenderer) {
+                CopilotApp(current.value, CopilotScreen.MAP, {}, CopilotActions(onChooseMapDestination = { picks++ }))
+            }
+        }
+        compose.onNodeWithContentDescription("Mi moto", ignoreCase = true).assertExists()
+        compose.runOnIdle {
+            val fix = current.value.tripMap.lastFix!!
+            current.value = current.value.copy(observedRouteAtElapsedMs = 5000,
+                tripMap = current.value.tripMap.copy(lastFix = fix.copy(value = fix.value.copy(elapsedRealtimeMs = 5000))))
+        }
+        compose.onNodeWithContentDescription("Mi moto", ignoreCase = true).assertDoesNotExist()
+        compose.onNodeWithText("36").assertExists()
+        compose.runOnIdle { current.value = current.value.copy(observedRouteAtElapsedMs = 20000) }
+        compose.onNodeWithText("36").assertDoesNotExist()
+        compose.onNodeWithContentDescription("Mi moto", ignoreCase = true).assertDoesNotExist()
+        compose.onNodeWithText("Elegir destino").assertDoesNotExist()
+        for (time in listOf(21000L, 26000L)) compose.runOnIdle {
+            val fix = current.value.tripMap.lastFix!!.value.copy(elapsedRealtimeMs = time, speedMetersPerSec = 0f)
+            current.value = current.value.copy(observedRouteAtElapsedMs = time,
+                tripMap = current.value.tripMap.copy(lastFix = ContextValue(fix, ContextSource.ANDROID_GPS, time, time, 1f, 10000)))
+        }
+        compose.onNodeWithText("Elegir destino").performScrollTo().performClick()
+        compose.runOnIdle { assertEquals(1, picks) }
+    }
+    @Test fun idleMapDoesNotReusePreviousTripMetricsOrInventSearch() {
+        var presented: TripMapSession? = null
+        val renderer = TripMapRenderer { track, _, _ ->
+            androidx.compose.runtime.SideEffect { presented = track }
+        }
+        compose.setContent {
+            CompositionLocalProvider(LocalTripMapRenderer provides renderer) {
+                CopilotApp(CopilotUiState(tripMap = session(), tripLocationEnabled = true,
+                    tripLocationAvailable = true, observedRouteAtElapsedMs = 2000), CopilotScreen.MAP, {}, CopilotActions())
+            }
+        }
+        compose.onNodeWithText("36").assertDoesNotExist()
+        compose.onNodeWithText("Recorrido").assertDoesNotExist()
+        compose.onNodeWithText("Elegir destino").assertDoesNotExist()
+        compose.runOnIdle {
+            assertEquals(session().lastFix, presented!!.lastFix)
+            assertNull(presented!!.currentFix(2000))
+            assertNull(presented!!.distanceMeters)
+            assertTrue(presented!!.segments.isEmpty())
+        }
+    }
+    @Test fun listeningIndicatorReflectsVoiceStateWithoutDispatchingCommands() {
+        var commands = 0
+        compose.setContent {
+            CompositionLocalProvider(LocalTripMapRenderer provides fixtureRenderer) {
+                CopilotApp(CopilotUiState(tripActive = true, interactionPhase = TripInteractionPhase.LISTENING),
+                    CopilotScreen.MAP, {}, CopilotActions(onManualTripCommand = { commands++ }))
+            }
+        }
+        compose.onNodeWithText("Escuchando").assertIsDisplayed()
+        assertEquals(0, commands)
+    }
+    @Test fun routeHudOnlyShowsSuppliedFreshData() {
+        val route = androidx.compose.runtime.mutableStateOf<RouteHudState?>(null)
+        compose.setContent {
+            com.gust4av033.appcopilotomoto.presentation.theme.CopilotTheme {
+                Column { ManeuverBanner(route.value); EtaBar(route.value) }
+            }
+        }
+        compose.onNodeWithText("Llegada").assertDoesNotExist()
+        compose.runOnIdle { route.value = RouteHudState(120.0, "Girá a la derecha", "Calle fixture", "14:35", "12 min", 4.2, "Ruta de APP", true) }
+        compose.onNodeWithText("120").assertExists()
+        compose.onNodeWithText("14:35").assertExists()
+        compose.runOnIdle { route.value = route.value!!.copy(fresh = false) }
+        compose.onNodeWithText("120").assertDoesNotExist()
+        compose.onNodeWithText("14:35").assertDoesNotExist()
+        compose.onNodeWithText("Girá a la derecha").assertDoesNotExist()
+        compose.onNodeWithText("Calle fixture").assertDoesNotExist()
+    }
+    @Test fun safeStopRequiresSustainedPressAndCancelsOnReleaseOrDisposal() {
+        var stops = 0
+        val visible = androidx.compose.runtime.mutableStateOf(true)
+        compose.setContent {
+            com.gust4av033.appcopilotomoto.presentation.theme.CopilotTheme {
+                if (visible.value) HoldToStopButton(onStop = { stops++ })
+            }
+        }
+        compose.mainClock.autoAdvance = false
+        val button = compose.onNodeWithTag("ride_stop_hold")
+        button.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(300)
+        button.performTouchInput { up() }
+        compose.mainClock.advanceTimeBy(800)
+        compose.runOnIdle { assertEquals(0, stops) }
+        button.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(700)
+        button.performTouchInput { up() }
+        compose.runOnIdle { assertEquals(1, stops) }
+        button.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(200)
+        compose.runOnIdle { visible.value = false }
+        compose.mainClock.advanceTimeBy(800)
+        compose.runOnIdle { assertEquals(1, stops) }
+    }
+    @Test fun accessibleStopAsksForExplicitConfirmation() {
+        var stops = 0
+        compose.setContent { HoldToStopButton(onStop = { stops++ }) }
+        compose.onNodeWithTag("ride_stop_hold").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
+        compose.runOnIdle { assertEquals(0, stops) }
+        compose.onNodeWithText("Seguir viaje").performClick()
+        compose.runOnIdle { assertEquals(0, stops) }
+        compose.onNodeWithTag("ride_stop_hold").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
+        compose.onNodeWithText("Detener").performClick()
+        compose.runOnIdle { assertEquals(1, stops) }
+    }
+    private fun capture(theme: String, scale: Float, riding: Boolean) {
         RuntimeEnvironment.setQualifiers("w360dp-h800dp-${if (theme == "night") "night" else "notnight"}")
-        app(CopilotUiState(tripActive = true, tripMap = session(), observedRouteAtElapsedMs = 2500,
-            tripLocationEnabled = true, tripLocationAvailable = true), scale = scale)
-        reveal("Velocidad GPS")
-        compose.onNodeWithText("36 km/h").assertExists()
+        val current = androidx.compose.runtime.mutableStateOf(CopilotUiState(tripActive = riding,
+            tripMap = session(), observedRouteAtElapsedMs = 2000,
+            tripLocationEnabled = true, tripLocationAvailable = true,
+            audioDevices = AudioDevicesUi(permissionGranted = true, bluetoothOutputs = listOf("Fixture headset"))))
+        compose.setContent {
+            CompositionLocalProvider(LocalTripMapRenderer provides fixtureRenderer,
+                LocalDensity provides Density(LocalDensity.current.density, scale)) {
+                CopilotApp(current.value, CopilotScreen.MAP, {}, CopilotActions())
+            }
+        }
+        if (riding) {
+            compose.runOnIdle {
+                val fix = current.value.tripMap.lastFix!!
+                current.value = current.value.copy(observedRouteAtElapsedMs = 5000,
+                    tripMap = current.value.tripMap.copy(lastFix = fix.copy(value = fix.value.copy(elapsedRealtimeMs = 5000))))
+            }
+            compose.onNodeWithText("36").assertIsDisplayed()
+            compose.onNodeWithTag("ride_stop_hold").assertIsDisplayed()
+            compose.onNodeWithContentDescription("Mi moto", ignoreCase = true).assertDoesNotExist()
+        } else compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.map_start_short)).assertIsDisplayed()
         compose.runOnIdle {
             val view = (compose as AndroidComposeTestRule<*, *>).activity.window.decorView
             val image = android.graphics.Bitmap.createBitmap(view.width, view.height, android.graphics.Bitmap.Config.ARGB_8888)
             view.draw(android.graphics.Canvas(image))
-            val file = File("build/reports/trip-map/trip-$theme-${if (scale == 2f) "200" else "100"}.png")
+            val file = File("build/reports/ui-vistazo/${if (riding) "riding" else "idle"}-$theme-${if (scale == 2f) "200" else "100"}.png")
             file.parentFile?.mkdirs(); file.outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         }
     }
-    @Test fun nightNormal() = capture("night", 1f)
-    @Test fun dayNormal() = capture("day", 1f)
-    @Test fun nightLarge() = capture("night", 2f)
-    @Test fun dayLarge() = capture("day", 2f)
+    @Test fun idleDayNormal() = capture("day", 1f, false)
+    @Test fun idleNightLarge() = capture("night", 2f, false)
+    @Test fun ridingDayNormal() = capture("day", 1f, true)
+    @Test fun ridingNightLarge() = capture("night", 2f, true)
 }

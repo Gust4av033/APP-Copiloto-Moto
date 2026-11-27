@@ -26,7 +26,7 @@
     <string name="map_session_idle">Sin iniciar</string>
     <string name="map_session_on">Activa</string>
     <string name="map_audio_label">Audio</string>
-    <string name="map_audio_headset">Casco detectado</string>
+    <string name="map_audio_headset">Casco</string>
     <string name="map_audio_none">Sin casco</string>
     <string name="map_gps_label">GPS</string>
     <string name="map_gps_pending">Esperando señal</string>

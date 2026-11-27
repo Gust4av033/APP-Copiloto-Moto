@@ -154,6 +154,7 @@ data class CopilotUiState(
     val nextTripDestination: com.gust4av033.appcopilotomoto.NavigationDestination? = null,
     val tripLocationEnabled: Boolean = false,
     val tripLocationAvailable: Boolean = false,
+    val routeHud: com.gust4av033.appcopilotomoto.presentation.components.RouteHudState? = null,
     val tripMap: com.gust4av033.appcopilotomoto.TripMapSession = com.gust4av033.appcopilotomoto.TripMapSession(),
     val mapOnlineEnabled: Boolean = false,
     val weather: com.gust4av033.appcopilotomoto.WeatherUiState = com.gust4av033.appcopilotomoto.WeatherUiState(),
@@ -221,6 +222,8 @@ data class CopilotActions(
     val onOpenAppPermissions: () -> Unit = {},
     val onCopyBasicDiagnostics: (String) -> Unit = {},
     val onCancelStandaloneCommand: () -> Unit = {},
+    // Wire only when a real destination picker exists. No dead search control today.
+    val onChooseMapDestination: (() -> Unit)? = null,
     val onToggleTrip: () -> Unit = {},
     val onForgetNavigationRequest: () -> Unit = {},
     val onNavigationProviderChange: (String) -> Unit = {},

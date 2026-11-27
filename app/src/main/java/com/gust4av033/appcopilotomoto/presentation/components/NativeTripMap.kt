@@ -75,6 +75,7 @@ import java.util.Locale
 fun interface TripMapRenderer {
     @Composable fun Render(session: TripMapSession, now: Long, online: Boolean)
 }
+val LocalTripMapRiding = staticCompositionLocalOf { false }
 val LocalTripMapTopInset = staticCompositionLocalOf<Dp> { 0.dp }
 val LocalTripMapBottomInset = staticCompositionLocalOf<Dp> { 0.dp }
 val LocalTripMapRenderer = staticCompositionLocalOf<TripMapRenderer> { TripMapRenderer { session, now, online ->
@@ -94,6 +95,7 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
     private var modelKey: List<Double>? = null
     private var map: MapLibreMap? = null
     private var vegetation: NativeVegetation? = null
+    private var guidance = TripMapStyle.emptyCollection().toString()
     private var data = first
     private var now = 0L
     private var lastApplied: TripMapSession? = null
@@ -155,12 +157,20 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
                 .withImage("app-road-direction", direction)
             ready.setStyle(style) {
                 if (!destroyed) {
-                    lastApplied = null; modelKey = null; applyData(); updateModel(); vegetation?.visible(online && inclined && resumed)
+                    lastApplied = null; modelKey = null;
+                    ready.style?.getSourceAs<GeoJsonSource>(TripMapStyle.GUIDANCE)?.setGeoJson(guidance)
+                    applyData(); updateModel(); vegetation?.visible(online && inclined && resumed)
                     report(if (online) R.string.trip_map_loading_tiles else R.string.trip_map_local_only)
                 }
             }
         }
     }
+    // Separate from GPS history; survives style load, empty until a routing producer calls it.
+    fun showRoute(points: List<MapRoutePoint>) {
+        guidance = TripMapStyle.plannedRoute(points)
+        map?.style?.takeIf { it.isFullyLoaded }?.getSourceAs<GeoJsonSource>(TripMapStyle.GUIDANCE)?.setGeoJson(guidance)
+    }
+    fun clearRoute() = showRoute(emptyList())
     fun update(session: TripMapSession, elapsedMs: Long) { data = session; now = elapsedMs; applyData() }
     private fun applyData() {
         val ready = map ?: return
@@ -295,11 +305,12 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val colors = MaterialTheme.colorScheme
     fun Color.css() = String.format(Locale.ROOT, "#%06X", toArgb() and 0xFFFFFF)
-    val paint = TripMapPaint(colors.background.css(), if (com.gust4av033.appcopilotomoto.presentation.theme.LocalGlassDark.current) Glass.nightRoute else colors.primary.css(), colors.tertiary.css(),
+    val paint = TripMapPaint(colors.background.css(), Glass.mapTraceColor, Glass.motoBlue,
         colors.onSurfaceVariant.css(), colors.surface.css(), Glass.mapRouteWidth, Glass.mapPointRadius, Glass.mapPointRimWidth,
         if (com.gust4av033.appcopilotomoto.presentation.theme.LocalGlassDark.current) Glass.mapNightBrightness else 1f,
         colors.secondaryContainer.css(), colors.outline.css())
     var retry by remember { mutableIntStateOf(0) }
+    val riding = LocalTripMapRiding.current
     val bottomInset = LocalTripMapBottomInset.current
     val topInset = LocalTripMapTopInset.current
     var cameraMode by rememberSaveable { mutableStateOf(TripMapCameraMode.NORTH_UP) }
@@ -331,7 +342,8 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
                     Column(Modifier.align(Alignment.TopEnd).padding(top = topInset, bottom = bottomInset)
                         .padding(8.dp).width(Glass.cockpitSideWidth).verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        CockpitButton(if (inclined) "3D" else "2D", R.drawable.ic_map_layers, Modifier.fillMaxWidth(),
+                        if (!riding) {
+                        CockpitButton(stringResource(if (inclined) R.string.ride_map_3d else R.string.ride_map_2d), R.drawable.ic_map_layers, Modifier.fillMaxWidth(),
                             selected = inclined, description = stringResource(if (inclined) R.string.map_flat else R.string.map_perspective)) { inclined = !inclined }
                         CockpitButton(stringResource(R.string.map_heading_short), R.drawable.ic_heading, Modifier.fillMaxWidth(),
                             selected = cameraMode == TripMapCameraMode.FOLLOW_HEADING, enabled = session.lastFix != null,
@@ -342,9 +354,10 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
                         CockpitButton(stringResource(R.string.map_free_short), R.drawable.ic_pan, Modifier.fillMaxWidth(),
                             selected = cameraMode == TripMapCameraMode.FREE,
                             description = stringResource(R.string.trip_map_camera_free)) { controller.setCameraMode(TripMapCameraMode.FREE) }
-                        CockpitButton(stringResource(R.string.map_center_short), R.drawable.ic_center_fix, Modifier.fillMaxWidth(),
+                        }
+                        if (!riding || cameraMode == TripMapCameraMode.FREE) CockpitButton(stringResource(R.string.map_center_short), R.drawable.ic_center_fix, Modifier.fillMaxWidth(),
                             enabled = session.lastFix != null, description = stringResource(R.string.trip_map_center), onClick = controller::center)
-                        if (session.segments.any { it.size >= 2 }) CockpitButton(stringResource(R.string.map_trace_short),
+                        if (!riding && session.segments.any { it.size >= 2 }) CockpitButton(stringResource(R.string.map_trace_short),
                             R.drawable.ic_trip, Modifier.fillMaxWidth(), description = stringResource(R.string.trip_map_fit), onClick = controller::fitTrace)
                     }
                 }

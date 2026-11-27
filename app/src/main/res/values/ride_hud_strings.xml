@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ride_hud_unavailable">—</string>
+    <string name="ride_hud_kmh">km/h</string>
+    <string name="ride_hud_meters">m</string>
+    <string name="ride_hud_arrival">Llegada</string>
+    <string name="ride_hud_remaining">%1$s · %2$s km restantes</string>
+    <string name="ride_hud_expired">Ruta sin datos recientes</string>
+    <string name="ride_choose_destination">Elegir destino</string>
+    <string name="ride_hud_listening">Escuchando</string>
+    <string name="ride_hud_gps_warning">GPS sin precisión reciente</string>
+    <string name="ride_hud_audio_warning">Revisá la conexión de audio</string>
+    <string name="ride_stop_hold">Mantener para detener</string>
+    <string name="ride_stop_confirm">¿Detener el viaje?</string>
+    <string name="ride_stop_cancel">Seguir viaje</string>
+    <string name="ride_map_3d">3D</string>
+    <string name="ride_map_2d">2D</string>
+</resources>

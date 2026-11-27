@@ -20,6 +20,28 @@ import java.util.concurrent.TimeUnit
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class TripMapPolicyTest {
+    @Test fun plannedRouteIsEmptyUntilSuppliedAndDistinctFromRecordedTrace() {
+        val paint = TripMapPaint("#050C1D", "#2F6BFF", "#79DDFF", "#888888", "#050C1D", 4f, 7f, 2f, .82f, "#334455", "#668899")
+        val style = JSONObject(TripMapStyle.json(false, paint))
+        assertEquals(0, style.getJSONObject("sources").getJSONObject(TripMapStyle.GUIDANCE)
+            .getJSONObject("data").getJSONArray("features").length())
+        val array = style.getJSONArray("layers")
+        val layers = (0 until array.length()).map { array.getJSONObject(it) }
+        val trace = layers.single { it.getString("id") == TripMapStyle.ROUTE }.getJSONObject("paint")
+        val route = layers.single { it.getString("id") == TripMapStyle.GUIDANCE }.getJSONObject("paint")
+        assertTrue(trace.has("line-dasharray")); assertFalse(route.has("line-dasharray"))
+        assertNotEquals(trace.getString("line-color"), route.getString("line-color"))
+        assertTrue(route.getDouble("line-width") > trace.getDouble("line-width"))
+        assertTrue(layers.indexOfFirst { it.getString("id") == TripMapStyle.GUIDANCE_CASING } <
+            layers.indexOfFirst { it.getString("id") == TripMapStyle.GUIDANCE })
+        assertTrue(layers.indexOfFirst { it.getString("id") == TripMapStyle.GUIDANCE } <
+            layers.indexOfFirst { it.getString("id") == TripMapStyle.MOTO })
+        val points = listOf(com.gust4av033.appcopilotomoto.presentation.components.MapRoutePoint(14.6, -90.5),
+            com.gust4av033.appcopilotomoto.presentation.components.MapRoutePoint(14.7, -90.4))
+        assertEquals("LineString", JSONObject(TripMapStyle.plannedRoute(points)).getJSONObject("geometry").getString("type"))
+        assertTrue(JSONObject(TripMapStyle.plannedRoute(emptyList())).has("features"))
+        assertTrue(JSONObject(TripMapStyle.plannedRoute(points + points[0].copy(latitude = Double.NaN))).has("features"))
+    }
     @Test fun roadDirectionDoesNotGuessUnknownOrBidirectionalRoads() {
         assertEquals(0, TripMapStyle.roadDirection(1))
         assertEquals(180, TripMapStyle.roadDirection(-1))

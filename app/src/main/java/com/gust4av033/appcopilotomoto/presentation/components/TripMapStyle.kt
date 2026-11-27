@@ -9,7 +9,22 @@ internal data class TripMapPaint(val background: String, val route: String, val 
     val stale: String, val rim: String, val lineWidth: Float, val pointRadius: Float, val rimWidth: Float, val brightness: Float,
     val land: String, val coastline: String)
 
+data class MapRoutePoint(val latitude: Double, val longitude: Double)
+
 internal object TripMapStyle {
+    const val GUIDANCE = "trip-planned-route"
+    const val GUIDANCE_CASING = "trip-planned-route-casing"
+    fun plannedRoute(points: List<MapRoutePoint>): String {
+        if (points.size < 2 || points.any { !it.latitude.isFinite() || !it.longitude.isFinite() ||
+                it.latitude !in -MAX_LATITUDE..MAX_LATITUDE || it.longitude !in -180.0..180.0 } ||
+            points.zipWithNext().any { (a, b) -> kotlin.math.abs(a.longitude - b.longitude) > 180 })
+            return emptyCollection().toString()
+        return JSONObject().put("type", "Feature").put("properties", JSONObject()).put("geometry",
+            JSONObject().put("type", "LineString").put("coordinates", JSONArray().also { line ->
+                points.forEach { line.put(JSONArray().put(it.longitude).put(it.latitude)) }
+            })).toString()
+    }
+
     const val ROUTE = "trip-recorded-route"
     const val FIX = "trip-observed-fix"
     const val LAND = "world-land"
@@ -101,7 +116,7 @@ internal object TripMapStyle {
         if (online && paint.brightness < 1f) applyNightPalette(result)
         if (online && base != null) roadLegibility(result)
         val sources = result.optJSONObject("sources") ?: JSONObject()
-        for (id in listOf(ROUTE, FIX, MOTO, TREES)) sources.put(id,
+        for (id in listOf(ROUTE, GUIDANCE, FIX, MOTO, TREES)) sources.put(id,
             JSONObject().put("type", "geojson").put("data", emptyCollection()))
         val layers = result.optJSONArray("layers") ?: JSONArray().put(JSONObject().put("id", "background").put("type", "background")
             .put("paint", JSONObject().put("background-color", paint.background)))
@@ -111,17 +126,20 @@ internal object TripMapStyle {
         layers.put(JSONObject().put("id", LAND).put("type", "fill").put("source", LAND).put("maxzoom", 7)
             .put("paint", JSONObject().put("fill-color", paint.land).put("fill-outline-color", paint.coastline)))
         }
-        layers.put(JSONObject().put("id", GLOW).put("type", "line").put("source", ROUTE)
-            .put("layout", JSONObject().put("line-cap", "round").put("line-join", "round"))
-            .put("paint", JSONObject().put("line-color", paint.route).put("line-width", Glass.routeGlowWidth)
-                .put("line-opacity", Glass.routeGlowOpacity)))
         layers.put(JSONObject().put("id", TREES).put("type", "fill-extrusion").put("source", TREES).put("minzoom", 15)
             .put("paint", JSONObject().put("fill-extrusion-color", JSONArray().put("get").put("color"))
                 .put("fill-extrusion-base", JSONArray().put("get").put("base"))
                 .put("fill-extrusion-height", JSONArray().put("get").put("height"))))
         layers.put(JSONObject().put("id", ROUTE).put("type", "line").put("source", ROUTE)
             .put("layout", JSONObject().put("line-cap", "round").put("line-join", "round"))
-            .put("paint", JSONObject().put("line-color", paint.route).put("line-width", paint.lineWidth)))
+            .put("paint", JSONObject().put("line-color", Glass.mapTraceColor).put("line-width", Glass.mapTraceWidth)
+                .put("line-dasharray", JSONArray(Glass.mapTraceDash))))
+        for ((id, color, width) in listOf(Triple(GUIDANCE_CASING, Glass.mapGuidanceCasing, Glass.mapGuidanceCasingWidth),
+                Triple(GUIDANCE, Glass.mapGuidanceColor, Glass.mapGuidanceWidth))) {
+            layers.put(JSONObject().put("id", id).put("type", "line").put("source", GUIDANCE)
+                .put("layout", JSONObject().put("line-cap", "round").put("line-join", "round"))
+                .put("paint", JSONObject().put("line-color", color).put("line-width", width)))
+        }
         layers.put(JSONObject().put("id", FIX).put("type", "circle").put("source", FIX)
             .put("paint", JSONObject().put("circle-color", paint.current).put("circle-radius", paint.pointRadius)
                 .put("circle-stroke-color", paint.rim).put("circle-stroke-width", paint.rimWidth)))

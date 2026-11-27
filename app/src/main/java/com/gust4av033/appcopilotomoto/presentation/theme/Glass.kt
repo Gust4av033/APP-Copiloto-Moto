@@ -38,6 +38,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -62,6 +63,28 @@ internal val LocalGlassDark = staticCompositionLocalOf { false }
 
 /** Shared surface, button and geometry tokens. */
 object Glass {
+    // Map HUD: dark even in day mode, predictable contrast over any tile.
+    val rideSurface = Color(0xFF050C1D)
+    val rideInk = Color(0xFFF4F7FF)
+    val rideWarning get() = NightColors.error
+    val rideMuted = Color(0xFFABB9D0)
+    const val rideSurfaceAlpha = .96f
+    val rideNumberSize = 48.sp
+    val rideNumberLineHeight = 56.sp
+    val rideSecondaryNumberSize = 24.sp
+    val rideSecondaryNumberLineHeight = 32.sp
+    val ridePanelPadding = 12.dp
+    val rideSmallGap = 4.dp
+    val rideListeningBorder = 2.dp
+    const val rideStopHoldMs = 600
+
+    const val mapTraceColor = "#8191A8"
+    const val mapTraceWidth = 2f
+    val mapTraceDash = listOf(2, 2)
+    const val mapGuidanceColor = "#26D3F2"
+    const val mapGuidanceWidth = 7f
+    const val mapGuidanceCasingWidth = 11f
+    const val mapGuidanceCasing = "#050C1D"
     const val mapOverlayOpacity = .96f
     val cockpitGap = 8.dp
     val cockpitSideWidth = 60.dp

@@ -72,6 +72,19 @@ fun CopilotApp(
     actions: CopilotActions,
     initialSettingsSection: SettingsSection = SettingsSection.OVERVIEW
 ) {
+    // Kept above navigation: leaving the map cannot reset the moving layout.
+    var rideMemory by rememberSaveable(state.tripMap.sessionId, state.tripActive,
+        stateSaver = androidx.compose.runtime.saveable.listSaver<RideUiPhaseMemory, Any>(
+            save = { listOf(it.phase.name, it.candidateSinceMs ?: -1L, it.lastSampleMs ?: -1L) },
+            restore = { RideUiPhaseMemory(RideUiPhase.valueOf(it[0] as String),
+                (it[1] as Long).takeIf { t -> t >= 0 }, (it[2] as Long).takeIf { t -> t >= 0 }) })) {
+        mutableStateOf(RideUiPhaseMemory())
+    }
+    val usableGps = state.tripLocationEnabled && state.tripLocationAvailable
+    val nextRide = rideUiPhase(rideMemory, state.tripActive,
+        state.tripMap.speedKmh(state.observedRouteAtElapsedMs).takeIf { usableGps },
+        state.tripMap.lastFix?.value?.elapsedRealtimeMs)
+    androidx.compose.runtime.SideEffect { if (rideMemory != nextRide) rideMemory = nextRide }
     val visibleScreen = selectedScreen.visibleFor(state)
     // Las rutas secundarias conservan su origen; navegar no toca el runtime.
     var settingsSectionName by rememberSaveable { mutableStateOf(initialSettingsSection.name) }
@@ -184,7 +197,7 @@ fun CopilotApp(
             screenState.SaveableStateProvider(if (visibleScreen == CopilotScreen.SETTINGS)
                 "${visibleScreen.name}/${settingsSection.name}" else visibleScreen.name) {
                 if (visibleScreen == CopilotScreen.MAP) {
-                    com.gust4av033.appcopilotomoto.presentation.screens.RideMapScreen(state, actions, navigate, Modifier.fillMaxSize().padding(padding))
+                    com.gust4av033.appcopilotomoto.presentation.screens.RideMapScreen(state, actions, navigate, Modifier.fillMaxSize().padding(padding), nextRide.phase)
                     return@SaveableStateProvider
                 }
                 LazyColumn(

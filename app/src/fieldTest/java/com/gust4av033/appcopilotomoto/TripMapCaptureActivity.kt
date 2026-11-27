@@ -32,13 +32,13 @@ class TripMapCaptureActivity : ComponentActivity() {
             distanceMeters = 80.0, segments = listOf(points))
         setContent {
             CopilotTheme { CopilotBackdrop {
-                val routeColor = if (LocalGlassDark.current) android.graphics.Color.parseColor(Glass.nightRoute) else MaterialTheme.colorScheme.primary.toArgb()
+                val routeColor = android.graphics.Color.parseColor(Glass.mapTraceColor)
                 SideEffect { intent.putExtra("fixture_route_color", routeColor) }
                 Column(Modifier.fillMaxSize()) {
                     Text("PRUEBA NATIVA · ESCENA Y CLIMA SINTÉTICOS", Modifier.padding(8.dp),
                         style = MaterialTheme.typography.labelSmall)
                     val epoch = System.currentTimeMillis()
-                    CopilotApp(CopilotUiState(tripMap = session, observedRouteAtElapsedMs = now,
+                    CopilotApp(CopilotUiState(tripActive = true, tripMap = session, observedRouteAtElapsedMs = now,
                         tripLocationEnabled = true, tripLocationAvailable = true,
                         weather = WeatherUiState(enabled = true, hasTarget = true, nowElapsedMs = now, nowEpochMs = epoch,
                             data = ContextValue(WeatherObservation(24.0, "native-render-fixture", 2, 8.0, epoch, "America/El_Salvador"),

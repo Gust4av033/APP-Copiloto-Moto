@@ -44,10 +44,37 @@ public final class TripMapRenderSmoke {
                 if (Math.abs(android.graphics.Color.red(pixel) - android.graphics.Color.red(color)) <= 12 &&
                     Math.abs(android.graphics.Color.green(pixel) - android.graphics.Color.green(color)) <= 12 &&
                     Math.abs(android.graphics.Color.blue(pixel) - android.graphics.Color.blue(color)) <= 12 &&
-                    ++count >= 10) return true;
+                    ++count >= 5) return true;
             }
         }
         return false;
+    }
+    /** Uses the production local style: planned cyan line is separate from the dashed trace. */
+    private static void verifyPlannedRoute(Instrumentation instrumentation, MapLibreMap map) throws Exception {
+        AtomicReference<Throwable> failure = new AtomicReference<>();
+        instrumentation.runOnMainSync(() -> {
+            try {
+                org.maplibre.android.style.sources.GeoJsonSource source = map.getStyle().getSourceAs("trip-planned-route");
+                if (source == null) throw new IllegalStateException("Missing reserved route source");
+                source.setGeoJson("{\"type\":\"Feature\",\"properties\":{},\"geometry\":{\"type\":\"LineString\",\"coordinates\":[[-90.4997,14.6004],[-90.4997,14.6007]]}}");
+            } catch (Throwable error) { failure.set(error); }
+        });
+        if (failure.get() != null) throw new IllegalStateException("Route source", failure.get());
+        boolean rendered = false;
+        for (int attempt = 0; attempt < 10 && !rendered; attempt++) {
+            CountDownLatch ready = new CountDownLatch(1);
+            AtomicReference<Boolean> visible = new AtomicReference<>(false);
+            instrumentation.runOnMainSync(() -> map.snapshot(bitmap -> {
+                PointF midpoint = map.getProjection().toScreenLocation(new org.maplibre.android.geometry.LatLng(14.60055, -90.4997));
+                visible.set(containsTrace(bitmap, android.graphics.Color.parseColor("#26D3F2"), midpoint));
+                ready.countDown();
+            }));
+            if (!ready.await(5, TimeUnit.SECONDS)) throw new IllegalStateException("Route render timed out");
+            rendered = visible.get();
+        }
+        if (!rendered) throw new IllegalStateException("Planned route not rendered by the local style");
+        instrumentation.runOnMainSync(() -> map.getStyle().<org.maplibre.android.style.sources.GeoJsonSource>getSourceAs("trip-planned-route")
+            .setGeoJson("{\"type\":\"FeatureCollection\",\"features\":[]}"));
     }
     /** Capture the composited map window. A symbol hit-test alone cannot prove the bike is visible. */
     private static Bitmap displayedFrame(Instrumentation instrumentation, Activity activity,
@@ -160,6 +187,7 @@ public final class TripMapRenderSmoke {
             Bitmap afterPan = displayedFrame(instrumentation, target, map, expected, bitmap);
             saveFrame(target, afterPan, "trip-map-panned.png");
             afterPan.recycle();
+            verifyPlannedRoute(instrumentation, map);
             Bitmap screen = instrumentation.getUiAutomation().takeScreenshot();
             if (screen != null) try (FileOutputStream file = new FileOutputStream(new File(instrumentation.getTargetContext().getFilesDir(), "trip-map-native-screen.png"))) {
                 screen.compress(Bitmap.CompressFormat.PNG, 100, file);
