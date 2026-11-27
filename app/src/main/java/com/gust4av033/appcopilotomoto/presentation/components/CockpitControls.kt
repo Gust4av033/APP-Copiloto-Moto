@@ -41,7 +41,7 @@ import kotlinx.coroutines.launch
 @Composable
 internal fun CockpitButton(label: String, icon: Int?, modifier: Modifier = Modifier,
     selected: Boolean = false, primary: Boolean = false, destructive: Boolean = false,
-    enabled: Boolean = true, description: String = label, onClick: () -> Unit) {
+    enabled: Boolean = true, description: String = label, inline: Boolean = false, onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
     val shape = RoundedCornerShape(Glass.controlRadius)
     val fill = when {
@@ -58,9 +58,16 @@ internal fun CockpitButton(label: String, icon: Int?, modifier: Modifier = Modif
         .semantics { contentDescription = description; this.selected = selected }
         .padding(horizontal = 8.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterVertically)) {
+        if (inline) Row(verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Glass.cockpitGap)) {
         if (icon != null) Icon(painterResource(icon), null, Modifier.size(Glass.iconSize), tint = ink)
         Text(label, color = if (enabled) ink else colors.onSurfaceVariant,
             style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+        } else {
+        if (icon != null) Icon(painterResource(icon), null, Modifier.size(Glass.iconSize), tint = ink)
+        Text(label, color = if (enabled) ink else colors.onSurfaceVariant,
+            style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
+        }
     }
 }
 

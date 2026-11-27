@@ -25,3 +25,8 @@ Trabajo exclusivo en `feature/fase-3-ui-vistazo`; sin incorporar borradores ni m
 Capturas: [IDLE día 100 %](images/fase-3-ui-vistazo/idle-day-100.png), [IDLE noche 200 %](images/fase-3-ui-vistazo/idle-night-200.png), [RIDING día 100 %](images/fase-3-ui-vistazo/riding-day-100.png), [RIDING noche 200 %](images/fase-3-ui-vistazo/riding-night-200.png).
 
 Pendiente S22+ / Y12 Pro: lectura de un segundo a pleno sol montado en la moto, toques con guantes, flechas/ruta/trazo nativos y confirmar activación, música, llamadas y recuperación Bluetooth sin regresión.
+
+## Revisión visual del reposo — 27/11
+Cabecera reducida a marca y opciones separadas; GPS/audio en etiquetas compactas y clima flotante más pequeño. Panel inferior unificado con Iniciar viaje ancho y accesos Mi Moto / Viaje / Ajustes. La etiqueta de sesión redundante se elimina; las acciones reales siguen indicando iniciar o detener. Sin cambios de cartografía, fases, parada protegida, audio, GPS ni permisos.
+Comparación revisada: [día 100 %](images/fase-3-ui-vistazo/reposo-renovado/idle-day-100.png) y [noche 200 %](images/fase-3-ui-vistazo/reposo-renovado/idle-night-200.png), con renderer de pruebas identificado.
+28 pruebas de TripMapUiTest, MapWeatherUiTest y SettingsContrastTest aprobadas. Build Campo, compilación Kotlin Play y lint aprobados; no se repite la suite completa ya ejecutada en el cierre anterior.

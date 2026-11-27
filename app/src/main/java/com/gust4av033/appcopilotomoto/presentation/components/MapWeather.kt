@@ -24,7 +24,7 @@ import java.util.Locale
 import androidx.compose.ui.platform.LocalUriHandler
 
 @Composable
-internal fun MapWeather(state: CopilotUiState, actions: CopilotActions, modifier: Modifier = Modifier) {
+internal fun MapWeather(state: CopilotUiState, actions: CopilotActions, modifier: Modifier = Modifier, compact: Boolean = false) {
     val weather = state.weather
     val observation = weather.usable
     var open by rememberSaveable { mutableStateOf(false) }
@@ -37,12 +37,12 @@ internal fun MapWeather(state: CopilotUiState, actions: CopilotActions, modifier
         else -> conditionLabel(observation.weatherCode)
     }
     MapOverlayPanel(modifier.clickable(role = Role.Button) { open = true }) {
-        Row(Modifier.heightIn(min = Glass.iconButtonSize).padding(12.dp),
+        Row(Modifier.heightIn(min = Glass.iconButtonSize).padding(if (compact) Glass.cockpitGap else Glass.ridePanelPadding),
             horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(painterResource(R.drawable.ic_weather), null, Modifier.size(Glass.iconSize), tint = MaterialTheme.colorScheme.primary)
             Column {
                 Text(if (observation?.temperatureCelsius != null) temperature(observation.temperatureCelsius)
-                    else stringResource(R.string.weather_title), style = MaterialTheme.typography.titleMedium)
+                    else stringResource(R.string.weather_title), style = if (compact) MaterialTheme.typography.titleSmall else MaterialTheme.typography.titleMedium)
                 Text(stringResource(status), style = MaterialTheme.typography.labelSmall, maxLines = 2,
                     overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 if (weather.area == WeatherArea.DESTINATION && weather.destinationLabel != null)

@@ -86,6 +86,9 @@ object Glass {
     const val mapGuidanceCasingWidth = 11f
     const val mapGuidanceCasing = "#050C1D"
     const val mapOverlayOpacity = .96f
+    val mapBrandIconSize = 32.dp
+    val mapStatusIconSize = 16.dp
+    val mapWeatherWidth = 188.dp
     val cockpitGap = 8.dp
     val cockpitSideWidth = 60.dp
     val cockpitButtonHeight = 64.dp

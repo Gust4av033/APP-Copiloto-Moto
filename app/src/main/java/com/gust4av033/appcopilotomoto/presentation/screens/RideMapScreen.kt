@@ -29,6 +29,7 @@ import com.gust4av033.appcopilotomoto.presentation.components.*
 import com.gust4av033.appcopilotomoto.presentation.theme.Glass
 import java.util.Locale
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun RideMapScreen(state: CopilotUiState, actions: CopilotActions, navigate: (CopilotScreen) -> Unit,
     modifier: Modifier = Modifier, phase: RideUiPhase = RideUiPhase.IDLE) {
@@ -74,17 +75,14 @@ internal fun RideMapScreen(state: CopilotUiState, actions: CopilotActions, navig
                         if (!riding) CockpitHeader({ navigate(CopilotScreen.HOME) }, { options = true })
                         val audioWarning = state.sessionProblem || !state.audioDevices.permissionGranted ||
                             state.audioDevices.headsets.isEmpty() && state.audioDevices.bluetoothOutputs.isEmpty()
-                        if (!riding) MapOverlayPanel(Modifier.fillMaxWidth()) {
-                            Row(Modifier.fillMaxWidth().padding(Glass.cockpitGap), horizontalArrangement = Arrangement.spacedBy(Glass.cockpitGap)) {
-                                CockpitStatus(stringResource(R.string.map_gps_label), stringResource(positionLabel), Modifier.weight(1f))
-                                CockpitStatus(stringResource(R.string.map_session_label), stringResource(if (state.tripActive)
-                                    R.string.map_session_on else R.string.map_session_idle), Modifier.weight(1f))
-                                CockpitStatus(stringResource(R.string.map_audio_label), stringResource(when {
-                                    !state.audioDevices.permissionGranted -> R.string.map_audio_unknown
-                                    state.audioDevices.headsets.isNotEmpty() || state.audioDevices.bluetoothOutputs.isNotEmpty() -> R.string.map_audio_headset
-                                    else -> R.string.map_audio_none
-                                }), Modifier.weight(1f))
-                            }
+                        if (!riding) FlowRow(horizontalArrangement = Arrangement.spacedBy(Glass.cockpitGap),
+                            verticalArrangement = Arrangement.spacedBy(Glass.rideSmallGap)) {
+                            MapStatusPill(R.drawable.ic_center_fix, stringResource(positionLabel))
+                            MapStatusPill(R.drawable.ic_audio, stringResource(when {
+                                !state.audioDevices.permissionGranted -> R.string.map_audio_unknown
+                                state.audioDevices.headsets.isNotEmpty() || state.audioDevices.bluetoothOutputs.isNotEmpty() -> R.string.map_audio_headset
+                                else -> R.string.map_audio_none
+                            }))
                         } else if (mappedSession.currentFix(now) == null || audioWarning) {
                             MapOverlayPanel(Modifier.fillMaxWidth(), riding = true) {
                                 Column(Modifier.padding(Glass.cockpitGap)) {
@@ -109,7 +107,7 @@ internal fun RideMapScreen(state: CopilotUiState, actions: CopilotActions, navig
                         if (state.tripActive) ManeuverBanner(state.routeHud)
                     }
                     Spacer(Modifier.height(Glass.cockpitGap))
-                    if (!riding) MapWeather(state, actions, Modifier.widthIn(max = 188.dp))
+                    if (!riding) MapWeather(state, actions, Modifier.widthIn(max = Glass.mapWeatherWidth), compact = true)
                 }
             }
         }
@@ -157,19 +155,41 @@ internal fun RideMapScreen(state: CopilotUiState, actions: CopilotActions, navig
 
 @Composable
 private fun CockpitHeader(home: () -> Unit, options: () -> Unit) {
-    MapOverlayPanel(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-    Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(vertical = Glass.cockpitGap), verticalAlignment = Alignment.CenterVertically) {
         val label = stringResource(R.string.nav_home)
-        Row(Modifier.weight(1f).clickable(role = Role.Button, onClick = home).semantics { contentDescription = label },
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Image(painterResource(R.drawable.ic_ignitor_vector), null, Modifier.size(Glass.iconButtonSize))
-            Column {
+        MapOverlayPanel(Modifier.clickable(role = Role.Button, onClick = home).semantics { contentDescription = label }) {
+            Row(Modifier.heightIn(min = Glass.iconButtonSize).padding(horizontal = Glass.ridePanelPadding),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Glass.cockpitGap)) {
+                Image(painterResource(R.drawable.ic_ignitor_vector), null, Modifier.size(Glass.mapBrandIconSize))
                 Text(stringResource(R.string.map_brand), style = MaterialTheme.typography.titleLarge)
-                Text(stringResource(R.string.map_brand_subtitle), style = MaterialTheme.typography.labelMedium)
             }
         }
-        GlassIconButton(R.drawable.ic_map_layers, stringResource(R.string.map_options), onClick = options)
+        Spacer(Modifier.weight(1f))
+        MapOverlayPanel {
+            GlassIconButton(R.drawable.ic_map_layers, stringResource(R.string.map_options), onClick = options)
+        }
     }
+}
+
+@Composable
+private fun MapStatusPill(icon: Int, value: String) {
+    MapOverlayPanel {
+        Row(Modifier.padding(horizontal = Glass.cockpitGap, vertical = Glass.rideSmallGap),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Glass.rideSmallGap)) {
+            Icon(painterResource(icon), null, Modifier.size(Glass.mapStatusIconSize))
+            Text(value, style = MaterialTheme.typography.labelMedium)
+        }
+    }
+}
+
+@Composable
+private fun MapDockShortcut(label: String, icon: Int, modifier: Modifier, action: () -> Unit) {
+    Column(modifier.heightIn(min = Glass.cockpitButtonHeight)
+        .clickable(role = Role.Button, onClick = action).semantics { contentDescription = label }
+        .padding(Glass.cockpitGap), horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Glass.rideSmallGap, Alignment.CenterVertically)) {
+        Icon(painterResource(icon), null, Modifier.size(Glass.iconSize))
+        Text(label, style = MaterialTheme.typography.labelMedium, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
     }
 }
 
@@ -208,17 +228,22 @@ private fun RideDock(state: CopilotUiState, actions: CopilotActions, mapped: Tri
         }
         if (!riding && !state.tripLocationEnabled && !state.busy)
             ActionButton(stringResource(R.string.map_enable_location), onClick = { actions.onTripLocationChange(true) })
-        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (!riding) CockpitButton(stringResource(R.string.module_motorcycle), R.drawable.ic_motorcycle,
-                Modifier.weight(1f).fillMaxHeight()) { navigate(CopilotScreen.MOTORCYCLE) }
-            if (state.tripActive) HoldToStopButton(Modifier.weight(if (LocalDensity.current.fontScale >= 1.5f) 1f else 1.5f)
-                .fillMaxHeight(), onStop = actions.onToggleTrip)
-            else CockpitButton(stringResource(if (state.tripActive) R.string.map_stop_short else R.string.map_start_short),
-                if (state.tripActive) R.drawable.ic_stop else R.drawable.ic_play, Modifier.weight(if (LocalDensity.current.fontScale >= 1.5f) 1f else 1.5f).fillMaxHeight(),
-                primary = !state.tripActive, destructive = state.tripActive, enabled = state.tripActive || state.canStartTrip,
-                onClick = actions.onToggleTrip)
-            if (!riding) CockpitButton(stringResource(R.string.nav_settings), R.drawable.ic_settings,
-                Modifier.weight(1f).fillMaxHeight()) { navigate(CopilotScreen.SETTINGS) }
+        if (riding) HoldToStopButton(Modifier.fillMaxWidth(), onStop = actions.onToggleTrip)
+        else MapOverlayPanel(Modifier.fillMaxWidth()) {
+            Column(Modifier.padding(Glass.cockpitGap), verticalArrangement = Arrangement.spacedBy(Glass.rideSmallGap)) {
+                if (state.tripActive) HoldToStopButton(Modifier.fillMaxWidth(), onStop = actions.onToggleTrip)
+                else CockpitButton(stringResource(R.string.map_start_short), R.drawable.ic_play,
+                    Modifier.fillMaxWidth(), primary = true, enabled = state.canStartTrip, inline = true,
+                    onClick = actions.onToggleTrip)
+                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+                    MapDockShortcut(stringResource(R.string.module_motorcycle), R.drawable.ic_motorcycle,
+                        Modifier.weight(1f).fillMaxHeight()) { navigate(CopilotScreen.MOTORCYCLE) }
+                    MapDockShortcut(stringResource(R.string.nav_trip), R.drawable.ic_trip,
+                        Modifier.weight(1f).fillMaxHeight()) { navigate(CopilotScreen.TRIP) }
+                    MapDockShortcut(stringResource(R.string.nav_settings), R.drawable.ic_settings,
+                        Modifier.weight(1f).fillMaxHeight()) { navigate(CopilotScreen.SETTINGS) }
+                }
+            }
         }
         if (!riding && state.tripActive && state.buttonMode) ActionButton(stringResource(R.string.trip_manual_command),
             enabled = state.canRequestTripCommand, iconRes = R.drawable.ic_mic, onClick = actions.onManualTripCommand)
