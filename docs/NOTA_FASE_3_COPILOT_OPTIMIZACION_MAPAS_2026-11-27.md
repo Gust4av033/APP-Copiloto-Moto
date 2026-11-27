@@ -32,7 +32,7 @@ Se conserva desde Vistazo el repositorio Mi Moto v3 y sus capacidades de catálo
 
 ## Validación
 
-Verificación final de código `68399c0`: Full, 408 pruebas aprobadas y 2 omitidas; Play, 407 aprobadas y 3 omitidas; sin fallos ni errores en ambas suites. Las omisiones corresponden a condiciones existentes de variante/tipo de build. APK Campo (`assembleFullFieldTest`) y Play Debug compilados. `lintFullDebug`: 0 errores, 217 advertencias y 0 avisos informativos. No se abordó la deuda general de lint fuera del alcance. Ejecución final: `BUILD SUCCESSFUL`, 9 min 47 s.
+Verificación final de código `68399c0`: Full, 408 pruebas aprobadas y 2 omitidas; Play, 407 aprobadas y 3 omitidas; sin fallos ni errores en ambas suites. Las omisiones corresponden a condiciones existentes de variante/tipo de build. APK Campo (`assembleFullFieldTest`) y Play Debug compilados. `lintFullDebug`: 0 errores, 217 advertencias y 12 sugerencias. No se abordó la deuda general de lint fuera del alcance. Ejecución final: `BUILD SUCCESSFUL`, 9 min 47 s.
 
 ```text
 :app:testFullDebugUnitTest :app:testPlaystoreDebugUnitTest
