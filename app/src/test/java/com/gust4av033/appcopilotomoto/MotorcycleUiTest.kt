@@ -54,6 +54,7 @@ class MotorcycleUiTest {
                 CopilotActions(onSaveMotorcycle = { draft = it }, onToggleTrip = { audio++ },
                     onToggleWake = { audio++ }, onToggleListening = { audio++ }, onManualTripCommand = { audio++ }))
         }
+        reveal("Editar Mi Moto").performClick()
         reveal("Nombre de tu moto").performTextReplacement("Tormenta")
         reveal("Kilometraje del tablero en km (opcional)").performTextReplacement("12450,5")
         reveal("Guardar Mi Moto").performClick()
@@ -88,6 +89,22 @@ class MotorcycleUiTest {
         assertEquals("hero_ignitor_125", draft!!.catalogId)
         assertEquals("Hero Ignitor 125", draft!!.model)
         compose.onNodeWithText("Elegir foto").assertDoesNotExist()
+    }
+
+    @Test fun catalogueSpecificationsAreReadOnlyUntilExplicitEditAndEmitOnlyOverrides() {
+        var draft: MotorcycleDraft? = null
+        val selected = saved.copy(data = MotorcycleData(saved.data.profile!!.copy(catalogId = "hero_ignitor_125")))
+        compose.setContent {
+            CopilotApp(CopilotUiState(motorcycle = selected), CopilotScreen.MOTORCYCLE, {},
+                CopilotActions(onSaveMotorcycle = { draft = it }))
+        }
+        reveal("Capacidad del tanque (L)").assertIsNotEnabled()
+        compose.onNodeWithText("10").assertExists()
+        reveal("Editar Mi Moto").performClick()
+        reveal("Capacidad del tanque (L)").performTextReplacement("9.8")
+        reveal("Guardar Mi Moto").performClick()
+        assertEquals(mapOf("FUEL" to "9.8"), draft!!.specificationOverrides)
+        assertEquals("10", MotorcycleCatalog.find("hero_ignitor_125")!!.specifications["FUEL"])
     }
 
     @Test fun loadFailureShowsRetryAndNeverAnEditableEmptyProfile() {
@@ -141,7 +158,7 @@ class MotorcycleUiTest {
         val screen = mutableStateOf(CopilotScreen.HOME)
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, scale)) {
-                CopilotApp(CopilotUiState(motorcycle = saved), screen.value, { screen.value = it },
+                CopilotApp(CopilotUiState(motorcycle = saved.copy(data = MotorcycleData(saved.data.profile!!.copy(catalogId = "hero_ignitor_125")))), screen.value, { screen.value = it },
                     CopilotActions(onToggleTrip = { starts++ }, onManualTripCommand = { starts++ }))
             }
         }
@@ -160,6 +177,8 @@ class MotorcycleUiTest {
             }
         }
         screenshot("top")
+        reveal("Capacidad del tanque (L)").assertIsNotEnabled()
+        screenshot("specs")
         reveal("Guardar Mi Moto")
         screenshot("profile")
         reveal("Registrar mantenimiento")

@@ -8,9 +8,10 @@ import android.database.sqlite.SQLiteOpenHelper
 import java.math.BigDecimal
 import java.time.LocalDate
 import java.util.UUID
+import org.json.JSONObject
 
-data class MotorcycleProfile(val name: String, val model: String, val odometerMeters: Long?, val photoName: String?, val catalogId: String? = null)
-data class MotorcycleDraft(val name: String, val model: String, val odometerKm: String, val catalogId: String? = null)
+data class MotorcycleProfile(val name: String, val model: String, val odometerMeters: Long?, val photoName: String?, val catalogId: String? = null, val specificationOverrides: Map<String, String> = emptyMap())
+data class MotorcycleDraft(val name: String, val model: String, val odometerKm: String, val catalogId: String? = null, val specificationOverrides: Map<String, String> = emptyMap())
 data class MaintenanceRecord(
     val id: String, val title: String, val date: LocalDate, val odometerMeters: Long?,
     val notes: String, val nextDate: LocalDate?, val nextOdometerMeters: Long?
@@ -36,7 +37,7 @@ fun manualKilometers(meters: Long?): String = meters?.let {
     BigDecimal.valueOf(it, 3).stripTrailingZeros().toPlainString()
 }.orEmpty()
 
-fun MotorcycleDraft.isValid() = name.trim().isNotEmpty() && name.trim().length <= 60 &&
+fun MotorcycleDraft.isValid() = validMotorcycleOverrides(specificationOverrides) && name.trim().isNotEmpty() && name.trim().length <= 60 &&
     (catalogId == null || MotorcycleCatalog.find(catalogId) != null) &&
     model.trim().length <= 100 && (odometerKm.isBlank() || parseManualKilometers(odometerKm) != null)
 
@@ -53,13 +54,13 @@ fun MaintenanceDraft.isValid(today: LocalDate): Boolean {
 /** Local SQLite store. UI calls it on a dedicated worker; it has no audio or location side effects. */
 class MotorcycleRepository(context: Context) : AutoCloseable {
     // Preserve the rider's file on corruption so a read failure cannot silently reset the profile.
-    private val helper = object : SQLiteOpenHelper(context.applicationContext, "motorcycles.db", null, 2,
+    private val helper = object : SQLiteOpenHelper(context.applicationContext, "motorcycles.db", null, 3,
         DatabaseErrorHandler { }) {
         override fun onConfigure(db: SQLiteDatabase) { db.setForeignKeyConstraintsEnabled(true) }
         override fun onCreate(db: SQLiteDatabase) {
             db.execSQL("""CREATE TABLE motorcycles (
                 id INTEGER PRIMARY KEY CHECK(id = 1), user_id TEXT NOT NULL,
-                name TEXT NOT NULL, model TEXT NOT NULL, odometer_meters INTEGER, photo_name TEXT, catalog_id TEXT)""")
+                name TEXT NOT NULL, model TEXT NOT NULL, odometer_meters INTEGER, photo_name TEXT, catalog_id TEXT, specification_overrides TEXT)""")
             db.execSQL("""CREATE TABLE maintenance (
                 id TEXT PRIMARY KEY, motorcycle_id INTEGER NOT NULL REFERENCES motorcycles(id) ON DELETE CASCADE,
                 title TEXT NOT NULL, performed_date TEXT NOT NULL, odometer_meters INTEGER,
@@ -67,14 +68,15 @@ class MotorcycleRepository(context: Context) : AutoCloseable {
         }
         override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
             if (oldVersion < 2) db.execSQL("ALTER TABLE motorcycles ADD COLUMN catalog_id TEXT")
+            if (oldVersion < 3) db.execSQL("ALTER TABLE motorcycles ADD COLUMN specification_overrides TEXT")
         }
     }
 
     fun load(): MotorcycleData {
         val db = helper.readableDatabase
-        val profile = db.rawQuery("SELECT name, model, odometer_meters, photo_name, catalog_id FROM motorcycles WHERE id=1", null).use {
+        val profile = db.rawQuery("SELECT name, model, odometer_meters, photo_name, catalog_id, specification_overrides FROM motorcycles WHERE id=1", null).use {
             if (it.moveToFirst()) MotorcycleProfile(it.getString(0), it.getString(1),
-                if (it.isNull(2)) null else it.getLong(2), it.getString(3), it.getString(4)) else null
+                if (it.isNull(2)) null else it.getLong(2), it.getString(3), it.getString(4), decodeSpecifications(it.getString(5))) else null
         }
         val records = db.rawQuery("SELECT id, title, performed_date, odometer_meters, notes, next_date, next_odometer_meters FROM maintenance WHERE motorcycle_id=1 ORDER BY performed_date DESC, rowid DESC", null).use {
             buildList {
@@ -86,12 +88,20 @@ class MotorcycleRepository(context: Context) : AutoCloseable {
         return MotorcycleData(profile, records)
     }
 
+    private fun decodeSpecifications(json: String?): Map<String, String> {
+        if (json == null) return emptyMap()
+        val objectValue = JSONObject(json)
+        return objectValue.keys().asSequence().associateWith { objectValue.getString(it) }
+            .also { check(validMotorcycleOverrides(it)) }
+    }
+
     fun saveProfile(draft: MotorcycleDraft) {
         require(draft.isValid())
         val db = helper.writableDatabase
         val values = ContentValues().apply {
             put("name", draft.name.trim()); put("model", MotorcycleCatalog.find(draft.catalogId)?.model ?: draft.model.trim())
             put("catalog_id", draft.catalogId)
+            put("specification_overrides", JSONObject(draft.specificationOverrides).toString())
             put("odometer_meters", draft.odometerKm.takeIf(String::isNotBlank)?.let(::parseManualKilometers))
         }
         db.beginTransaction()

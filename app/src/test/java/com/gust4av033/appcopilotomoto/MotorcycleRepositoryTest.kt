@@ -50,6 +50,35 @@ class MotorcycleRepositoryTest {
         }
     }
 
+    @Test fun versionTwoPreservesDataAndPersonalSpecificationsSurviveReopening() {
+        val file = context.getDatabasePath("motorcycles.db").apply { parentFile?.mkdirs() }
+        android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(file, null).use { db ->
+            db.execSQL("CREATE TABLE motorcycles (id INTEGER PRIMARY KEY, user_id TEXT, name TEXT, model TEXT, odometer_meters INTEGER, photo_name TEXT, catalog_id TEXT)")
+            db.execSQL("CREATE TABLE maintenance (id TEXT PRIMARY KEY, motorcycle_id INTEGER, title TEXT, performed_date TEXT, odometer_meters INTEGER, notes TEXT, next_date TEXT, next_odometer_meters INTEGER)")
+            db.execSQL("INSERT INTO motorcycles VALUES (1,'local','Ignitor 2025','Hero Ignitor 125',240000,NULL,'hero_ignitor_125')")
+            db.version = 2
+        }
+        MotorcycleRepository(context).use {
+            val old = it.load().profile!!
+            assertEquals(240000L, old.odometerMeters)
+            assertTrue(old.specificationOverrides.isEmpty())
+            it.saveProfile(MotorcycleDraft(old.name, old.model, "240", old.catalogId, mapOf("FUEL" to "9.8")))
+            it.saveMaintenance(draft(), today)
+        }
+        MotorcycleRepository(context).use {
+            val before = it.load()
+            assertEquals("9.8", before.profile!!.specificationOverrides["FUEL"])
+            assertEquals(1, before.maintenance.size)
+            assertTrue(runCatching { it.saveProfile(MotorcycleDraft("Moto", "", "0", "hero_ignitor_125", mapOf("FUEL" to "-10"))) }.isFailure)
+            assertTrue(runCatching { it.saveProfile(MotorcycleDraft("Moto", "", "0", "hero_ignitor_125", mapOf("GEARS" to "4.5"))) }.isFailure)
+            assertEquals(before, it.load())
+            it.saveProfile(MotorcycleDraft("Ignitor", "", "240", "hero_ignitor_125"))
+            assertTrue(it.load().profile!!.specificationOverrides.isEmpty())
+            assertEquals(before.maintenance, it.load().maintenance)
+        }
+        assertEquals("10", MotorcycleCatalog.find("hero_ignitor_125")!!.specifications["FUEL"])
+    }
+
     @Test fun profileAndMaintenanceSurviveClosingAndReopeningDatabase() {
         MotorcycleRepository(context).use {
             assertNull(it.load().profile)

@@ -1,4 +1,4 @@
-APP Copiloto Moto 1.2.1-rc2 — non-commercial test candidate
+APP Copiloto Moto 1.2.1-rc3 — non-commercial test candidate
 
 This candidate retains the bundled Alexa and Hey Jarvis wake-word models
 solely for non-commercial testing, as selected by the project owner.
