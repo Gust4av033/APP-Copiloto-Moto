@@ -13,6 +13,8 @@ import java.util.concurrent.TimeUnit
 
 internal class TripMapPreferences(context: Context) {
     private val prefs = context.applicationContext.getSharedPreferences("ui_settings", Context.MODE_PRIVATE)
+    fun vegetationEnabled() = prefs.getBoolean("map_vegetation_3d", false)
+    fun setVegetationEnabled(value: Boolean) { prefs.edit().putBoolean("map_vegetation_3d", value).apply() }
     fun onlineEnabled() = prefs.getBoolean("trip_map_online_consent_v2", false)
     fun setOnlineEnabled(value: Boolean) {
         prefs.edit()
@@ -46,7 +48,7 @@ internal object TripTilePolicy {
             url.host !in ACTIVE_PROVIDER.hosts || url.encodedQuery != null ||
             url.encodedFragment != null || url.username.isNotEmpty() || url.password.isNotEmpty()) return false
         val path = url.encodedPath
-        if (path == "/planet") return true
+        if (path == "/planet" || path == "/planet/latest") return true
         val tilePbf = Regex("^/planet/[0-9]{8}_[0-9]{6}_pt/([0-9]{1,2})/([0-9]+)/([0-9]+)\\.pbf$")
             .matchEntire(path)?.let { match ->
                 val z = match.groupValues[1].toIntOrNull() ?: -1
@@ -76,7 +78,10 @@ internal class TripTileInterceptor(private val canRequest: () -> Boolean) : Inte
         if (!canRequest() || chain.request().method != "GET" || !TripTilePolicy.allows(chain.request().url)) throw IOException("Map request unavailable")
         val request = chain.request().newBuilder().header("User-Agent", TripTilePolicy.USER_AGENT)
             .removeHeader("Pragma").removeHeader("Cache-Control").build()
-        return chain.proceed(request)
+        val controlled = if (request.url.toString() == MapCatalogPolicy.LATEST &&
+            request.tag(RevalidateMapCatalog::class.java) != null)
+            request.newBuilder().header("Cache-Control", "no-cache").build() else request
+        return chain.proceed(controlled)
     }
 }
 
@@ -85,12 +90,15 @@ internal object TripMapNetwork {
     private val visibleViews = ConcurrentHashMap.newKeySet<Any>()
     @Volatile private var preferences: TripMapPreferences? = null
     private var client: OkHttpClient? = null
+    private var catalog: TripMapCatalog? = null
+    @Synchronized fun catalog(context: Context): TripMapCatalog = catalog ?: TripMapCatalog(context, client(context),
+        { preferences?.onlineEnabled() == true && visibleViews.isNotEmpty() }).also { catalog = it }
     @Synchronized fun client(context: Context): OkHttpClient {
         client?.let { return it }
         preferences = TripMapPreferences(context)
         return OkHttpClient.Builder()
             .cache(Cache(File(context.applicationContext.cacheDir, "trip_map_tiles"), 64L * 1024 * 1024))
-            .connectTimeout(10, TimeUnit.SECONDS).readTimeout(15, TimeUnit.SECONDS)
+            .connectTimeout(10, TimeUnit.SECONDS).readTimeout(15, TimeUnit.SECONDS).callTimeout(20, TimeUnit.SECONDS)
             .followRedirects(false).followSslRedirects(false)
             .retryOnConnectionFailure(false)
             .addInterceptor(TripTileInterceptor { preferences?.onlineEnabled() == true && visibleViews.isNotEmpty() })
