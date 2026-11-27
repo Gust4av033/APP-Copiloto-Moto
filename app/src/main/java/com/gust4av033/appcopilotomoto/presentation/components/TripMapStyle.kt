@@ -96,11 +96,12 @@ internal object TripMapStyle {
                 .put("icon-allow-overlap", false).put("icon-ignore-placement", false)))
         style.put("layers", layers)
     }
-    fun json(online: Boolean, paint: TripMapPaint, base: String? = null): String {
+    fun json(online: Boolean, paint: TripMapPaint, base: String? = null, version: com.gust4av033.appcopilotomoto.MapVectorVersion? = null): String {
         val result = if (online && base != null) JSONObject(base) else JSONObject()
         if (online && paint.brightness < 1f) applyNightPalette(result)
         if (online && base != null) roadLegibility(result)
         val sources = result.optJSONObject("sources") ?: JSONObject()
+        if (online && version != null) sources.put(VECTOR, version.source())
         for (id in listOf(ROUTE, FIX, MOTO, TREES)) sources.put(id,
             JSONObject().put("type", "geojson").put("data", emptyCollection()))
         val layers = result.optJSONArray("layers") ?: JSONArray().put(JSONObject().put("id", "background").put("type", "background")
@@ -116,6 +117,7 @@ internal object TripMapStyle {
             .put("paint", JSONObject().put("line-color", paint.route).put("line-width", Glass.routeGlowWidth)
                 .put("line-opacity", Glass.routeGlowOpacity)))
         layers.put(JSONObject().put("id", TREES).put("type", "fill-extrusion").put("source", TREES).put("minzoom", 15)
+            .put("layout", JSONObject().put("visibility", "none"))
             .put("paint", JSONObject().put("fill-extrusion-color", JSONArray().put("get").put("color"))
                 .put("fill-extrusion-base", JSONArray().put("get").put("base"))
                 .put("fill-extrusion-height", JSONArray().put("get").put("height"))))

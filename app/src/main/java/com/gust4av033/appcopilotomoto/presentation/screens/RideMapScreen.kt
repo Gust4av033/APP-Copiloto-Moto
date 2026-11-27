@@ -85,6 +85,7 @@ internal fun RideMapScreen(
     BoxWithConstraints(modifier) {
         val landscape = maxWidth > maxHeight && maxWidth >= 520.dp
         val bottomMax = maxHeight * .44f
+        val topMax = if (landscape) maxHeight - Glass.iconButtonSize - Glass.mapScreenInset * 3 else maxHeight * .45f
         val largeFont = density.fontScale >= 1.5f
         val statusMaxWidth = maxWidth - Glass.mapScreenInset * 2 -
             if (largeFont) 0.dp else Glass.mapCameraControlsWidth + Glass.mapControlGap
@@ -101,6 +102,9 @@ internal fun RideMapScreen(
                     }
                 }
                 if (!state.tripActive) {
+                    Column(Modifier.align(Alignment.TopStart).widthIn(max = statusMaxWidth)
+                        .padding(Glass.mapScreenInset).heightIn(max = topMax).verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(Glass.mapControlGap)) {
                     MapStatusPill(
                         state = state,
                         positionLabel = positionLabel,
@@ -108,11 +112,10 @@ internal fun RideMapScreen(
                         compactPositionLabel = compactPositionLabel,
                         compactAudioLabel = compactAudioLabel,
                         onClick = { detailsOpen = true },
-                        modifier = Modifier.align(Alignment.TopStart)
-                            .widthIn(max = statusMaxWidth)
-                            .padding(Glass.mapScreenInset)
-                            .onSizeChanged { statusHeight = with(density) { it.height.toDp() } }
+                        modifier = Modifier.onSizeChanged { statusHeight = with(density) { it.height.toDp() } + Glass.mapScreenInset }
                     )
+                    MapWeather(state, actions, Modifier.widthIn(max = Glass.mapWeatherWidth))
+                    }
                 }
             }
         }
@@ -186,14 +189,7 @@ private fun MapStatusPill(
             Image(painterResource(R.drawable.ic_ignitor_vector), null, Modifier.size(Glass.mapStatusAvatarSize))
             MapStatusPart(R.drawable.ic_center_fix, stringResource(compactPositionLabel))
             MapStatusPart(R.drawable.ic_audio, stringResource(compactAudioLabel))
-            MapWeatherTemperature(state)?.let { temperature ->
-                Text(
-                    temperature,
-                    style = MaterialTheme.typography.labelMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+
         }
     }
 }
@@ -411,13 +407,7 @@ private fun ActiveDockContent(
             verticalArrangement = Arrangement.spacedBy(Glass.mapDockGap)
         ) {
             TripSpeedAction(speedText, detailDescription, openDetails, Modifier.fillMaxWidth())
-            RideMapDockButton(
-                label = stringResource(R.string.map_stop_short),
-                icon = R.drawable.ic_stop,
-                destructive = true,
-                onClick = actions.onToggleTrip,
-                modifier = Modifier.fillMaxWidth().testTag("map_stop")
-            )
+            HoldToStopButton(modifier = Modifier.fillMaxWidth().testTag("map_stop"), testTagName = "map_stop", onStop = actions.onToggleTrip)
         }
     } else {
         Row(
@@ -427,13 +417,7 @@ private fun ActiveDockContent(
             horizontalArrangement = Arrangement.spacedBy(Glass.mapDockGap)
         ) {
             TripSpeedAction(speedText, detailDescription, openDetails, Modifier.weight(1f))
-            RideMapDockButton(
-                label = stringResource(R.string.map_stop_short),
-                icon = R.drawable.ic_stop,
-                destructive = true,
-                onClick = actions.onToggleTrip,
-                modifier = Modifier.weight(1f).testTag("map_stop")
-            )
+            HoldToStopButton(modifier = Modifier.weight(1f).testTag("map_stop"), testTagName = "map_stop", onStop = actions.onToggleTrip)
         }
     }
 }

@@ -23,6 +23,18 @@ class MapVegetationTest {
         MapVegetation.build(MapVegetation.polygons(polygons), MapVegetation.polygons(occupied),
             MapVegetation.paths(roads), box, zoom, true)
     private fun features(json: String) = JSONObject(json).getJSONArray("features")
+    @Test fun smallBuildingsInsideCanopiesAndMissingExclusionsSuppressDecoration() {
+        val shape = MapPolygon(listOf(listOf(MapPoint(1.0,1.0), MapPoint(2.0,1.0), MapPoint(2.0,2.0), MapPoint(1.0,2.0))))
+        assertTrue(shape.overlapsDisk(MapPoint(0.0, 0.0), 3.0))
+        assertFalse(shape.contains(MapPoint(0.0, 0.0)))
+        assertEquals(0, features(MapVegetation.buildFromFeatures(listOf(green), listOf("broken"), emptyList(), bounds, 18.0, true)).length())
+        val partial = JSONObject(green)
+        partial.getJSONObject("geometry").put("type", "MultiPolygon").put("coordinates",
+            JSONArray().put(JSONArray().put(ring(-.002, -.002, -.001, -.001))).put(JSONArray().put(JSONArray())))
+        assertEquals(0, features(MapVegetation.buildFromFeatures(listOf(green), listOf(partial.toString()), emptyList(), bounds, 18.0, true)).length())
+        val many = (1..33).map { polygon(ring(it*.00001, -.001, it*.00001+.000001, .001)) }
+        assertEquals(0, features(MapVegetation.buildFromFeatures(listOf(green), many, emptyList(), bounds, 18.0, true)).length())
+    }
     @Test fun noGreenCoverageOrLowZoomNeverInventsForest() {
         assertEquals(0, features(build(polygons = emptyList())).length())
         assertEquals(0, features(build(polygons = listOf("broken"))).length())

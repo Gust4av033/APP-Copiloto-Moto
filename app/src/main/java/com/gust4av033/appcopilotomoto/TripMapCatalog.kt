@@ -34,7 +34,7 @@ internal object MapCatalogPolicy {
         val version = requireNotNull(template.matchEntire(url)).groupValues[1]
         LocalDateTime.parse(version, DateTimeFormatter.ofPattern("uuuuMMdd_HHmmss'_pt'").withResolverStyle(ResolverStyle.STRICT))
         val min = root.getInt("minzoom"); val max = root.getInt("maxzoom")
-        require(min == 0 && max in 0..14 && root.getDouble("maxzoom") == max.toDouble())
+        require(min == 0 && root.getDouble("minzoom") == 0.0 && max in 0..14 && root.getDouble("maxzoom") == max.toDouble())
         val layers = root.getJSONArray("vector_layers")
         require(layers.length() <= 64)
         val ids = (0 until layers.length()).map { layers.getJSONObject(it).getString("id") }.toSet()

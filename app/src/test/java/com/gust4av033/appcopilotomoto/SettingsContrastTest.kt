@@ -15,6 +15,15 @@ class SettingsContrastTest {
         val x=a.luminance().toDouble();val y=b.luminance().toDouble()
         return (maxOf(x,y)+0.05)/(minOf(x,y)+0.05)
     }
+    @Test fun movingHudNumbersExceedSevenToOneOverAnyMap() {
+        assertTrue(Glass.rideSurfaceAlpha >= .85f)
+        for (background in listOf(Color.White, Color.Black, DayColors.surface, NightColors.surface)) {
+            val surface = Glass.rideSurface.copy(alpha = Glass.rideSurfaceAlpha).compositeOver(background)
+            assertTrue(ratio(Glass.rideInk, surface) >= 7.0)
+            assertTrue(ratio(Glass.rideMuted, surface) >= 4.5)
+            assertTrue(ratio(Glass.rideWarning, surface) >= 4.5)
+        }
+    }
     @Test fun dayTextIsReadableOverGlassAndButtonSurfaces() {
         val c=DayColors;val glass=StormGlass.DayTint.copy(alpha=StormGlass.DayAlpha).compositeOver(c.background)
         assertTrue(ratio(c.onSurface,glass)>=4.5);assertTrue(ratio(c.onSurfaceVariant,glass)>=4.5)

@@ -36,7 +36,7 @@ class MapWeatherUiTest {
         data = ContextValue(WeatherObservation(24.0, "identified fixture", 61, 12.0, epoch, "America/El_Salvador",
             listOf(WeatherHour(epoch + 3600_000, 23.0, 80, 61))), ContextSource.REPLAY_FIXTURE, epoch, 1000, 1f, 60_000, true))
 
-    @Test fun onlyUsableTemperatureAppearsInThePillAndWeatherDetailsRemainAccessible() {
+    @Test fun compactWeatherUsesExistingDataAndDetailsWithoutStartingAudio() {
         val data = mutableStateOf(weather)
         var audioActions = 0
         var area: WeatherArea? = null
@@ -53,7 +53,7 @@ class MapWeatherUiTest {
             }
         }
         compose.onNodeWithText("24 °C").assertIsDisplayed()
-        compose.onNodeWithTag("map_status_pill").performClick()
+        compose.onNodeWithTag("map_weather").performClick()
         compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_hourly)).assertExists()
         compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_here))
             .performClick()
@@ -65,8 +65,8 @@ class MapWeatherUiTest {
         compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.ride_done)).performClick()
         compose.runOnIdle { data.value = weather.copy(nowElapsedMs = 61_000) }
         compose.onNodeWithText("24 °C").assertDoesNotExist()
-        compose.onNodeWithTag("map_status_pill").performClick()
-        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_unavailable)).assertExists()
+        compose.onNodeWithTag("map_weather").performClick()
+        compose.onAllNodesWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_unavailable)).assertCountEquals(2)
         assertEquals(0, audioActions)
     }
 
@@ -144,14 +144,15 @@ class MapWeatherUiTest {
             }
         }
         compose.onNodeWithText("24 °C").assertIsDisplayed()
+        compose.onNodeWithText("Vigente").assertIsDisplayed()
         compose.onNodeWithTag("map_status_pill").assertIsDisplayed()
-        compose.onNodeWithTag("map_camera_mode").assertIsDisplayed()
+        compose.onNodeWithTag("map_layers").assertIsDisplayed()
         compose.onNodeWithTag("map_perspective").assertIsDisplayed()
         compose.onNodeWithTag("map_attribution").assertIsDisplayed()
         compose.onNodeWithTag("map_dock").assertIsDisplayed()
         val viewport = compose.onNodeWithTag("ride_map_viewport").fetchSemanticsNode().boundsInRoot
         val status = compose.onNodeWithTag("map_status_pill").fetchSemanticsNode().boundsInRoot
-        val camera = compose.onNodeWithTag("map_camera_mode").fetchSemanticsNode().boundsInRoot
+        val camera = compose.onNodeWithTag("map_layers").fetchSemanticsNode().boundsInRoot
         val perspective = compose.onNodeWithTag("map_perspective").fetchSemanticsNode().boundsInRoot
         val attribution = compose.onNodeWithTag("map_attribution").fetchSemanticsNode().boundsInRoot
         val dock = compose.onNodeWithTag("map_dock").fetchSemanticsNode().boundsInRoot

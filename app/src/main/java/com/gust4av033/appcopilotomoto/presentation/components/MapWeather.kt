@@ -1,6 +1,9 @@
 package com.gust4av033.appcopilotomoto.presentation.components
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.*
@@ -20,6 +23,31 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import androidx.compose.ui.platform.LocalUriHandler
+
+/** Presentation reused from UI Vistazo; all data/actions belong to the existing weather owner. */
+@Composable
+internal fun MapWeather(state: CopilotUiState, actions: CopilotActions, modifier: Modifier = Modifier) {
+    var open by remember { mutableStateOf(false) }
+    val observation = state.weather.usable
+    MapOverlayPanel(modifier.testTag("map_weather").clickable(role = Role.Button) { open = true }) {
+        Row(Modifier.heightIn(min = Glass.iconButtonSize).padding(Glass.mapStatusGap),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Glass.mapStatusGap)) {
+            Icon(painterResource(R.drawable.ic_weather), null, Modifier.size(Glass.iconSize))
+            Column {
+                Text(observation?.temperatureCelsius?.let(::temperature) ?: stringResource(R.string.weather_title),
+                    style = MaterialTheme.typography.titleSmall)
+                Text(stringResource(if (observation == null) weatherStatus(state) else conditionLabel(observation.weatherCode)),
+                    style = MaterialTheme.typography.labelSmall)
+                if (observation != null) Text(stringResource(if (state.weather.old) R.string.weather_previous else R.string.map_weather_fresh),
+                    style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    }
+    if (open) AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(R.string.weather_title)) },
+        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Glass.mapDetailsGap)) {
+            MapWeatherDetails(state, actions)
+        } }, confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.ride_done)) } })
+}
 
 @Composable
 internal fun MapWeatherDetails(state: CopilotUiState, actions: CopilotActions) {

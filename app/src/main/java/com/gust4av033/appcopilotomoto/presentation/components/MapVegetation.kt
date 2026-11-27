@@ -10,6 +10,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.maplibre.android.maps.MapLibreMap
 import org.maplibre.android.style.sources.GeoJsonSource
+import org.maplibre.android.style.sources.VectorSource
 import kotlin.math.*
 
 internal data class MapPoint(val x: Double, val y: Double)
@@ -18,6 +19,14 @@ internal data class MapPolygon(val rings: List<List<MapPoint>>) {
     private val shell = rings.first()
     private val west = shell.minOf { it.x }; private val east = shell.maxOf { it.x }
     private val south = shell.minOf { it.y }; private val north = shell.maxOf { it.y }
+    private val edges = rings.flatMap { it.zipWithNext() + (it.last() to it.first()) }
+    private fun boundaryDistance(p: MapPoint) = edges.minOf { (a, b) ->
+        val dx = b.x-a.x; val dy = b.y-a.y
+        val t = if (dx*dx+dy*dy == 0.0) 0.0 else (((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)).coerceIn(0.0, 1.0)
+        hypot(p.x-a.x-t*dx, p.y-a.y-t*dy)
+    }
+    fun containsDisk(p: MapPoint, radius: Double) = contains(p) && boundaryDistance(p) > radius
+    fun overlapsDisk(p: MapPoint, radius: Double) = contains(p) || boundaryDistance(p) <= radius
     fun contains(point: MapPoint): Boolean {
         if (point.x !in west..east || point.y !in south..north) return false
         fun inside(ring: List<MapPoint>): Boolean {
@@ -49,14 +58,16 @@ internal object MapVegetation {
         val polygons = if (geometry.getString("type") == "Polygon") listOf(coordinates)
             else if (geometry.getString("type") == "MultiPolygon") (0 until coordinates.length()).map { coordinates.getJSONArray(it) }
             else emptyList()
-        polygons.mapNotNull { polygon ->
+        polygons.map { polygon ->
+            require(polygon.length() in 1..64)
             val rings = (0 until polygon.length()).map { i ->
                 val ring = polygon.getJSONArray(i)
                 require(ring.length() <= 2048)
                 (0 until ring.length()).map { j -> ring.getJSONArray(j).let { point(it.getDouble(0), it.getDouble(1)) } }
             }
-            if (rings.isEmpty() || rings.any { it.size < 3 || it.any { p -> !p.x.isFinite() || !p.y.isFinite() } }) null
-            else MapPolygon(rings)
+            require(rings.sumOf { it.size } <= 4096)
+            require(rings.isNotEmpty() && rings.all { it.size >= 3 && it.all { p -> p.x.isFinite() && p.y.isFinite() } })
+            MapPolygon(rings)
         }
     }.getOrDefault(emptyList()) }
     fun paths(raw: List<String>): List<List<MapPoint>> = raw.take(256).flatMap { json -> runCatching {
@@ -67,7 +78,7 @@ internal object MapVegetation {
             "MultiLineString" -> (0 until coordinates.length()).map { coordinates.getJSONArray(it) }
             else -> emptyList()
         }
-        lines.map { line -> (0 until line.length().coerceAtMost(2048)).map { i ->
+        lines.map { line -> require(line.length() <= 2048); (0 until line.length()).map { i ->
             line.getJSONArray(i).let { point(it.getDouble(0), it.getDouble(1)) }
         } }
     }.getOrDefault(emptyList()) }
@@ -75,6 +86,19 @@ internal object MapVegetation {
         val dx = b.x-a.x; val dy = b.y-a.y
         val t = if (dx*dx+dy*dy == 0.0) 0.0 else (((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)).coerceIn(0.0,1.0)
         return hypot(p.x-a.x-t*dx, p.y-a.y-t*dy)
+    }
+    /** Never drop exclusion geometries to meet a rendering budget. Omit decoration instead. */
+    fun buildFromFeatures(green: List<String>, occupied: List<String>, roads: List<String>,
+        bounds: MapBounds, zoom: Double, dark: Boolean): String {
+        val empty = TripMapStyle.emptyCollection().toString()
+        val g = green.distinct(); val o = occupied.distinct(); val r = roads.distinct()
+        if (g.size > 32 || o.size > 32 || r.size > 256) return empty
+        val greenShapes = g.map { polygons(listOf(it)) }
+        val occupiedShapes = o.map { polygons(listOf(it)) }
+        val paths = r.map { paths(listOf(it)) }
+        if (greenShapes.any { it.isEmpty() } || occupiedShapes.any { it.isEmpty() } ||
+            paths.any { it.isEmpty() || it.any { line -> line.size < 2 || line.any { p -> !p.x.isFinite() || !p.y.isFinite() } } }) return empty
+        return build(greenShapes.flatten(), occupiedShapes.flatten(), paths.flatten(), bounds, zoom, dark)
     }
     fun build(green: List<MapPolygon>, occupied: List<MapPolygon>, roads: List<List<MapPoint>>,
         bounds: MapBounds, zoom: Double, dark: Boolean): String {
@@ -90,11 +114,10 @@ internal object MapVegetation {
             if ((maxX-minX).toLong() * (maxY-minY) > 2400) return empty.toString()
             for (x in minX..maxX) for (y in minY..maxY) add(MapPoint(x*spacing, y*spacing))
         }.sortedBy { hypot(it.x-(low.x+high.x)/2, it.y-(low.y+high.y)/2) }
+        if (roads.sumOf { (it.size - 1).coerceAtLeast(0) } > 1024) return empty.toString()
         val roadEdges = roads.asSequence().flatMap { it.zipWithNext().asSequence() }.take(1024).toList()
         val trees = candidates.asSequence().filter { p ->
-            val outline = listOf(p, MapPoint(p.x-radius,p.y), MapPoint(p.x+radius,p.y),
-                MapPoint(p.x,p.y-radius), MapPoint(p.x,p.y+radius))
-            outline.all { q -> green.any { it.contains(q) } && occupied.none { it.contains(q) } } &&
+            green.any { it.containsDisk(p, radius) } && occupied.none { it.overlapsDisk(p, radius) } &&
                 roadEdges.none { (a,b) -> roadDistance(p,a,b) < radius+4 }
         }.take(MAX_TREES).toList()
         val features = JSONArray()
@@ -125,29 +148,50 @@ internal class NativeVegetation(private val map: MapLibreMap, private val width:
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private var job: Job? = null
     private var active = false
+    private var tilesReady = false
+    private var coverageFailed = false
     private var generation = 0
     private var signature: Int? = null
     private var previousAt = 0L
     private val probe = Runnable { collect() }
+    fun invalidate() {
+        tilesReady = false
+        generation++; job?.cancel(); job = null; handler.removeCallbacks(probe)
+        if (signature != null) {
+            signature = null
+            map.style?.getSourceAs<GeoJsonSource>(TripMapStyle.TREES)?.setGeoJson(TripMapStyle.emptyCollection().toString())
+        }
+    }
+    fun tileFailed() { coverageFailed = true; invalidate() }
+    fun resetCoverage() { coverageFailed = false; invalidate() }
+    fun rendered(complete: Boolean) {
+        if (!complete) invalidate()
+        else { tilesReady = !coverageFailed; request() }
+    }
     fun visible(value: Boolean) {
         if (active == value) return
         active = value; generation++; job?.cancel(); handler.removeCallbacks(probe)
-        if (value) { signature = null; request() }
+        if (value) { signature = null; request() } else invalidate()
     }
     fun request() {
         if (!active) return
         handler.removeCallbacks(probe); handler.postDelayed(probe, 250)
     }
     private fun collect() {
-        if (!active || map.cameraPosition.zoom < 15 || map.style?.isFullyLoaded != true) return
+        if (!active || !tilesReady || coverageFailed || map.cameraPosition.zoom < 15 || map.style?.isFullyLoaded != true) return
         val now = SystemClock.elapsedRealtime()
         if (now - previousAt < 1500) { handler.postDelayed(probe, 1500 - (now-previousAt)); return }
         previousAt = now
         val box = RectF(0f, 0f, width().toFloat(), height().toFloat())
-        fun features(ids: List<String>) = map.queryRenderedFeatures(box, *ids.toTypedArray()).map { it.toJson() }
+        fun features(ids: List<String>) = map.queryRenderedFeatures(box, *ids.toTypedArray()).take(33).map { it.toJson() }
         val green = features(listOf("park", "landcover_wood", "landcover_grass"))
-        val excluded = features(listOf("water", "building", "building-3d", "landuse_pitch", "landuse_track", "aeroway_fill", "road_area_pattern"))
-        val roads = features(map.style!!.layers.map { it.id }.filter { it.startsWith("road_") || it.startsWith("bridge_") })
+        // Loaded source geometry includes buildings hidden by style filters or 2D/3D visibility.
+        val source = map.style?.getSourceAs<VectorSource>(TripMapStyle.VECTOR) ?: return
+        val occupied = source.querySourceFeatures(arrayOf("building", "water", "transportation"), null)
+        val excluded = occupied.filter { it.geometry()?.type() in listOf("Polygon", "MultiPolygon") }.take(33).map { it.toJson() } +
+            features(listOf("landuse_pitch", "landuse_track", "aeroway_fill", "road_area_pattern"))
+        val roads = source.querySourceFeatures(arrayOf("transportation"), null)
+            .filter { it.geometry()?.type() in listOf("LineString", "MultiLineString") }.take(257).map { it.toJson() }
         val bounds = map.projection.visibleRegion.latLngBounds
         val limits = MapBounds(bounds.longitudeWest, bounds.latitudeSouth, bounds.longitudeEast, bounds.latitudeNorth)
         val zoom = map.cameraPosition.zoom
@@ -157,7 +201,7 @@ internal class NativeVegetation(private val map: MapLibreMap, private val width:
         val token = ++generation; job?.cancel()
         job = scope.launch {
             val json = withContext(Dispatchers.Default) {
-                MapVegetation.build(MapVegetation.polygons(green), MapVegetation.polygons(excluded), MapVegetation.paths(roads), limits, zoom, dark)
+                MapVegetation.buildFromFeatures(green, excluded, roads, limits, zoom, dark)
             }
             if (active && token == generation) map.style?.getSourceAs<GeoJsonSource>(TripMapStyle.TREES)?.setGeoJson(json)
         }

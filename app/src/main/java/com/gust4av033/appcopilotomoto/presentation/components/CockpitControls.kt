@@ -1,5 +1,22 @@
 package com.gust4av033.appcopilotomoto.presentation.components
 
+import androidx.compose.runtime.*
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.onLongClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.platform.testTag
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import com.gust4av033.appcopilotomoto.R
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,4 +62,53 @@ internal fun CockpitButton(label: String, icon: Int?, modifier: Modifier = Modif
         Text(label, color = if (enabled) ink else colors.onSurfaceVariant,
             style = MaterialTheme.typography.labelMedium, textAlign = TextAlign.Center)
     }
+}
+
+/** No delayed service action can be orphaned by navigation or activity recreation. */
+@Composable
+internal fun HoldToStopButton(modifier: Modifier = Modifier, testTagName: String = "ride_stop_hold", onStop: () -> Unit) {
+    val progress = remember { Animatable(0f) }
+    val stop by rememberUpdatedState(onStop)
+    var confirm by remember { mutableStateOf(false) }
+    val label = stringResource(R.string.ride_stop_hold)
+    val shape = RoundedCornerShape(Glass.controlRadius)
+    Row(modifier.testTag(testTagName).heightIn(min = Glass.cockpitButtonHeight)
+        .clip(shape).background(Glass.rideSurface.copy(alpha = Glass.rideSurfaceAlpha))
+        .border(Glass.rideListeningBorder, Glass.rideWarning, shape)
+        .semantics(mergeDescendants = true) {
+            role = Role.Button; contentDescription = label
+            onClick { confirm = true; true }
+            onLongClick(label) { stop(); true }
+        }
+        .onKeyEvent {
+            if (it.key in listOf(Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter)) {
+                if (it.type == KeyEventType.KeyUp) confirm = true
+                true
+            } else false
+        }.focusable()
+        .pointerInput(Unit) {
+            detectTapGestures(onPress = {
+                coroutineScope {
+                    val hold = launch {
+                        launch { progress.animateTo(1f, tween(Glass.rideStopHoldMs, easing = LinearEasing)) }
+                        // Animation duration scale must never shorten the required hold.
+                        delay(Glass.rideStopHoldMs.toLong())
+                        stop()
+                    }
+                    try { tryAwaitRelease() } finally { hold.cancel(); progress.snapTo(0f) }
+                }
+            })
+        }.padding(Glass.cockpitGap), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Glass.cockpitGap, Alignment.CenterHorizontally)) {
+        Box(Modifier.size(Glass.iconTileSize), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(progress = { progress.value }, modifier = Modifier.fillMaxSize(),
+                color = Glass.rideWarning, trackColor = Glass.rideMuted, strokeWidth = Glass.rideListeningBorder)
+            Icon(painterResource(R.drawable.ic_stop), null, Modifier.size(Glass.iconSize), tint = Glass.rideInk)
+        }
+        Text(label, color = Glass.rideInk, style = MaterialTheme.typography.labelMedium)
+    }
+    if (confirm) AlertDialog(onDismissRequest = { confirm = false },
+        title = { Text(stringResource(R.string.ride_stop_confirm)) },
+        confirmButton = { TextButton(onClick = { confirm = false; stop() }) { Text(stringResource(R.string.map_stop_short)) } },
+        dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.ride_stop_cancel)) } })
 }

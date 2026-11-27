@@ -1,5 +1,7 @@
 package com.gust4av033.appcopilotomoto
 
+import com.gust4av033.appcopilotomoto.presentation.components.TripMapPaint
+import com.gust4av033.appcopilotomoto.presentation.components.TripMapStyle
 import kotlinx.coroutines.runBlocking
 import okhttp3.*
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -23,8 +25,28 @@ class TripMapCatalogTest {
         for (bad in listOf(metadata().replace("https:","http:"), metadata().replace("tiles.openfreemap.org", "evil.example"),
             metadata().replace(".pbf", ".pbf?token=123"), metadata().replace("building", "unknown"),
             metadata("20269999_124456_pt"), metadata().replace("\"maxzoom\":14", "\"maxzoom\":15"),
+            metadata().replace("\"minzoom\":0", "\"minzoom\":0.5"),
             metadata().replace("\"maxzoom\":14", "\"maxzoom\":13.5"), " ".repeat(300000) + metadata()))
             assertTrue(runCatching { MapCatalogPolicy.parse(bad) }.isFailure)
+    }
+    @Test fun validatedVersionReplacesAliasWithoutRemovingRealBuildingsOrGreenAreas() {
+        val context = RuntimeEnvironment.getApplication()
+        val base = context.assets.open("map/liberty.json").bufferedReader().use { it.readText() }
+        val paint = TripMapPaint("#050C1D", "#2F6BFF", "#79DDFF", "#888888", "#050C1D", 4f, 7f, 2f, 1f, "#334455", "#668899")
+        val version = MapCatalogPolicy.parse(metadata())
+        val style = JSONObject(TripMapStyle.json(true, paint, base, version))
+        val source = style.getJSONObject("sources").getJSONObject(TripMapStyle.VECTOR)
+        assertFalse(source.has("url"))
+        assertEquals(version.tileTemplate, source.getJSONArray("tiles").getString(0))
+        val layers = style.getJSONArray("layers")
+        val indexed = (0 until layers.length()).map { layers.getJSONObject(it) }.associateBy { it.getString("id") }
+        assertEquals("none", indexed.getValue(TripMapStyle.TREES).getJSONObject("layout").getString("visibility"))
+        val originals = JSONObject(base).getJSONArray("layers")
+        for (i in 0 until originals.length()) {
+            val layer = originals.getJSONObject(i)
+            if (layer.optString("source-layer") in listOf("building", "landcover", "park"))
+                assertEquals(layer.toString(), indexed.getValue(layer.getString("id")).toString())
+        }
     }
     @Test fun updatesAreBoundedAndFailuresNeverReplaceTheSavedVersion() = runBlocking {
         val context = RuntimeEnvironment.getApplication()

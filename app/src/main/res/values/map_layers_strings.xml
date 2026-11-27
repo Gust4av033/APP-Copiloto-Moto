@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="map_mode_2d">2D</string>
+    <string name="map_mode_3d">3D</string>
+    <string name="map_layers_title">Capas y cámara</string>
+    <string name="map_vegetation_title">Vegetación 3D</string>
+    <string name="map_vegetation_hint">Árboles decorativos en zonas verdes cartografiadas; no representan árboles individuales. Se excluyen edificios, agua y calles presentes en las teselas. Si falta una construcción en OpenStreetMap, puede seguir cubierta por una zona verde. Ante errores o demasiados datos se omite la decoración. Apagarlos no cambia los polígonos de OpenStreetMap.</string>
+    <string name="map_update">Actualizar mapa</string>
+    <string name="map_update_busy">Consultando la versión publicada…</string>
+    <string name="map_update_version">Versión validada del proveedor: %1$s</string>
+    <string name="map_update_new">Versión validada; cargando las teselas visibles.</string>
+    <string name="map_update_same">El proveedor publica la misma versión.</string>
+    <string name="map_update_previous">El servidor devolvió una versión anterior. Se conserva la guardada.</string>
+    <string name="map_update_failed">No se pudo validar la actualización. Se conserva la última versión validada, si existe; GPS y voz siguen independientes.</string>
+    <string name="map_update_wait">Esperá un minuto entre consultas de actualización.</string>
+    <string name="map_update_saved">Se usa la última versión validada disponible.</string>
+    <string name="map_update_offline">Activá el mapa en línea desde las opciones de sesión para consultar actualizaciones.</string>
+    <string name="map_update_explanation">Se revalida un archivo pequeño de versión y se reconstruye el estilo local. Solo se piden las teselas visibles; no se borra toda la caché ni se descargan regiones. La fecha corresponde a la publicación del proveedor, no garantiza edificios nuevos: pueden faltar en OpenStreetMap.</string>
+    <string name="map_weather_fresh">Vigente</string>
+    <string name="ride_stop_hold">Mantener para detener</string>
+    <string name="ride_stop_confirm">¿Detener el viaje?</string>
+    <string name="ride_stop_cancel">Seguir viaje</string>
+    <string name="map_update_not_checked">Todavía no hay una versión validada.</string>
+</resources>

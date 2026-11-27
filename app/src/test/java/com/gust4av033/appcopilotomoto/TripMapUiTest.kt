@@ -32,27 +32,24 @@ internal fun labeledTripMapRenderer(): TripMapRenderer = TripMapRenderer { sessi
     var cameraMode by remember { mutableStateOf(TripMapCameraMode.NORTH_UP) }
     var previousMode by remember { mutableStateOf(TripMapCameraMode.NORTH_UP) }
     var inclined by remember { mutableStateOf(true) }
+    var layers by remember { mutableStateOf(false) }
+    var trees by remember { mutableStateOf(false) }
     val active = LocalTripMapActive.current
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)) {
         Text(
             "RENDERIZADOR DE PRUEBA\nMapa sustituido; sin cartografía real.",
             Modifier.align(Alignment.Center).padding(20.dp)
         )
-        if (!active) TripMapCameraControls(
-            cameraMode = cameraMode,
-            previousFollowMode = previousMode,
-            inclined = inclined,
-            hasTrace = session.segments.any { it.size >= 2 },
-            onModeSelected = {
-                if (it != TripMapCameraMode.FREE) previousMode = it
-                cameraMode = it
-            },
-            onPerspectiveChanged = { inclined = it },
-            onCenter = { cameraMode = previousMode },
-            onFitTrace = { cameraMode = TripMapCameraMode.FREE },
+        TripMapCameraControls(
+            cameraMode = cameraMode, previousFollowMode = previousMode, inclined = inclined,
+            onPerspectiveChanged = { inclined = it }, onCenter = { cameraMode = previousMode },
+            onOptions = { layers = true }, riding = active,
             modifier = Modifier.align(Alignment.TopEnd)
-                .padding(top = LocalTripMapTopInset.current + Glass.mapControlGap, end = Glass.mapScreenInset)
-        )
+                .padding(top = LocalTripMapTopInset.current + Glass.mapControlGap, end = Glass.mapScreenInset))
+        if (layers && !active) MapLayersDialog(online, trees, null, false, cameraMode,
+            { if (it != TripMapCameraMode.FREE) previousMode = it; cameraMode = it }, { trees = it }, {},
+            if (session.segments.any { it.size >= 2 }) ({ cameraMode = TripMapCameraMode.FREE; layers = false }) else null,
+            { layers = false })
         MapAttributionButton(
             online = online,
             onClick = {},
@@ -131,59 +128,39 @@ class TripMapUiTest {
         assertEquals(1, sessions)
     }
 
-    @Test fun cameraButtonAlternatesModesAndUsesDifferentPerspectiveAction() {
-        val selected = mutableStateOf(TripMapCameraMode.NORTH_UP)
-        val perspective = mutableStateOf(true)
+    @Test fun perspectiveAndLayerActionsAreSeparateAndDrivingKeepsOnlyContextualCenter() {
+        val inclined = mutableStateOf(true)
+        val driving = mutableStateOf(false)
+        var layers = 0; var centers = 0
         compose.setContent {
-            TripMapCameraControls(
-                cameraMode = selected.value,
-                previousFollowMode = TripMapCameraMode.NORTH_UP,
-                inclined = perspective.value,
-                hasTrace = false,
-                onModeSelected = { selected.value = it },
-                onPerspectiveChanged = { perspective.value = it },
-                onCenter = {},
-                onFitTrace = {}
-            )
+            TripMapCameraControls(TripMapCameraMode.FREE, TripMapCameraMode.NORTH_UP, inclined.value,
+                { inclined.value = it }, { centers++ }, { layers++ }, riding = driving.value)
         }
-        val northDescription = compose.onNodeWithTag("map_camera_mode").fetchSemanticsNode()
-            .config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].single()
-        assertTrue(northDescription.contains("Norte arriba"))
-        compose.onNodeWithTag("map_camera_mode").performClick()
-        assertEquals(TripMapCameraMode.FOLLOW_HEADING, selected.value)
-        val headingDescription = compose.onNodeWithTag("map_camera_mode").fetchSemanticsNode()
-            .config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].single()
-        assertTrue(headingDescription.contains("Cambiar a Norte arriba"))
-        val perspectiveDescription = compose.onNodeWithTag("map_perspective").fetchSemanticsNode()
-            .config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].single()
-        assertTrue(perspectiveDescription.contains("Vista inclinada"))
         compose.onNodeWithTag("map_perspective").performClick()
-        assertFalse(perspective.value)
-        val flatDescription = compose.onNodeWithTag("map_perspective").fetchSemanticsNode()
-            .config[androidx.compose.ui.semantics.SemanticsProperties.ContentDescription].single()
-        assertTrue(flatDescription.contains("Cambiar a 3D"))
-    }
-
-    @Test fun freeCameraShowsOnlyCenterAndAvailableTraceActions() {
-        val selected = mutableStateOf(TripMapCameraMode.FREE)
-        compose.setContent {
-            TripMapCameraControls(
-                cameraMode = selected.value,
-                previousFollowMode = TripMapCameraMode.NORTH_UP,
-                inclined = true,
-                hasTrace = true,
-                onModeSelected = { selected.value = it },
-                onPerspectiveChanged = {},
-                onCenter = { selected.value = TripMapCameraMode.NORTH_UP },
-                onFitTrace = {}
-            )
-        }
+        assertFalse(inclined.value)
+        compose.onNodeWithTag("map_layers").performClick(); assertEquals(1, layers)
+        compose.onNodeWithTag("map_trace").assertDoesNotExist()
         compose.onNodeWithTag("map_camera_mode").assertDoesNotExist()
-        compose.onNodeWithTag("map_center").assertIsDisplayed()
-        compose.onNodeWithTag("map_trace").assertIsDisplayed()
-        compose.onNodeWithTag("map_center").performClick()
-        assertEquals(TripMapCameraMode.NORTH_UP, selected.value)
-        compose.onNodeWithTag("map_center").assertDoesNotExist()
+        compose.runOnIdle { driving.value = true }
+        compose.onNodeWithTag("map_layers").assertDoesNotExist()
+        compose.onNodeWithTag("map_perspective").assertDoesNotExist()
+        compose.onNodeWithTag("map_center").performClick(); assertEquals(1, centers)
+    }
+    @Test fun layersOfferRealModesAndExplicitRefreshAndVegetationActions() {
+        val mode = mutableStateOf(TripMapCameraMode.NORTH_UP)
+        val trees = mutableStateOf(false)
+        var refreshes = 0
+        compose.setContent {
+            MapLayersDialog(true, trees.value, null, false, mode.value, { mode.value = it },
+                { trees.value = it }, { refreshes++ }, null, {})
+        }
+        val context = RuntimeEnvironment.getApplication()
+        compose.onNodeWithText(context.getString(R.string.map_vegetation_title)).performClick()
+        assertTrue(trees.value)
+        compose.onNodeWithText(context.getString(R.string.trip_map_camera_free)).performScrollTo().performClick()
+        assertEquals(TripMapCameraMode.FREE, mode.value)
+        compose.onNodeWithText(context.getString(R.string.map_update)).performScrollTo().performClick()
+        assertEquals(1, refreshes)
     }
 
     @Test fun activeTripKeepsOnlySpeedStopAndAttributionOnMap() {
@@ -259,7 +236,7 @@ class TripMapUiTest {
         assertEquals(true, requested)
     }
 
-    @Test fun mainMapHasFiveIdleItemsAndMotorcycleShortcutDoesNotStartServices() {
+    @Test fun idleMapKeepsWeatherAndControlsSeparateWithoutStartingServices() {
         var destination: CopilotScreen? = null
         var starts = 0
         compose.setContent {
@@ -270,7 +247,7 @@ class TripMapUiTest {
         }
         val viewport = compose.onNodeWithTag("ride_map_viewport").fetchSemanticsNode().boundsInRoot
         val status = compose.onNodeWithTag("map_status_pill").fetchSemanticsNode().boundsInRoot
-        val camera = compose.onNodeWithTag("map_camera_mode").fetchSemanticsNode().boundsInRoot
+        val camera = compose.onNodeWithTag("map_layers").fetchSemanticsNode().boundsInRoot
         val perspective = compose.onNodeWithTag("map_perspective").fetchSemanticsNode().boundsInRoot
         val attribution = compose.onNodeWithTag("map_attribution").fetchSemanticsNode().boundsInRoot
         val dock = compose.onNodeWithTag("map_dock").fetchSemanticsNode().boundsInRoot
@@ -278,7 +255,10 @@ class TripMapUiTest {
         assertTrue(camera.bottom <= attribution.top)
         assertTrue(perspective.bottom <= attribution.top)
         assertTrue(attribution.bottom <= dock.top)
-        assertTrue(attribution.top - maxOf(status.bottom, camera.bottom, perspective.bottom) >= viewport.height * .70f)
+        val weather = compose.onNodeWithTag("map_weather").fetchSemanticsNode().boundsInRoot
+        assertTrue(weather.right <= camera.left || weather.top >= camera.bottom)
+        assertTrue("Map remains the majority of the viewport: $weather $camera $attribution",
+            attribution.top - maxOf(weather.bottom, camera.bottom, perspective.bottom) >= viewport.height * .5f)
         compose.onNodeWithTag("map_motorcycle").performClick()
         assertEquals(CopilotScreen.MOTORCYCLE, destination)
         assertEquals(0, starts)
@@ -300,6 +280,42 @@ class TripMapUiTest {
         compose.runOnIdle { assertNull(presented!!.lastFix); assertTrue(presented!!.segments.isEmpty()) }
     }
 
+    @Test fun safeStopRequiresSustainedPressAndCancelsOnReleaseOrDisposal() {
+        var stops = 0
+        val visible = androidx.compose.runtime.mutableStateOf(true)
+        compose.setContent {
+            com.gust4av033.appcopilotomoto.presentation.theme.CopilotTheme {
+                if (visible.value) HoldToStopButton(onStop = { stops++ })
+            }
+        }
+        compose.mainClock.autoAdvance = false
+        val button = compose.onNodeWithTag("ride_stop_hold")
+        button.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(300)
+        button.performTouchInput { up() }
+        compose.mainClock.advanceTimeBy(800)
+        compose.runOnIdle { assertEquals(0, stops) }
+        button.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(700)
+        button.performTouchInput { up() }
+        compose.runOnIdle { assertEquals(1, stops) }
+        button.performTouchInput { down(center) }
+        compose.mainClock.advanceTimeBy(200)
+        compose.runOnIdle { visible.value = false }
+        compose.mainClock.advanceTimeBy(800)
+        compose.runOnIdle { assertEquals(1, stops) }
+    }
+    @Test fun accessibleStopAsksForExplicitConfirmation() {
+        var stops = 0
+        compose.setContent { HoldToStopButton(onStop = { stops++ }) }
+        compose.onNodeWithTag("ride_stop_hold").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
+        compose.runOnIdle { assertEquals(0, stops) }
+        compose.onNodeWithText("Seguir viaje").performClick()
+        compose.runOnIdle { assertEquals(0, stops) }
+        compose.onNodeWithTag("ride_stop_hold").performSemanticsAction(androidx.compose.ui.semantics.SemanticsActions.OnClick) { it() }
+        compose.onNodeWithText("Detener").performClick()
+        compose.runOnIdle { assertEquals(1, stops) }
+    }
     private fun capture(theme: String, scale: Float, orientation: String = "portrait") {
         val size = if (orientation == "landscape") "w800dp-h360dp" else "w360dp-h800dp"
         RuntimeEnvironment.setQualifiers("$size-${if (theme == "night") "night" else "notnight"}")

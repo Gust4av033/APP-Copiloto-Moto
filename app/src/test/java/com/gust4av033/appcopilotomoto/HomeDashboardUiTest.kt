@@ -62,7 +62,7 @@ class HomeDashboardUiTest {
         assert(screen == null)
     }
 
-    @Test fun activeDockStopsTripWithoutNavigating() {
+    @Test fun activeDockRequiresSustainedPressAndStopsWithoutNavigating() {
         var stops = 0
         var screen: CopilotScreen? = null
         app(
@@ -71,8 +71,10 @@ class HomeDashboardUiTest {
             screen = CopilotScreen.MAP,
             navigate = { screen = it }
         )
-        compose.onNodeWithTag("map_stop").performClick()
-        assert(stops == 1)
+        compose.onNodeWithTag("map_stop").performTouchInput { click() }
+        compose.runOnIdle { assert(stops == 0) }
+        compose.onNodeWithTag("map_stop").performTouchInput { longClick(durationMillis = 800) }
+        compose.runOnIdle { assert(stops == 1) }
         assert(screen == null)
     }
 

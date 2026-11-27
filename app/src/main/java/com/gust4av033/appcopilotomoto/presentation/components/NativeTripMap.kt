@@ -1,6 +1,8 @@
 package com.gust4av033.appcopilotomoto.presentation.components
 
 import android.content.Context
+import androidx.compose.runtime.LaunchedEffect
+import kotlinx.coroutines.*
 import android.view.Gravity
 import android.view.View
 import android.widget.FrameLayout
@@ -90,7 +92,14 @@ val LocalTripMapRenderer = staticCompositionLocalOf<TripMapRenderer> { TripMapRe
 internal class NativeTripMapController(context: Context, first: TripMapSession, private val online: Boolean,
     private val paint: TripMapPaint, private var inclined: Boolean,
     private var cameraMode: TripMapCameraMode = TripMapCameraMode.FOLLOW_HEADING,
-    private val onCameraModeChanged: (TripMapCameraMode) -> Unit = {}, private val report: (Int) -> Unit) {
+    private val onCameraModeChanged: (TripMapCameraMode) -> Unit = {},
+    private val catalogChanged: (MapCatalogResult?, Boolean) -> Unit = { _, _ -> }, private val report: (Int) -> Unit) {
+    private val appContext = context.applicationContext
+    private val catalog = TripMapNetwork.catalog(appContext)
+    private val catalogScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private var catalogJob: Job? = null
+    private var version = catalog.saved()
+    private var treesEnabled = TripMapPreferences(appContext).vegetationEnabled()
     private val token = Any()
     private var destroyed = false
     private var visible = false
@@ -134,7 +143,7 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
         view.addOnRenderErrorListener { if (!destroyed) report(R.string.trip_map_render_error) }
         view.addOnTileActionListener { operation, _, _, _, _, _, source ->
             if (!destroyed && online && source == TripMapStyle.VECTOR) when (operation) {
-                TileOperation.Error -> report(R.string.trip_map_tile_error)
+                TileOperation.Error -> { vegetation?.tileFailed(); report(R.string.trip_map_tile_error) }
                 TileOperation.LoadFromCache, TileOperation.LoadFromNetwork -> report(R.string.trip_map_tiles_ready)
                 else -> Unit
             }
@@ -145,27 +154,62 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
             vegetation = NativeVegetation(ready, { view.width }, { view.height }, paint.brightness < 1f)
             ready.setPrefetchesTiles(false); ready.setPrefetchZoomDelta(0)
             ready.addOnCameraMoveStartedListener { reason ->
+                vegetation?.invalidate()
                 if (reason == MapLibreMap.OnCameraMoveStartedListener.REASON_API_GESTURE) setCameraMode(TripMapCameraMode.FREE)
             }
             ready.addOnCameraMoveListener { positionMarker() }
             ready.addOnCameraIdleListener { updateModel(); vegetation?.request() }
-            view.addOnDidFinishRenderingMapListener { vegetation?.request() }
+            view.addOnDidFinishRenderingMapListener { fully -> vegetation?.rendered(fully) }
             ready.uiSettings.isRotateGesturesEnabled = cameraMode == TripMapCameraMode.FREE
-            val base = if (online) context.assets.open("map/liberty.json")
-                .bufferedReader().use { it.readText() } else null
-            val direction = android.graphics.Bitmap.createBitmap(28, 20, android.graphics.Bitmap.Config.ARGB_8888)
-            context.getDrawable(R.drawable.ic_road_direction)?.apply {
-                setBounds(0, 0, 28, 20); draw(android.graphics.Canvas(direction))
-            }
-            val style = Style.Builder().fromJson(TripMapStyle.json(online, paint, base))
-                .withImage("app-road-direction", direction)
-            ready.setStyle(style) {
-                if (!destroyed) {
-                    lastApplied = null; modelKey = null; applyData(); updateModel(); vegetation?.visible(online && inclined && resumed)
-                    report(if (online) R.string.trip_map_loading_tiles else R.string.trip_map_local_only)
-                }
+            loadStyle()
+            refreshCatalog(false)
+        }
+    }
+    private fun loadStyle() {
+        val ready = map ?: return
+        val camera = ready.cameraPosition
+        vegetation?.resetCoverage()
+        val vector = online && version != null
+        val base = if (vector) appContext.assets.open("map/liberty.json").bufferedReader().use { it.readText() } else null
+        val direction = android.graphics.Bitmap.createBitmap(28, 20, android.graphics.Bitmap.Config.ARGB_8888)
+        appContext.getDrawable(R.drawable.ic_road_direction)?.apply {
+            setBounds(0, 0, 28, 20); draw(android.graphics.Canvas(direction))
+        }
+        ready.setStyle(Style.Builder().fromJson(TripMapStyle.json(vector, paint, base, version))
+            .withImage("app-road-direction", direction)) {
+            if (!destroyed) {
+                lastApplied = null; modelKey = null; applyData()
+                ready.moveCamera(CameraUpdateFactory.newCameraPosition(camera))
+                updateModel(); syncVegetation()
+                report(if (vector) R.string.trip_map_loading_tiles else R.string.trip_map_local_only)
             }
         }
+    }
+    fun refreshCatalog(force: Boolean) {
+        if (!online || !resumed || destroyed || map == null || catalogJob?.isActive == true) return
+        catalogChanged(null, true)
+        catalogJob = catalogScope.launch {
+            try {
+                val result = catalog.resolve(force)
+                if (!destroyed) {
+                    val changed = version != result.version
+                    version = result.version
+                    if (changed || force && result.status in setOf(MapCatalogStatus.UPDATED, MapCatalogStatus.UNCHANGED)) loadStyle()
+                    catalogChanged(result, false)
+                }
+            } finally { if (!destroyed) catalogChanged(null, false) }
+        }
+    }
+    fun setVegetationEnabled(value: Boolean) {
+        if (treesEnabled == value) return
+        treesEnabled = value
+        TripMapPreferences(appContext).setVegetationEnabled(value)
+        syncVegetation()
+    }
+    private fun syncVegetation() {
+        val show = treesEnabled && online && inclined && resumed
+        map?.style?.getLayer(TripMapStyle.TREES)?.setProperties(visibility(if (show) Property.VISIBLE else Property.NONE))
+        vegetation?.visible(show)
     }
     fun update(session: TripMapSession, elapsedMs: Long) { data = session; now = elapsedMs; applyData() }
     private fun applyData() {
@@ -215,8 +259,7 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
         if (data.lastFix != null || ready.cameraPosition.zoom >= 12) ready.moveCamera(CameraUpdateFactory.newCameraPosition(
             CameraPosition.Builder(ready.cameraPosition).tilt(pitch()).build()))
         updateModel()
-        vegetation?.visible(online && inclined && resumed)
-        map?.style?.getLayer(TripMapStyle.TREES)?.setProperties(visibility(if (inclined) Property.VISIBLE else Property.NONE))
+        syncVegetation()
     }
     fun setCameraMode(mode: TripMapCameraMode) {
         cameraMode = mode
@@ -278,16 +321,18 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
         val wantStarted = visible && lifecycle.isAtLeast(Lifecycle.State.STARTED)
         val wantResumed = wantStarted && lifecycle.isAtLeast(Lifecycle.State.RESUMED)
         TripMapNetwork.visible(token, online && wantResumed)
-        vegetation?.visible(online && inclined && wantResumed)
+        if (!wantResumed) { catalogJob?.cancel(); vegetation?.visible(false) }
         if (resumed && !wantResumed) { view.onPause(); resumed = false }
         if (started && !wantStarted) { view.onStop(); started = false }
         if (!started && wantStarted) { view.onStart(); started = true }
-        if (!resumed && wantResumed) { view.onResume(); resumed = true }
+        if (!resumed && wantResumed) { view.onResume(); resumed = true; refreshCatalog(false) }
+        syncVegetation()
     }
     fun destroy() {
         if (destroyed) return
         visible(false)
         destroyed = true
+        catalogScope.cancel()
         vegetation?.destroy(); vegetation = null
         view.onDestroy(); map = null
         TripMapNetwork.visible(token, false)
@@ -313,14 +358,20 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
     var attributionOpen by remember { mutableStateOf(false) }
     var inclined by rememberSaveable { mutableStateOf(true) }
     val tripActive = LocalTripMapActive.current
+    var layersOpen by remember { mutableStateOf(false) }
+    var trees by remember { mutableStateOf(TripMapPreferences(context).vegetationEnabled()) }
+    LaunchedEffect(tripActive) { if (tripActive) layersOpen = false }
     val rememberCameraMode: (TripMapCameraMode) -> Unit = { mode ->
         if (mode != TripMapCameraMode.FREE) previousFollowMode = mode
         cameraMode = mode
     }
     key(online, retry, paint) {
         var status by remember { mutableIntStateOf(R.string.trip_map_initializing) }
+        var catalogResult by remember { mutableStateOf(MapCatalogResult(TripMapNetwork.catalog(context).saved(), MapCatalogStatus.SAVED)) }
+        var catalogBusy by remember { mutableStateOf(false) }
         val controller = remember {
-            runCatching { NativeTripMapController(context, session, online, paint, inclined, cameraMode, rememberCameraMode) { status = it } }.getOrNull()
+            runCatching { NativeTripMapController(context, session, online, paint, inclined, cameraMode, rememberCameraMode,
+                { result, busy -> if (result != null) catalogResult = result; catalogBusy = busy }) { status = it } }.getOrNull()
         }
         if (controller == null) {
             MapRecovery(R.string.trip_map_render_error) { retry++ }
@@ -339,20 +390,18 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
                     val bounds = it.boundsInWindow()
                     controller.visible(bounds.width > 0 && bounds.height > 0)
                 })
-                if (!tripActive) {
-                    TripMapCameraControls(
-                        cameraMode = cameraMode,
-                        previousFollowMode = previousFollowMode,
-                        inclined = inclined,
-                        hasTrace = session.segments.any { it.size >= 2 },
-                        onModeSelected = controller::setCameraMode,
-                        onPerspectiveChanged = { inclined = it },
-                        onCenter = { controller.setCameraMode(previousFollowMode) },
-                        onFitTrace = controller::fitTrace,
-                        modifier = Modifier.align(Alignment.TopEnd)
-                            .padding(top = topInset + Glass.mapControlGap, end = Glass.mapScreenInset)
-                    )
-                }
+                TripMapCameraControls(
+                    cameraMode = cameraMode, previousFollowMode = previousFollowMode, inclined = inclined,
+                    onPerspectiveChanged = { inclined = it },
+                    onCenter = { controller.setCameraMode(previousFollowMode) },
+                    onOptions = { layersOpen = true }, riding = tripActive,
+                    modifier = Modifier.align(Alignment.TopEnd)
+                        .padding(top = topInset + Glass.mapControlGap, end = Glass.mapScreenInset)
+                )
+                if (layersOpen && !tripActive) MapLayersDialog(online, trees, catalogResult, catalogBusy,
+                    cameraMode, controller::setCameraMode, { trees = it; controller.setVegetationEnabled(it) }, { controller.refreshCatalog(true) },
+                    if (session.segments.any { it.size >= 2 }) ({ controller.fitTrace(); layersOpen = false }) else null,
+                    { layersOpen = false })
                 val link = "https://www.naturalearthdata.com/"
                 MapAttributionButton(
                     online = online,
@@ -369,7 +418,8 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
                             listOf("OpenFreeMap" to "https://openfreemap.org/",
                                 "© OpenMapTiles" to "https://openmaptiles.org/",
                                 "© OpenStreetMap contributors" to "https://www.openstreetmap.org/copyright",
-                                "Liberty · CC BY 4.0" to "https://github.com/maputnik/osm-liberty").forEach { (label, url) ->
+                                "Liberty · CC BY 4.0" to "https://github.com/maputnik/osm-liberty",
+                                "Natural Earth" to "https://www.naturalearthdata.com/").forEach { (label, url) ->
                                 ActionButton(label) { runCatching { uri.openUri(url) }.onFailure { status = R.string.trip_map_link_error } }
                             }
                         }
@@ -397,62 +447,28 @@ internal fun TripMapCameraControls(
     cameraMode: TripMapCameraMode,
     previousFollowMode: TripMapCameraMode,
     inclined: Boolean,
-    hasTrace: Boolean,
-    onModeSelected: (TripMapCameraMode) -> Unit,
     onPerspectiveChanged: (Boolean) -> Unit,
     onCenter: () -> Unit,
-    onFitTrace: () -> Unit,
-    modifier: Modifier = Modifier
+    onOptions: () -> Unit,
+    modifier: Modifier = Modifier,
+    riding: Boolean = false
 ) {
-    if (cameraMode == TripMapCameraMode.FREE) {
-        Column(modifier, horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(Glass.mapControlGap)) {
-            MapControlPill(
-                label = stringResource(R.string.map_center_short),
-                description = stringResource(R.string.map_center_follow_mode,
-                    stringResource(if (previousFollowMode == TripMapCameraMode.NORTH_UP)
-                        R.string.trip_map_camera_north else R.string.trip_map_camera_heading)),
-                tag = "map_center",
-                onClick = onCenter
-            )
-            if (hasTrace) MapControlPill(
-                label = stringResource(R.string.map_trace_short),
-                description = stringResource(R.string.trip_map_fit),
-                tag = "map_trace",
-                onClick = onFitTrace
-            )
-            GlassIconButton(
-                iconRes = if (inclined) R.drawable.ic_map_3d else R.drawable.ic_map_2d,
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(Glass.mapControlGap)) {
+        if (cameraMode == TripMapCameraMode.FREE) MapControlPill(
+            label = stringResource(R.string.map_center_short),
+            description = stringResource(R.string.map_center_follow_mode,
+                stringResource(if (previousFollowMode == TripMapCameraMode.NORTH_UP)
+                    R.string.trip_map_camera_north else R.string.trip_map_camera_heading)),
+            tag = "map_center", onClick = onCenter)
+        if (!riding) {
+            MapControlPill(label = stringResource(if (inclined) R.string.map_mode_3d else R.string.map_mode_2d),
                 description = stringResource(R.string.map_perspective_description,
                     stringResource(if (inclined) R.string.map_perspective else R.string.map_flat),
                     stringResource(if (inclined) R.string.map_switch_2d else R.string.map_switch_3d)),
-                modifier = Modifier.testTag("map_perspective"),
-                onClick = { onPerspectiveChanged(!inclined) }
-            )
-        }
-    } else {
-        val nextMode = if (cameraMode == TripMapCameraMode.NORTH_UP)
-            TripMapCameraMode.FOLLOW_HEADING else TripMapCameraMode.NORTH_UP
-        val currentMode = if (cameraMode == TripMapCameraMode.NORTH_UP)
-            R.string.trip_map_camera_north else R.string.trip_map_camera_heading
-        val nextAction = if (nextMode == TripMapCameraMode.NORTH_UP)
-            R.string.map_camera_switch_north else R.string.map_camera_switch_heading
-        Row(modifier, horizontalArrangement = Arrangement.spacedBy(Glass.mapControlGap)) {
-            GlassIconButton(
-                iconRes = if (cameraMode == TripMapCameraMode.NORTH_UP) R.drawable.ic_north else R.drawable.ic_heading,
-                description = stringResource(R.string.map_camera_mode_description,
-                    stringResource(currentMode), stringResource(nextAction)),
-                modifier = Modifier.testTag("map_camera_mode"),
-                onClick = { onModeSelected(nextMode) }
-            )
-            GlassIconButton(
-                iconRes = if (inclined) R.drawable.ic_map_3d else R.drawable.ic_map_2d,
-                description = stringResource(R.string.map_perspective_description,
-                    stringResource(if (inclined) R.string.map_perspective else R.string.map_flat),
-                    stringResource(if (inclined) R.string.map_switch_2d else R.string.map_switch_3d)),
-                modifier = Modifier.testTag("map_perspective"),
-                onClick = { onPerspectiveChanged(!inclined) }
-            )
+                tag = "map_perspective", onClick = { onPerspectiveChanged(!inclined) })
+            GlassIconButton(R.drawable.ic_map_layers, stringResource(R.string.map_layers_title),
+                modifier = Modifier.testTag("map_layers"), onClick = onOptions)
         }
     }
 }

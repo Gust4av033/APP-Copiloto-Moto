@@ -63,6 +63,15 @@ internal val LocalGlassDark = staticCompositionLocalOf { false }
 
 /** Shared surface, button and geometry tokens. */
 object Glass {
+    val mapWeatherWidth = 188.dp
+    val rideSurface = Color(0xFF050C1D)
+    val rideInk = Color(0xFFF4F7FF)
+    val rideMuted = Color(0xFFABB9D0)
+    val rideWarning get() = NightColors.error
+    const val rideSurfaceAlpha = .96f
+    val rideListeningBorder = 2.dp
+    const val rideStopHoldMs = 600
+
     const val mapOverlayOpacity = .96f
     val cockpitGap = 8.dp
     val cockpitSideWidth = 60.dp
