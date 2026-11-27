@@ -50,7 +50,8 @@ internal fun labeledTripMapRenderer(): TripMapRenderer = TripMapRenderer { sessi
             onPerspectiveChanged = { inclined = it },
             onCenter = { cameraMode = previousMode },
             onFitTrace = { cameraMode = TripMapCameraMode.FREE },
-            modifier = Modifier.align(Alignment.TopEnd).padding(top = Glass.mapControlGap, end = Glass.mapScreenInset)
+            modifier = Modifier.align(Alignment.TopEnd)
+                .padding(top = LocalTripMapTopInset.current + Glass.mapControlGap, end = Glass.mapScreenInset)
         )
         MapAttributionButton(
             online = online,
@@ -84,7 +85,8 @@ class TripMapUiTest {
         state: CopilotUiState,
         actions: CopilotActions = CopilotActions(),
         screen: CopilotScreen = CopilotScreen.MAP,
-        scale: Float = 1f
+        scale: Float = 1f,
+        navigate: (CopilotScreen) -> Unit = {}
     ) {
         compose.setContent {
             val density = LocalDensity.current
@@ -92,7 +94,7 @@ class TripMapUiTest {
                 LocalTripMapRenderer provides labeledTripMapRenderer(),
                 LocalDensity provides Density(density.density, scale)
             ) {
-                CopilotApp(state, screen, {}, actions)
+                CopilotApp(state, screen, navigate, actions)
             }
         }
     }
@@ -222,6 +224,41 @@ class TripMapUiTest {
         assertEquals(1, opens)
     }
 
+    @Test fun tripScreenShowsLabeledLastTripAndOpensTheMainMapWithoutEmbeddingIt() {
+        var destination: CopilotScreen? = null
+        app(
+            CopilotUiState(tripMap = session().copy(endedAtElapsedMs = 2500, distanceMeters = 1250.0),
+                observedRouteAtElapsedMs = 2500),
+            screen = CopilotScreen.TRIP,
+            navigate = { destination = it }
+        )
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.trip_last_trip_title))
+            .assertIsDisplayed()
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.trip_map_duration))
+            .assertExists()
+        compose.onNodeWithTag("ride_map_viewport").assertDoesNotExist()
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.trip_map_view_button))
+            .performClick()
+        assertEquals(CopilotScreen.MAP, destination)
+    }
+
+    @Test fun tripScreenLabelsTheEmptyLastTripStateInsteadOfShowingPreviousMetrics() {
+        app(CopilotUiState(), screen = CopilotScreen.TRIP)
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.trip_last_trip_empty))
+            .assertExists()
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.trip_map_duration))
+            .assertDoesNotExist()
+        compose.onNodeWithTag("ride_map_viewport").assertDoesNotExist()
+    }
+
+    @Test fun mainMapRequestsConsentBeforeEnablingOnlineTiles() {
+        var requested: Boolean? = null
+        app(CopilotUiState(), CopilotActions(onMapOnlineChange = { requested = it }))
+        compose.onNodeWithTag("map_status_pill").performClick()
+        reveal(RuntimeEnvironment.getApplication().getString(R.string.trip_map_online_title)).performClick()
+        assertEquals(true, requested)
+    }
+
     @Test fun mainMapHasFiveIdleItemsAndMotorcycleShortcutDoesNotStartServices() {
         var destination: CopilotScreen? = null
         var starts = 0
@@ -263,8 +300,9 @@ class TripMapUiTest {
         compose.runOnIdle { assertNull(presented!!.lastFix); assertTrue(presented!!.segments.isEmpty()) }
     }
 
-    private fun capture(theme: String, scale: Float) {
-        RuntimeEnvironment.setQualifiers("w360dp-h800dp-${if (theme == "night") "night" else "notnight"}")
+    private fun capture(theme: String, scale: Float, orientation: String = "portrait") {
+        val size = if (orientation == "landscape") "w800dp-h360dp" else "w360dp-h800dp"
+        RuntimeEnvironment.setQualifiers("$size-${if (theme == "night") "night" else "notnight"}")
         app(CopilotUiState(
             tripActive = true,
             tripMap = session(),
@@ -275,11 +313,21 @@ class TripMapUiTest {
         compose.onNodeWithTag("map_speed").assertExists()
         compose.onNodeWithTag("map_stop").assertExists()
         compose.onNodeWithTag("map_attribution").assertExists()
+        val viewport = compose.onNodeWithTag("ride_map_viewport").fetchSemanticsNode().boundsInRoot
+        val attribution = compose.onNodeWithTag("map_attribution").fetchSemanticsNode().boundsInRoot
+        val dock = compose.onNodeWithTag("map_dock").fetchSemanticsNode().boundsInRoot
+        if (orientation == "landscape") {
+            assertTrue(viewport.right <= dock.left)
+            assertTrue(attribution.right <= viewport.right)
+        } else {
+            assertTrue(attribution.bottom <= dock.top)
+            if (scale >= 1.5f) assertTrue(attribution.top - viewport.top >= viewport.height * .5f)
+        }
         compose.runOnIdle {
             val view = (compose as AndroidComposeTestRule<*, *>).activity.window.decorView
             val image = android.graphics.Bitmap.createBitmap(view.width, view.height, android.graphics.Bitmap.Config.ARGB_8888)
             view.draw(android.graphics.Canvas(image))
-            val file = File("build/reports/trip-map/active-$theme-${if (scale == 2f) "200" else "100"}-portrait.png")
+            val file = File("build/reports/trip-map/active-$theme-${if (scale == 2f) "200" else "100"}-$orientation.png")
             file.parentFile?.mkdirs()
             file.outputStream().use { image.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         }
@@ -289,4 +337,8 @@ class TripMapUiTest {
     @Test fun activeDayNormalCapture() = capture("day", 1f)
     @Test fun activeNightLargeCapture() = capture("night", 2f)
     @Test fun activeDayLargeCapture() = capture("day", 2f)
+    @Test fun activeNightNormalLandscapeCapture() = capture("night", 1f, "landscape")
+    @Test fun activeDayNormalLandscapeCapture() = capture("day", 1f, "landscape")
+    @Test fun activeNightLargeLandscapeCapture() = capture("night", 2f, "landscape")
+    @Test fun activeDayLargeLandscapeCapture() = capture("day", 2f, "landscape")
 }

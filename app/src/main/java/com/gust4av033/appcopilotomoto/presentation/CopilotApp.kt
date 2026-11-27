@@ -231,7 +231,8 @@ fun CopilotApp(
                             }
                             CopilotScreen.TRIP -> TripScreen(state, actions,
                                 onOpenCommands = { navigate(CopilotScreen.COMMANDS) },
-                                onOpenTests = { navigate(CopilotScreen.TESTS) })
+                                onOpenTests = { navigate(CopilotScreen.TESTS) },
+                                onViewMap = { navigate(CopilotScreen.MAP) })
                             CopilotScreen.COMMANDS -> CommandsScreen(state, actions)
                             CopilotScreen.DIAGNOSTICS -> BasicDiagnosticsScreen(state, actions)
                             CopilotScreen.TESTS -> TestsScreen(state, actions)

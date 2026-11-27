@@ -22,6 +22,24 @@ No se trasladó el cambio de verificación/reintentos Bluetooth: `OpenWakeWordPr
 
 La referencia `archive/copilot-mapa-2026-11-25` conserva `c0b10ad`. Lo descrito arriba ya estaba adaptado en los cambios locales antes de esta reanudación. Siguiendo la última indicación de ignorar los borradores, esta entrega no modifica ni elimina esas ramas.
 
+## Actualización de interfaz ligera · 26-11-2026
+
+La continuación se integró en `feature/fase-3-mapa-principal-copilot` sobre la
+base permitida `origin/feature/fase-3-mapa-principal` (`1199e3e`), mediante el
+merge `4a0c6ce`; no se usó `feature/fase-3-recuperacion-rc2` ni el archivo de
+Copilot como base. Etapa A (`5893248`) simplifica el mapa y Etapa B (`c1fded0`)
+reduce densidad de rótulos. La pantalla Viaje deja de insertar `TripMapCard`:
+presenta estado de sesión, resumen rotulado cuando existe una sesión terminada
+y acceso al mapa principal.
+
+El estilo Liberty ahora difiere POI por rangos de rank hasta zoom 17, 18 y 19
+(transporte desde 17), y aeropuertos desde 12. Las etiquetas secundarias de
+lugar comienzan entre zoom 4 y 10 según jerarquía. Se verificó estructuralmente
+que las otras 100 capas, incluidos nombres de calles y escudos, conservan sus
+propiedades. La interfaz se comprueba en `TripMapUiTest` y `MapWeatherUiTest`;
+las capturas nuevas están identificadas como fixtures Compose sin cartografía
+real. No hay `adb` disponible para validar visualmente el estilo con teselas.
+
 ## Proveedores, privacidad y costes
 
 - [OpenFreeMap](https://openfreemap.org/) ofrece la instancia pública sin clave y sin tarifa por solicitudes, también para aplicaciones comerciales. Sus [condiciones](https://openfreemap.org/tos/) no garantizan exactitud ni continuidad. Esta entrega no descarga regiones offline. Mantiene prefetched tiles apagadas, FPS máximo 30, pausa al ocultarse y caché HTTP privada de 64 MiB, además de la caché interna de MapLibre. El atlas Natural Earth incluido permite abrir el mapa sin conexión.

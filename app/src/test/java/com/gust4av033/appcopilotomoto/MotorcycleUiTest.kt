@@ -138,14 +138,14 @@ class MotorcycleUiTest {
     private fun capture(theme: String, scale: Float) {
         RuntimeEnvironment.setQualifiers("w360dp-h800dp-${if (theme == "night") "night" else "notnight"}")
         var starts = 0
-        val screen = mutableStateOf(CopilotScreen.HOME)
+        val screen = mutableStateOf(CopilotScreen.MAP)
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, scale)) {
                 CopilotApp(CopilotUiState(motorcycle = saved), screen.value, { screen.value = it },
                     CopilotActions(onToggleTrip = { starts++ }, onManualTripCommand = { starts++ }))
             }
         }
-        reveal(RuntimeEnvironment.getApplication().getString(R.string.motorcycle_home_hint)).performClick()
+        compose.onNodeWithTag("map_motorcycle").performClick()
         assertEquals(CopilotScreen.MOTORCYCLE, screen.value)
         assertEquals(0, starts)
         fun screenshot(suffix: String) {

@@ -324,7 +324,7 @@ private fun RideDock(
         mode = GlassMode.LITE
     ) {
         if (state.tripActive) {
-            ActiveDockContent(actions, mapped, now, openDetails)
+            ActiveDockContent(actions, mapped, now, openDetails, largeFont)
         } else if (largeFont) {
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = Glass.mapDockPadding, vertical = Glass.mapDockVerticalPadding),
@@ -398,47 +398,75 @@ private fun ActiveDockContent(
     actions: CopilotActions,
     mapped: TripMapSession,
     now: Long,
-    openDetails: () -> Unit
+    openDetails: () -> Unit,
+    largeFont: Boolean
 ) {
     val speed = mapped.speedKmh(now)
     val detailDescription = stringResource(R.string.map_trip_details)
+    val speedText = speed?.let { String.format(Locale.getDefault(), "%.0f", it) }
+        ?: stringResource(R.string.trip_map_no_value)
+    if (largeFont) {
+        Column(
+            Modifier.fillMaxWidth().padding(horizontal = Glass.mapDockPadding, vertical = Glass.mapDockVerticalPadding),
+            verticalArrangement = Arrangement.spacedBy(Glass.mapDockGap)
+        ) {
+            TripSpeedAction(speedText, detailDescription, openDetails, Modifier.fillMaxWidth())
+            RideMapDockButton(
+                label = stringResource(R.string.map_stop_short),
+                icon = R.drawable.ic_stop,
+                destructive = true,
+                onClick = actions.onToggleTrip,
+                modifier = Modifier.fillMaxWidth().testTag("map_stop")
+            )
+        }
+    } else {
+        Row(
+            Modifier.fillMaxWidth().heightIn(min = Glass.mapDockHeight)
+                .padding(horizontal = Glass.mapDockPadding, vertical = Glass.mapDockVerticalPadding),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(Glass.mapDockGap)
+        ) {
+            TripSpeedAction(speedText, detailDescription, openDetails, Modifier.weight(1f))
+            RideMapDockButton(
+                label = stringResource(R.string.map_stop_short),
+                icon = R.drawable.ic_stop,
+                destructive = true,
+                onClick = actions.onToggleTrip,
+                modifier = Modifier.weight(1f).testTag("map_stop")
+            )
+        }
+    }
+}
+
+@Composable
+private fun TripSpeedAction(
+    speed: String,
+    description: String,
+    onClick: () -> Unit,
+    modifier: Modifier
+) {
     Row(
-        Modifier.fillMaxWidth().heightIn(min = Glass.mapDockHeight)
-            .padding(horizontal = Glass.mapDockPadding, vertical = Glass.mapDockVerticalPadding),
+        modifier.heightIn(min = Glass.mapDockButtonHeight)
+            .clickable(role = Role.Button, onClick = onClick)
+            .semantics(mergeDescendants = true) {
+                role = Role.Button
+                contentDescription = description
+            }
+            .testTag("map_speed"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Glass.mapDockGap)
     ) {
-                Row(
-                    Modifier.weight(1f).heightIn(min = Glass.mapDockButtonHeight)
-                        .clickable(role = Role.Button, onClick = openDetails)
-                        .semantics(mergeDescendants = true) {
-                            role = Role.Button
-                            contentDescription = detailDescription
-                        }
-                        .testTag("map_speed"),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(Glass.mapDockGap)
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(Glass.mapStatusIconGap)) {
-                        Text(stringResource(R.string.map_speed_label), style = MaterialTheme.typography.labelMedium)
-                        Text(
-                            speed?.let { String.format(Locale.getDefault(), "%.0f", it) }
-                                ?: stringResource(R.string.trip_map_no_value),
-                            style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "tnum"),
-                            color = MaterialTheme.colorScheme.primary,
-                            maxLines = 1
-                        )
-                    }
-                    Icon(painterResource(R.drawable.ic_arrow_forward), null, Modifier.size(Glass.mapStatusIconSize),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                RideMapDockButton(
-                    label = stringResource(R.string.map_stop_short),
-                    icon = R.drawable.ic_stop,
-                    destructive = true,
-                    onClick = actions.onToggleTrip,
-                    modifier = Modifier.weight(1f).testTag("map_stop")
-                )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Glass.mapStatusIconGap)) {
+            Text(stringResource(R.string.map_speed_label), style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            Text(
+                speed,
+                style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "tnum"),
+                color = MaterialTheme.colorScheme.primary,
+                maxLines = 1
+            )
+        }
+        Icon(painterResource(R.drawable.ic_arrow_forward), null, Modifier.size(Glass.mapStatusIconSize),
+            tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 

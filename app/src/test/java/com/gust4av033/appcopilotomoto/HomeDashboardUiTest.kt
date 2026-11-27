@@ -28,11 +28,12 @@ class HomeDashboardUiTest {
         state: CopilotUiState = CopilotUiState(),
         actions: CopilotActions = CopilotActions(),
         scale: Float = 1f,
+        screen: CopilotScreen = CopilotScreen.HOME,
         navigate: (CopilotScreen) -> Unit = {}
     ) {
         compose.setContent {
             CompositionLocalProvider(LocalDensity provides Density(LocalDensity.current.density, scale)) {
-                CopilotApp(state, CopilotScreen.HOME, navigate, actions)
+                CopilotApp(state, screen, navigate, actions)
             }
         }
     }
@@ -52,13 +53,13 @@ class HomeDashboardUiTest {
         assert(callbacks == 0)
     }
 
-    @Test fun explicitDockStartStartsTripAndNavigates() {
+    @Test fun explicitMainMapDockStartStartsTripWithoutNavigating() {
         var starts = 0
         var screen: CopilotScreen? = null
-        app(actions = CopilotActions(onToggleTrip = { starts++ }), navigate = { screen = it })
-        compose.onNodeWithTag("home_map_dock_trip").performClick()
+        app(actions = CopilotActions(onToggleTrip = { starts++ }), screen = CopilotScreen.MAP, navigate = { screen = it })
+        compose.onNodeWithTag("map_start").performClick()
         assert(starts == 1)
-        assert(screen == CopilotScreen.TRIP)
+        assert(screen == null)
     }
 
     @Test fun activeDockStopsTripWithoutNavigating() {
@@ -67,9 +68,10 @@ class HomeDashboardUiTest {
         app(
             state = CopilotUiState(tripActive = true, tripLocationEnabled = true),
             actions = CopilotActions(onToggleTrip = { stops++ }),
+            screen = CopilotScreen.MAP,
             navigate = { screen = it }
         )
-        compose.onNodeWithTag("home_map_dock_trip").performClick()
+        compose.onNodeWithTag("map_stop").performClick()
         assert(stops == 1)
         assert(screen == null)
     }
@@ -78,20 +80,22 @@ class HomeDashboardUiTest {
         var starts = 0
         app(
             state = CopilotUiState(audioDevices = AudioDevicesUi(selectionMissing = true)),
+            screen = CopilotScreen.MAP,
             actions = CopilotActions(onToggleTrip = { starts++ })
         )
-        compose.onNodeWithTag("home_map_dock_trip").assertIsNotEnabled()
-        compose.onNodeWithTag("home_map_dock_motorcycle").assertIsEnabled()
-        compose.onNodeWithTag("home_map_dock_settings").assertIsEnabled()
+        compose.onNodeWithTag("map_start").assertIsNotEnabled()
+        compose.onNodeWithTag("map_motorcycle").assertIsEnabled()
+        compose.onNodeWithTag("map_settings").assertIsEnabled()
         assert(starts == 0)
     }
 
     @Test fun motorcycleAndSettingsDockNavigateWithoutTripCallbacks() {
         var callbacks = 0
         var screens = mutableListOf<CopilotScreen>()
-        app(actions = CopilotActions(onToggleTrip = { callbacks++ }), navigate = { screens += it })
-        compose.onNodeWithTag("home_map_dock_motorcycle").performClick()
-        compose.onNodeWithTag("home_map_dock_settings").performClick()
+        app(actions = CopilotActions(onToggleTrip = { callbacks++ }), screen = CopilotScreen.MAP,
+            navigate = { screens += it })
+        compose.onNodeWithTag("map_motorcycle").performClick()
+        compose.onNodeWithTag("map_settings").performClick()
         assert(callbacks == 0)
         assert(screens == listOf(CopilotScreen.MOTORCYCLE, CopilotScreen.SETTINGS))
     }
@@ -117,9 +121,9 @@ class HomeDashboardUiTest {
 
     @Test fun dockRemainsTouchableAtTwoHundredPercentText() {
         RuntimeEnvironment.setQualifiers("w320dp-h800dp-night")
-        app(scale = 2f)
-        listOf("motorcycle", "trip", "settings").forEach { dock ->
-            val node = compose.onNodeWithTag("home_map_dock_$dock")
+        app(scale = 2f, screen = CopilotScreen.MAP)
+        listOf("motorcycle", "start", "settings").forEach { dock ->
+            val node = compose.onNodeWithTag("map_$dock")
             node.assertExists()
             node.assertIsEnabled()
         }

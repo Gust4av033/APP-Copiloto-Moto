@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="trip_last_trip_title">Último viaje</string>
+    <string name="trip_last_trip_empty">Todavía no hay un viaje finalizado para resumir.</string>
+    <string name="trip_last_trip_active">El resumen estará disponible cuando termine la sesión actual.</string>
+    <string name="trip_map_view_button">Ver en el mapa</string>
     <string name="trip_map_title">Tu recorrido</string>
     <string name="trip_map_current_session">Sesión actual</string>
     <string name="trip_map_previous_session">Resumen de la última sesión</string>

@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.gust4av033.appcopilotomoto.R
+import com.gust4av033.appcopilotomoto.TripMapSession
 import com.gust4av033.appcopilotomoto.presentation.CopilotActions
 import com.gust4av033.appcopilotomoto.presentation.SettingsSection
 import com.gust4av033.appcopilotomoto.presentation.components.SettingsMenuRow
@@ -42,15 +43,22 @@ import com.gust4av033.appcopilotomoto.presentation.components.SectionCard
 import com.gust4av033.appcopilotomoto.presentation.components.SessionStatus
 import com.gust4av033.appcopilotomoto.presentation.components.SupportingText
 import com.gust4av033.appcopilotomoto.presentation.components.ToggleSettingRow
+import java.util.Locale
 
-fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onOpenCommands: () -> Unit, onOpenTests: () -> Unit) {
-    val mapAfterPrompts = state.pendingAppName != null || state.standaloneListening ||
-        (!state.tripActive && state.lastTestCommand != null)
+fun LazyListScope.TripScreen(
+    state: CopilotUiState,
+    actions: CopilotActions,
+    onOpenCommands: () -> Unit,
+    onOpenTests: () -> Unit,
+    onViewMap: () -> Unit
+) {
     item(key = "TripScreen_0") {
         JourneyHero(state, tripScreen = true, onPrimary = actions.onToggleTrip,
             onCommand = actions.onManualTripCommand)
     }
-    if (!mapAfterPrompts) item(key = "trip_map") { com.gust4av033.appcopilotomoto.presentation.components.TripMapCard(state, actions) }
+    item(key = "trip_last_trip_summary") {
+        LastTripSummary(state.tripMap, state.observedRouteAtElapsedMs, state.tripActive, onViewMap)
+    }
     if (state.tripActive && state.buttonMode && !state.canRequestTripCommand) item(key = "waiting") {
         SupportingText(stringResource(R.string.trip_wait_ready))
     }
@@ -85,7 +93,6 @@ fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onO
     if (!state.tripActive && state.lastTestCommand != null) item("standalone_result") {
         SectionCard(stringResource(R.string.trip_last_result)) { CommandInterpretation(state.lastTestCommand) }
     }
-    if (mapAfterPrompts) item(key = "trip_map") { com.gust4av033.appcopilotomoto.presentation.components.TripMapCard(state, actions) }
     if (state.buttonMode && state.tripButtonBinding != "NONE" && !state.mediaAccessGranted) item("trip_button_permission") { MediaAccessCard(state, actions) }
     item(key = "TripScreen_3") {
         SectionCard(stringResource(R.string.trip_last_result)) {
@@ -110,6 +117,42 @@ fun LazyListScope.TripScreen(state: CopilotUiState, actions: CopilotActions, onO
         }
     }
 
+}
+
+@Composable
+private fun LastTripSummary(session: TripMapSession, now: Long, tripActive: Boolean, onViewMap: () -> Unit) {
+    SectionCard(stringResource(R.string.trip_last_trip_title)) {
+        when {
+            session.endedAtElapsedMs != null -> {
+                val duration = session.durationMs(now)?.let { ms ->
+                    val seconds = ms / 1000
+                    String.format(Locale.getDefault(), "%02d:%02d:%02d",
+                        seconds / 3600, seconds / 60 % 60, seconds % 60)
+                } ?: stringResource(R.string.trip_map_no_value)
+                val distance = session.distanceMeters?.takeIf { it.isFinite() && it >= 0.0 }?.let {
+                    stringResource(R.string.trip_map_km, String.format(Locale.getDefault(), "%.2f", it / 1000))
+                } ?: stringResource(R.string.trip_map_no_value)
+                TripMapMetric(stringResource(R.string.trip_map_duration), duration)
+                TripMapMetric(stringResource(R.string.trip_map_distance), distance)
+                SupportingText(stringResource(R.string.trip_map_summary_memory))
+            }
+            tripActive -> SupportingText(stringResource(R.string.trip_last_trip_active))
+            else -> SupportingText(stringResource(R.string.trip_last_trip_empty))
+        }
+        ActionButton(
+            stringResource(R.string.trip_map_view_button),
+            iconRes = R.drawable.ic_map,
+            onClick = onViewMap
+        )
+    }
+}
+
+@Composable
+private fun TripMapMetric(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(value, style = MaterialTheme.typography.headlineSmall)
+    }
 }
 
 @Composable

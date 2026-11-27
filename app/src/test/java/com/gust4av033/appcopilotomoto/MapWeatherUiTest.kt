@@ -86,6 +86,30 @@ class MapWeatherUiTest {
         assertEquals(0, audioActions)
     }
 
+    @Test fun onlineMapDisclosureExplainsTileDataAndRequiresAnExplicitChoice() {
+        var accepted = 0
+        var dismissed = 0
+        val visible = mutableStateOf(true)
+        compose.setContent {
+            if (visible.value) CopilotTheme {
+                ProminentDisclosureDialog(
+                    DisclosureKind.ONLINE_MAP,
+                    onContinue = { accepted++; visible.value = false },
+                    onDismiss = { dismissed++; visible.value = false }
+                )
+            }
+        }
+        compose.onNodeWithText("APP solicita recursos de OpenFreeMap", substring = true).assertExists()
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.disclosure_cancel))
+            .performClick()
+        assertEquals(0, accepted)
+        assertEquals(1, dismissed)
+        compose.runOnIdle { visible.value = true }
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.disclosure_continue))
+            .performClick()
+        assertEquals(1, accepted)
+    }
+
     @Test @Config(sdk = [35], qualifiers = "w320dp-h480dp-night")
     fun weatherDisclosureCanBeReadToTheEndAtTwoHundredPercentFont() {
         RuntimeEnvironment.setFontScale(2f)
@@ -109,8 +133,9 @@ class MapWeatherUiTest {
         assertEquals(1, accepted)
     }
 
-    private fun capture(theme: String, scale: Float) {
-        RuntimeEnvironment.setQualifiers("w360dp-h800dp-${if (theme == "night") "night" else "notnight"}")
+    private fun capture(theme: String, scale: Float, orientation: String = "portrait") {
+        val size = if (orientation == "landscape") "w800dp-h360dp" else "w360dp-h800dp"
+        RuntimeEnvironment.setQualifiers("$size-${if (theme == "night") "night" else "notnight"}")
         compose.setContent {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalTripMapRenderer provides labeledTripMapRenderer(),
@@ -124,11 +149,29 @@ class MapWeatherUiTest {
         compose.onNodeWithTag("map_perspective").assertIsDisplayed()
         compose.onNodeWithTag("map_attribution").assertIsDisplayed()
         compose.onNodeWithTag("map_dock").assertIsDisplayed()
+        val viewport = compose.onNodeWithTag("ride_map_viewport").fetchSemanticsNode().boundsInRoot
+        val status = compose.onNodeWithTag("map_status_pill").fetchSemanticsNode().boundsInRoot
+        val camera = compose.onNodeWithTag("map_camera_mode").fetchSemanticsNode().boundsInRoot
+        val perspective = compose.onNodeWithTag("map_perspective").fetchSemanticsNode().boundsInRoot
+        val attribution = compose.onNodeWithTag("map_attribution").fetchSemanticsNode().boundsInRoot
+        val dock = compose.onNodeWithTag("map_dock").fetchSemanticsNode().boundsInRoot
+        if (orientation == "landscape") {
+            assertTrue(viewport.right <= dock.left)
+            assertTrue(camera.right <= viewport.right)
+            assertTrue(attribution.right <= viewport.right)
+        } else {
+            if (scale >= 1.5f) assertTrue(status.bottom <= camera.top)
+            else assertTrue(status.right <= camera.left)
+            assertTrue(attribution.bottom <= dock.top)
+            if (scale >= 1.5f) {
+                assertTrue(attribution.top - maxOf(status.bottom, camera.bottom, perspective.bottom) >= viewport.height * .5f)
+            }
+        }
         compose.runOnIdle {
             val view = (compose as AndroidComposeTestRule<*, *>).activity.window.decorView
             val bitmap = android.graphics.Bitmap.createBitmap(view.width, view.height, android.graphics.Bitmap.Config.ARGB_8888)
             view.draw(android.graphics.Canvas(bitmap))
-            val file = File("build/reports/trip-map/idle-$theme-${if (scale == 2f) "200" else "100"}-portrait.png")
+            val file = File("build/reports/trip-map/idle-$theme-${if (scale == 2f) "200" else "100"}-$orientation.png")
             file.parentFile?.mkdirs()
             file.outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
         }
@@ -138,4 +181,8 @@ class MapWeatherUiTest {
     @Test fun idleDayNormalCapture() = capture("day", 1f)
     @Test fun idleNightLargeCapture() = capture("night", 2f)
     @Test fun idleDayLargeCapture() = capture("day", 2f)
+    @Test fun idleNightNormalLandscapeCapture() = capture("night", 1f, "landscape")
+    @Test fun idleDayNormalLandscapeCapture() = capture("day", 1f, "landscape")
+    @Test fun idleNightLargeLandscapeCapture() = capture("night", 2f, "landscape")
+    @Test fun idleDayLargeLandscapeCapture() = capture("day", 2f, "landscape")
 }

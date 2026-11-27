@@ -125,8 +125,25 @@ de Maps o Waze.
 
 ## Actualización de mapa principal · Fase 3
 
-Inicio usa una superficie de mapa a pantalla completa con chip superior de GPS,
-sesión y audio, más un dock de 56 dp para Mi Moto, Viaje y Ajustes. El estado
-sin posición es explícito y no centra coordenadas ficticias. La hoja inferior
-conserva ajustes, permisos y ayuda sin efectos al abrirse. El trazo usa el
-renderer MapLibre existente y no activa un segundo GPS ni el micrófono.
+La pantalla Mapa usa una superficie a pantalla completa. En reposo conserva
+cinco elementos sobre el mapa: estado GPS/audio, cámara, perspectiva 2D/3D,
+atribución y un dock único para Mi Moto, Iniciar viaje y Ajustes. La sesión
+activa conserva velocidad y Detener en el dock; con fuente al 200 % se apilan
+para evitar recortes. La atribución permanece visible encima del dock.
+
+El estado y las opciones de GPS, mapa por Internet y navegador están en el
+detalle, sin efectos al abrirlo. Rumbo/Norte alternan en un botón; el modo Libre
+sigue entrando por gesto y solo entonces aparecen Centrar y Ver trazo. La
+temperatura solo aparece cuando el dato es usable. No se inicia GPS, micrófono,
+servicio ni voz al dibujar.
+
+Viaje ya no embebe otro mapa: conserva controles de sesión, rotula el resumen
+«Último viaje» cuando existe una sesión terminada y ofrece «Ver en el mapa».
+El estilo Liberty difiere POI y etiquetas secundarias de lugares hasta zoom
+cercano; capas de nombres de calles y escudos no cambian.
+
+La cobertura de UI está en `TripMapUiTest` y `MapWeatherUiTest`, con capturas
+Compose diurnas/nocturnas, fuente 100/200 %, orientación vertical/horizontal y
+estados de reposo/sesión. El mapa de esas capturas es un fixture identificado,
+no una prueba de cartografía real; la densidad final de rótulos requiere
+captura nativa con teselas y se mantiene pendiente.
