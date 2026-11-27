@@ -15,8 +15,8 @@ android {
         applicationId = "com.gust4av033.appcopilotomoto"
         minSdk = 26
         targetSdk = 36
-        versionCode = 23
-        versionName = "1.2.1-rc2"
+        versionCode = 25
+        versionName = "1.2.1-rc4"
         testInstrumentationRunner = "com.gust4av033.appcopilotomoto.ModelCompatibilityInstrumentation"
     }
 

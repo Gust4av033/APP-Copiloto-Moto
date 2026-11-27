@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -28,6 +29,8 @@ import androidx.compose.material3.RadioButton
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.Row
 import androidx.compose.ui.Alignment
 import androidx.compose.foundation.rememberScrollState
@@ -91,16 +94,25 @@ private fun MotorcycleProfileCard(state: CopilotUiState, actions: CopilotActions
     var km by rememberSaveable(saved?.odometerMeters) { mutableStateOf(manualKilometers(saved?.odometerMeters)) }
     var catalogId by rememberSaveable(saved?.catalogId) { mutableStateOf(saved?.catalogId) }
     var catalogOpen by rememberSaveable { mutableStateOf(false) }
+    var editing by rememberSaveable(moto.revision, saved != null) { mutableStateOf(saved == null) }
+    var specEditing by rememberSaveable(moto.revision) { mutableStateOf(false) }
+    var overridesJson by rememberSaveable(saved?.specificationOverrides) {
+        mutableStateOf(org.json.JSONObject(saved?.specificationOverrides ?: emptyMap<String, String>()).toString())
+    }
+    val overridesObject = org.json.JSONObject(overridesJson)
+    val overrides = overridesObject.keys().asSequence().associateWith { overridesObject.getString(it) }
+    val profileEditable = editable && editing
     val selected = MotorcycleCatalog.find(catalogId)
-    val draft = MotorcycleDraft(name, model, km, catalogId)
+    val draft = MotorcycleDraft(name, model, km, catalogId, overrides)
     val changed = saved == null || name != saved.name || model != saved.model ||
-        km != manualKilometers(saved.odometerMeters) || catalogId != saved.catalogId
+        km != manualKilometers(saved.odometerMeters) || catalogId != saved.catalogId || overrides != saved.specificationOverrides
     SectionCard(stringResource(R.string.motorcycle_profile)) {
         Image(painterResource(selected?.artwork ?: R.drawable.ic_ignitor_vector),
             stringResource(R.string.motorcycle_catalog_art), Modifier.fillMaxWidth().heightIn(max = Glass.motorcyclePhotoHeight))
         Text(selected?.model ?: saved?.model?.takeIf { it.isNotBlank() } ?: stringResource(R.string.motorcycle_catalog_unselected),
             style = MaterialTheme.typography.titleLarge)
-        ActionButton(stringResource(R.string.motorcycle_catalog_choose), enabled = editable) { catalogOpen = true }
+        if (!editing) ActionButton(stringResource(R.string.motorcycle_edit_profile), enabled = editable) { editing = true; specEditing = true }
+        ActionButton(stringResource(R.string.motorcycle_catalog_choose), enabled = profileEditable) { catalogOpen = true }
         SupportingText(stringResource(R.string.motorcycle_catalog_hint))
         if (saved != null && saved.catalogId == null) SupportingText(stringResource(R.string.motorcycle_legacy_model))
         if (saved?.photoName != null) {
@@ -114,7 +126,10 @@ private fun MotorcycleProfileCard(state: CopilotUiState, actions: CopilotActions
                     MotorcycleCatalog.entries.forEach { entry ->
                         Row(Modifier.fillMaxWidth().heightIn(min = Glass.iconButtonSize)
                             .selectable(selected = entry.id == catalogId, enabled = editable, role = Role.RadioButton) {
-                                catalogId = entry.id; model = entry.model; catalogOpen = false
+                                if (catalogId != entry.id) overridesJson = "{}"
+                                catalogId = entry.id; model = entry.model
+                                if (name.isBlank()) name = entry.model
+                                catalogOpen = false
                             }, verticalAlignment = Alignment.CenterVertically) {
                             RadioButton(selected = entry.id == catalogId, onClick = null, enabled = editable)
                             Text(entry.model)
@@ -123,16 +138,40 @@ private fun MotorcycleProfileCard(state: CopilotUiState, actions: CopilotActions
                     SupportingText(stringResource(R.string.motorcycle_catalog_hint))
                 }
             }, confirmButton = { TextButton(onClick = { catalogOpen = false }) { Text(stringResource(R.string.ride_done)) } })
-        MotoField(name, { name = it }, R.string.motorcycle_name, editable, max = 60)
-        MotoField(km, { km = it }, R.string.motorcycle_odometer, editable, decimal = true,
+        MotoField(name, { name = it }, R.string.motorcycle_name, profileEditable, max = 60)
+        MotoField(km, { km = it }, R.string.motorcycle_odometer, profileEditable, decimal = true,
             error = km.isNotBlank() && parseManualKilometers(km) == null)
         SupportingText(stringResource(R.string.motorcycle_odometer_hint))
         if (km.isNotBlank() && parseManualKilometers(km) == null) SupportingText(stringResource(R.string.motorcycle_km_invalid))
-        ActionButton(stringResource(R.string.motorcycle_save), enabled = editable && changed && draft.isValid() && (catalogId != null || saved != null), primary = true) {
+        if (selected != null) {
+            Text(stringResource(R.string.moto_spec_title), style = MaterialTheme.typography.titleMedium)
+            SupportingText(stringResource(R.string.moto_spec_variant))
+            if (profileEditable && !specEditing) ActionButton(stringResource(R.string.moto_spec_edit)) { specEditing = true }
+            for (field in MotorcycleSpec.entries) {
+                val value = overrides[field.name] ?: selected.specifications[field.name].orEmpty()
+                MotoField(value, { updated ->
+                    val values = org.json.JSONObject(overridesJson)
+                    if (updated == selected.specifications[field.name]) values.remove(field.name) else values.put(field.name, updated)
+                    overridesJson = values.toString()
+                }, field.label, profileEditable && specEditing, decimal = !field.integer, error = !field.valid(value), max = 7)
+                if (overrides.containsKey(field.name)) SupportingText(stringResource(R.string.moto_spec_custom))
+                if (!field.valid(value)) SupportingText(stringResource(R.string.moto_spec_invalid))
+            }
+            SupportingText(stringResource(R.string.moto_spec_limits))
+            val uri = LocalUriHandler.current
+            var linkFailed by rememberSaveable { mutableStateOf(false) }
+            selected.sourceUrl?.let { url -> ActionButton(stringResource(R.string.moto_spec_source)) {
+                linkFailed = runCatching { uri.openUri(url) }.isFailure
+            } }
+            if (linkFailed) SupportingText(stringResource(R.string.trip_map_link_error))
+            if (profileEditable && overrides.isNotEmpty()) ActionButton(stringResource(R.string.moto_spec_reset)) { overridesJson = "{}" }
+        }
+        ActionButton(stringResource(R.string.motorcycle_save), enabled = profileEditable && changed && draft.isValid() && (catalogId != null || saved != null), primary = true) {
             actions.onSaveMotorcycle(draft)
         }
-        if (changed && saved != null) ActionButton(stringResource(R.string.motorcycle_discard), enabled = editable) {
+        if (editing && saved != null) ActionButton(stringResource(R.string.motorcycle_discard), enabled = editable) {
             name = saved.name; model = saved.model; km = manualKilometers(saved.odometerMeters); catalogId = saved.catalogId
+            overridesJson = org.json.JSONObject(saved.specificationOverrides).toString(); editing = false
         }
     }
 }
@@ -210,6 +249,16 @@ private fun MaintenanceForm(record: MaintenanceRecord?, state: CopilotUiState, a
 @Composable
 private fun MotoField(value: String, change: (String) -> Unit, label: Int, enabled: Boolean,
     max: Int = 16, decimal: Boolean = false, error: Boolean = false, multiline: Boolean = false) {
+    if (!enabled) {
+        Column(Modifier.fillMaxWidth().semantics(mergeDescendants = true) { disabled() }.padding(vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(stringResource(label), style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value.ifBlank { "—" }, style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface)
+        }
+        return
+    }
     OutlinedTextField(value, { if (it.length <= max) change(it) }, label = { Text(stringResource(label)) },
         enabled = enabled, singleLine = !multiline, isError = error, modifier = Modifier.fillMaxWidth(),
         keyboardOptions = KeyboardOptions(keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Text))
