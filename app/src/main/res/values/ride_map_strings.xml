@@ -45,7 +45,7 @@
     <string name="map_start_short">Iniciar viaje</string>
     <string name="map_stop_short">Detener</string>
     <string name="map_road_coverage">Las flechas indican el sentido único registrado en el mapa, no instrucciones de giro. La cobertura puede estar incompleta o desactualizada. Este mapa no incluye una capa verificada de stops ni semáforos; prevalece la señalización de la vía.</string>
-    <string name="map_details_title">Estado del mapa y del viaje</string>
+    <string name="map_details_title">Estado y clima</string>
     <string name="map_more_options">Más opciones</string>
     <string name="map_status_description">GPS: %1$s. Audio: %2$s. Sesión: %3$s. Abrir detalles.</string>
     <string name="map_speed_label">Velocidad</string>

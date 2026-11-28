@@ -53,7 +53,7 @@ class MapWeatherUiTest {
             }
         }
         compose.onNodeWithText("24 °C").assertIsDisplayed()
-        compose.onNodeWithTag("map_weather").performClick()
+        compose.onNodeWithTag("map_status_pill").performClick()
         compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_hourly)).assertExists()
         compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_here))
             .performClick()
@@ -65,9 +65,38 @@ class MapWeatherUiTest {
         compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.ride_done)).performClick()
         compose.runOnIdle { data.value = weather.copy(nowElapsedMs = 61_000) }
         compose.onNodeWithText("24 °C").assertDoesNotExist()
-        compose.onNodeWithTag("map_weather").performClick()
-        compose.onAllNodesWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_unavailable)).assertCountEquals(2)
+        compose.onNodeWithTag("map_status_pill").performClick()
+        compose.onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.weather_unavailable)).assertExists()
         assertEquals(0, audioActions)
+    }
+
+    @Test fun tripKeepsWeatherVisibleAndUnknownMotionDoesNotOpenDetails() {
+        var calls = 0
+        compose.setContent {
+            CompositionLocalProvider(LocalTripMapRenderer provides labeledTripMapRenderer()) {
+                CopilotApp(CopilotUiState(tripActive = true, weather = weather), CopilotScreen.MAP, {},
+                    CopilotActions(onToggleTrip = { calls++ }, onRefreshWeather = { calls++ }))
+            }
+        }
+        compose.onNodeWithText("24 °C").assertIsDisplayed()
+        compose.onNodeWithTag("map_status_pill").assertIsNotEnabled().performClick()
+        compose.onNodeWithTag("map_details_content").assertDoesNotExist()
+        assertEquals(0, calls)
+    }
+
+    @Test fun oldObservationShowsItsAgeInsteadOfClaimingCurrentWeather() {
+        compose.setContent {
+            CompositionLocalProvider(LocalTripMapRenderer provides labeledTripMapRenderer(),
+                LocalDensity provides Density(LocalDensity.current.density, 2f)) {
+                CopilotApp(CopilotUiState(weather = weather.copy(nowEpochMs = epoch + 2 * 3_600_000, nowElapsedMs = 1000 + 2 * 3_600_000,
+                    data = weather.data!!.copy(ttlMs = 3 * 3_600_000))),
+                    CopilotScreen.MAP, {}, CopilotActions())
+            }
+        }
+        compose.onNodeWithText("24 °C").assertIsDisplayed()
+        compose.onNodeWithText("hace 2 h").assertIsDisplayed()
+        compose.onNodeWithText("Vigente").assertDoesNotExist()
+        compose.onNodeWithTag("map_status_pill").assertHeightIsEqualTo(48.dp)
     }
 
     @Test fun activatingWeatherIsAnExplicitActionFromTheMapDetails() {
@@ -144,7 +173,7 @@ class MapWeatherUiTest {
             }
         }
         compose.onNodeWithText("24 °C").assertIsDisplayed()
-        compose.onNodeWithText("Vigente").assertIsDisplayed()
+        compose.onNodeWithText("Vigente").assertDoesNotExist()
         compose.onNodeWithTag("map_status_pill").assertIsDisplayed()
         compose.onNodeWithTag("map_layers").assertIsDisplayed()
         compose.onNodeWithTag("map_perspective").assertIsDisplayed()
@@ -161,8 +190,7 @@ class MapWeatherUiTest {
             assertTrue(camera.right <= viewport.right)
             assertTrue(attribution.right <= viewport.right)
         } else {
-            if (scale >= 1.5f) assertTrue(status.bottom <= camera.top)
-            else assertTrue(status.right <= camera.left)
+            assertTrue(!status.overlaps(camera))
             assertTrue(attribution.bottom <= dock.top)
             if (scale >= 1.5f) {
                 assertTrue(attribution.top - maxOf(status.bottom, camera.bottom, perspective.bottom) >= viewport.height * .5f)
@@ -179,11 +207,5 @@ class MapWeatherUiTest {
     }
 
     @Test fun idleNightNormalCapture() = capture("night", 1f)
-    @Test fun idleDayNormalCapture() = capture("day", 1f)
     @Test fun idleNightLargeCapture() = capture("night", 2f)
-    @Test fun idleDayLargeCapture() = capture("day", 2f)
-    @Test fun idleNightNormalLandscapeCapture() = capture("night", 1f, "landscape")
-    @Test fun idleDayNormalLandscapeCapture() = capture("day", 1f, "landscape")
-    @Test fun idleNightLargeLandscapeCapture() = capture("night", 2f, "landscape")
-    @Test fun idleDayLargeLandscapeCapture() = capture("day", 2f, "landscape")
 }

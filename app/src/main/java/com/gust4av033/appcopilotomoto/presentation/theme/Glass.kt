@@ -63,6 +63,14 @@ internal val LocalGlassDark = staticCompositionLocalOf { false }
 
 /** Shared surface, button and geometry tokens. */
 object Glass {
+    val mapScrimTop = 120.dp
+    val mapScrimBottom = 180.dp
+    val mapScrimInk = Color(0xFF050C1D)
+    const val mapScrimAlpha = .4f
+    val mapGlyphStroke = 1.5.dp
+    val mapCapsuleConditionWidth = 480.dp
+    val mapTemperatureSize = 14.sp
+    const val mapRainWarningPercent = 70
     val mapWeatherWidth = 188.dp
     val rideSurface = Color(0xFF050C1D)
     val rideInk = Color(0xFFF4F7FF)
@@ -118,7 +126,7 @@ object Glass {
     val mapStatusIconGap = 4.dp
     val mapScreenInset = 12.dp
     val mapControlGap = 8.dp
-    val mapCameraControlsWidth = 104.dp
+    val mapCameraControlsWidth = 48.dp
     val mapAttributionGap = 76.dp
     val mapAttributionTextSize = 11.sp
     val mapDockRadius = 28.dp

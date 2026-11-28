@@ -24,29 +24,28 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import androidx.compose.ui.platform.LocalUriHandler
 
-/** Presentation reused from UI Vistazo; all data/actions belong to the existing weather owner. */
+/** Compact content only: the shared capsule owns interaction; weather keeps its existing owner. */
 @Composable
-internal fun MapWeather(state: CopilotUiState, actions: CopilotActions, modifier: Modifier = Modifier) {
-    var open by remember { mutableStateOf(false) }
+internal fun MapWeather(state: CopilotUiState, modifier: Modifier = Modifier, showCondition: Boolean = false) {
     val observation = state.weather.usable
-    MapOverlayPanel(modifier.testTag("map_weather").clickable(role = Role.Button) { open = true }) {
-        Row(Modifier.heightIn(min = Glass.iconButtonSize).padding(Glass.mapStatusGap),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Glass.mapStatusGap)) {
-            Icon(painterResource(R.drawable.ic_weather), null, Modifier.size(Glass.iconSize))
-            Column {
-                Text(observation?.temperatureCelsius?.let(::temperature) ?: stringResource(R.string.weather_title),
-                    style = MaterialTheme.typography.titleSmall)
-                Text(stringResource(if (observation == null) weatherStatus(state) else conditionLabel(observation.weatherCode)),
-                    style = MaterialTheme.typography.labelSmall)
-                if (observation != null) Text(stringResource(if (state.weather.old) R.string.weather_previous else R.string.map_weather_fresh),
-                    style = MaterialTheme.typography.labelSmall)
-            }
+    val old = state.weather.old && observation != null
+    val age = observation?.let { ((state.weather.nowEpochMs - it.currentEpochMs).coerceAtLeast(0) / 60_000) }
+    val ageLabel = age?.let { if (it >= 60) stringResource(R.string.map_weather_age_hours, it / 60)
+        else stringResource(R.string.map_weather_age_minutes, it) }
+    Row(modifier.testTag("map_weather"), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(Glass.mapStatusIconGap)) {
+        Icon(painterResource(R.drawable.ic_weather), stringResource(if (observation == null) weatherStatus(state)
+            else conditionLabel(observation.weatherCode)), Modifier.size(Glass.iconSize))
+        if (observation != null) {
+            Text(temperature(observation.temperatureCelsius), maxLines = 1,
+                color = if (old) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.labelLarge.copy(fontSize = Glass.mapTemperatureSize,
+                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, fontFeatureSettings = "tnum"))
+            if (old) Text(ageLabel.orEmpty(), maxLines = 1, style = MaterialTheme.typography.labelSmall)
+            else if (showCondition) Text(stringResource(conditionLabel(observation.weatherCode)),
+                maxLines = 1, style = MaterialTheme.typography.labelSmall)
         }
     }
-    if (open) AlertDialog(onDismissRequest = { open = false }, title = { Text(stringResource(R.string.weather_title)) },
-        text = { Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Glass.mapDetailsGap)) {
-            MapWeatherDetails(state, actions)
-        } }, confirmButton = { TextButton(onClick = { open = false }) { Text(stringResource(R.string.ride_done)) } })
 }
 
 @Composable
@@ -57,7 +56,7 @@ internal fun MapWeatherDetails(state: CopilotUiState, actions: CopilotActions) {
     ToggleSettingRow(stringResource(R.string.weather_online), weather.enabled, enabled = weather.enabled || !state.busy,
         onCheckedChange = actions.onWeatherEnabled)
     if (!weather.enabled) {
-        SupportingText(stringResource(if (state.busy) R.string.weather_finish_session else R.string.weather_off_hint))
+        MapHint(stringResource(if (state.busy) R.string.weather_finish_session else R.string.weather_off_hint))
     } else {
         Row(
             Modifier.fillMaxWidth().selectable(
@@ -81,36 +80,37 @@ internal fun MapWeatherDetails(state: CopilotUiState, actions: CopilotActions) {
             RadioButton(weather.area == WeatherArea.DESTINATION, onClick = null)
             Text(stringResource(R.string.weather_destination, weather.destinationLabel ?: stringResource(R.string.weather_not_selected)))
         }
-        SupportingText(stringResource(status))
-        if (weather.failed && observation != null) SupportingText(stringResource(R.string.weather_update_failed))
+        MapHint(stringResource(status))
+        if (weather.failed && observation != null) MapHint(stringResource(R.string.weather_update_failed))
         observation?.let { current ->
             Text(temperature(current.temperatureCelsius), style = MaterialTheme.typography.headlineMedium)
             Text(stringResource(conditionLabel(current.weatherCode)))
             current.windKmh?.let { Text(stringResource(R.string.weather_wind, format(it))) }
             Text(stringResource(R.string.weather_at, time(current.currentEpochMs, current.timeZoneId), current.timeZoneId))
-            SupportingText(stringResource(R.string.weather_model_hint))
-            Text(stringResource(R.string.weather_hourly), style = MaterialTheme.typography.titleMedium)
+            MapHint(stringResource(R.string.weather_model_hint))
+            HorizontalDivider()
+            Text(stringResource(R.string.weather_hourly), style = MaterialTheme.typography.titleMedium, maxLines = 2)
             val hours = current.hourly.filter { it.epochMs >= weather.nowEpochMs }.take(12)
-            if (hours.isEmpty()) SupportingText(stringResource(R.string.weather_hours_unavailable))
+            if (hours.isEmpty()) MapHint(stringResource(R.string.weather_hours_unavailable))
             hours.forEach { hour ->
                 Column {
                     Text("${time(hour.epochMs, current.timeZoneId)} · ${temperature(hour.temperatureCelsius)}",
                         style = MaterialTheme.typography.titleSmall)
-                    SupportingText(stringResource(R.string.weather_hour_details,
+                    MapHint(stringResource(R.string.weather_hour_details,
                         stringResource(conditionLabel(hour.weatherCode)), hour.rainProbability?.toString() ?: "—"))
                 }
             }
         }
         ActionButton(stringResource(R.string.weather_refresh), enabled = weather.hasTarget && !weather.loading && weather.refreshAvailable,
             onClick = actions.onRefreshWeather)
-        if (!weather.refreshAvailable && weather.hasTarget) SupportingText(stringResource(R.string.weather_refresh_wait))
+        if (!weather.refreshAvailable && weather.hasTarget) MapHint(stringResource(R.string.weather_refresh_wait))
     }
     val uri = LocalUriHandler.current
     var linkError by remember { mutableStateOf(false) }
     ActionButton(stringResource(R.string.weather_attribution)) {
         runCatching { uri.openUri("https://open-meteo.com/") }.onFailure { linkError = true }
     }
-    if (linkError) SupportingText(stringResource(R.string.trip_map_link_error))
+    if (linkError) MapHint(stringResource(R.string.trip_map_link_error))
 }
 
 @Composable
@@ -146,4 +146,10 @@ internal fun conditionLabel(code: Int?): Int = when (code) {
     71, 73, 75, 77, 85, 86 -> R.string.weather_snow
     95, 96, 99 -> R.string.weather_storm
     else -> R.string.weather_unknown
+}
+
+@Composable
+internal fun MapHint(text: String) {
+    Text(text, style = MaterialTheme.typography.bodySmall, maxLines = 2,
+        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
 }

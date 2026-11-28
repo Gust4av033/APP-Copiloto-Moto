@@ -84,6 +84,10 @@ fun interface TripMapRenderer {
 }
 val LocalTripMapTopInset = staticCompositionLocalOf<Dp> { 0.dp }
 val LocalTripMapBottomInset = staticCompositionLocalOf<Dp> { 0.dp }
+val LocalTripMapStopped = staticCompositionLocalOf { false }
+val LocalTripMapNavigator = staticCompositionLocalOf<(() -> Unit)?> { null }
+val LocalTripMapNavigatorLabel = staticCompositionLocalOf { "" }
+val LocalTripMapCameraInsets = staticCompositionLocalOf { androidx.compose.foundation.layout.PaddingValues() }
 val LocalTripMapActive = staticCompositionLocalOf { false }
 val LocalTripMapRenderer = staticCompositionLocalOf<TripMapRenderer> { TripMapRenderer { session, now, online ->
     NativeTripMap(session, now, online)
@@ -106,6 +110,7 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
     private var lifecycle = Lifecycle.State.CREATED
     private var started = false
     private var resumed = false
+    private var chromeInsets = intArrayOf(0, 0, 0, 0)
     private var modelKey: List<Double>? = null
     private var map: MapLibreMap? = null
     private var vegetation: NativeVegetation? = null
@@ -151,6 +156,7 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
         view.getMapAsync { ready ->
             if (destroyed) return@getMapAsync
             map = ready
+            ready.setPadding(chromeInsets[0], chromeInsets[1], chromeInsets[2], chromeInsets[3])
             vegetation = NativeVegetation(ready, { view.width }, { view.height }, paint.brightness < 1f)
             ready.setPrefetchesTiles(false); ready.setPrefetchZoomDelta(0)
             ready.addOnCameraMoveStartedListener { reason ->
@@ -210,6 +216,13 @@ internal class NativeTripMapController(context: Context, first: TripMapSession, 
         val show = treesEnabled && online && inclined && resumed
         map?.style?.getLayer(TripMapStyle.TREES)?.setProperties(visibility(if (show) Property.VISIBLE else Property.NONE))
         vegetation?.visible(show)
+    }
+    fun setChromeInsets(left: Int, top: Int, right: Int, bottom: Int) {
+        val next = intArrayOf(left, top, right, bottom)
+        if (next.contentEquals(chromeInsets)) return
+        chromeInsets = next
+        map?.setPadding(left, top, right, bottom)
+        if (cameraMode != TripMapCameraMode.FREE) followPosition()
     }
     fun update(session: TripMapSession, elapsedMs: Long) { data = session; now = elapsedMs; applyData() }
     private fun applyData() {
@@ -358,6 +371,12 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
     var attributionOpen by remember { mutableStateOf(false) }
     var inclined by rememberSaveable { mutableStateOf(true) }
     val tripActive = LocalTripMapActive.current
+    val stopped = LocalTripMapStopped.current
+    val navigator = LocalTripMapNavigator.current
+    val navigatorLabel = LocalTripMapNavigatorLabel.current
+    val cameraInsets = LocalTripMapCameraInsets.current
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val layoutDirection = androidx.compose.ui.platform.LocalLayoutDirection.current
     var layersOpen by remember { mutableStateOf(false) }
     var trees by remember { mutableStateOf(TripMapPreferences(context).vegetationEnabled()) }
     LaunchedEffect(tripActive) { if (tripActive) layersOpen = false }
@@ -384,17 +403,24 @@ private fun NativeTripMap(session: TripMapSession, now: Long, online: Boolean) {
             }
             Box(Modifier.fillMaxSize()) {
                 AndroidView(factory = { controller.view }, update = {
+                    with(density) {
+                        controller.setChromeInsets(cameraInsets.calculateLeftPadding(layoutDirection).roundToPx(),
+                            cameraInsets.calculateTopPadding().roundToPx(), cameraInsets.calculateRightPadding(layoutDirection).roundToPx(),
+                            cameraInsets.calculateBottomPadding().roundToPx())
+                    }
                     controller.setPerspective(inclined)
                     controller.update(session, now)
                 }, modifier = Modifier.fillMaxSize().onGloballyPositioned {
                     val bounds = it.boundsInWindow()
                     controller.visible(bounds.width > 0 && bounds.height > 0)
                 })
+                MapEdgeScrims()
                 TripMapCameraControls(
                     cameraMode = cameraMode, previousFollowMode = previousFollowMode, inclined = inclined,
                     onPerspectiveChanged = { inclined = it },
                     onCenter = { controller.setCameraMode(previousFollowMode) },
-                    onOptions = { layersOpen = true }, riding = tripActive,
+                    onOptions = { layersOpen = true }, riding = tripActive && !stopped,
+                    allowLayers = !tripActive, onNavigator = navigator, navigatorLabel = navigatorLabel,
                     modifier = Modifier.align(Alignment.TopEnd)
                         .padding(top = topInset + Glass.mapControlGap, end = Glass.mapScreenInset)
                 )
@@ -444,32 +470,25 @@ fun FullScreenTripMap(session: TripMapSession, now: Long, online: Boolean, modif
 
 @Composable
 internal fun TripMapCameraControls(
-    cameraMode: TripMapCameraMode,
-    previousFollowMode: TripMapCameraMode,
-    inclined: Boolean,
-    onPerspectiveChanged: (Boolean) -> Unit,
-    onCenter: () -> Unit,
-    onOptions: () -> Unit,
-    modifier: Modifier = Modifier,
-    riding: Boolean = false
+    cameraMode: TripMapCameraMode, previousFollowMode: TripMapCameraMode, inclined: Boolean,
+    onPerspectiveChanged: (Boolean) -> Unit, onCenter: () -> Unit, onOptions: () -> Unit,
+    modifier: Modifier = Modifier, riding: Boolean = false, allowLayers: Boolean = !riding,
+    onNavigator: (() -> Unit)? = null, navigatorLabel: String = ""
 ) {
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(Glass.mapControlGap)) {
-        if (cameraMode == TripMapCameraMode.FREE) MapControlPill(
-            label = stringResource(R.string.map_center_short),
-            description = stringResource(R.string.map_center_follow_mode,
-                stringResource(if (previousFollowMode == TripMapCameraMode.NORTH_UP)
-                    R.string.trip_map_camera_north else R.string.trip_map_camera_heading)),
-            tag = "map_center", onClick = onCenter)
-        if (!riding) {
-            MapControlPill(label = stringResource(if (inclined) R.string.map_mode_3d else R.string.map_mode_2d),
-                description = stringResource(R.string.map_perspective_description,
-                    stringResource(if (inclined) R.string.map_perspective else R.string.map_flat),
-                    stringResource(if (inclined) R.string.map_switch_2d else R.string.map_switch_3d)),
-                tag = "map_perspective", onClick = { onPerspectiveChanged(!inclined) })
-            GlassIconButton(R.drawable.ic_map_layers, stringResource(R.string.map_layers_title),
-                modifier = Modifier.testTag("map_layers"), onClick = onOptions)
-        }
+        if (allowLayers) MapRoundControl(R.drawable.ic_map_layers, stringResource(R.string.map_layers_title),
+            Modifier.testTag("map_layers"), onClick = onOptions)
+        if (!riding) MapRoundControl(R.drawable.ic_map_3d,
+            stringResource(R.string.map_perspective_description,
+                stringResource(if (inclined) R.string.map_mode_3d else R.string.map_mode_2d),
+                stringResource(if (inclined) R.string.map_switch_2d else R.string.map_switch_3d)),
+            Modifier.testTag("map_perspective"), perspective = inclined, onClick = { onPerspectiveChanged(!inclined) })
+        onNavigator?.let { action -> MapRoundControl(R.drawable.ic_trip, navigatorLabel,
+            Modifier.testTag("map_navigator"), onClick = action) }
+        if (cameraMode == TripMapCameraMode.FREE) MapRoundControl(R.drawable.ic_center_fix,
+            stringResource(R.string.map_center_follow_mode, stringResource(if (previousFollowMode == TripMapCameraMode.NORTH_UP)
+                R.string.trip_map_camera_north else R.string.trip_map_camera_heading)), Modifier.testTag("map_center"), onClick = onCenter)
     }
 }
 
@@ -492,24 +511,6 @@ internal fun MapAttributionButton(online: Boolean, onClick: () -> Unit, modifier
             Modifier.padding(horizontal = Glass.mapStatusHorizontalPadding, vertical = Glass.mapStatusVerticalPadding),
             style = MaterialTheme.typography.labelSmall.copy(fontSize = Glass.mapAttributionTextSize)
         )
-    }
-}
-
-@Composable
-private fun MapControlPill(label: String, description: String, tag: String, onClick: () -> Unit) {
-    GlassPanel(
-        modifier = Modifier.heightIn(min = Glass.iconButtonSize)
-            .clickable(role = Role.Button, onClick = onClick)
-            .semantics {
-                contentDescription = description
-                role = Role.Button
-            }
-            .testTag(tag),
-        shape = RoundedCornerShape(Glass.controlRadius),
-        mode = GlassMode.LITE
-    ) {
-        Text(label, Modifier.padding(horizontal = Glass.mapStatusHorizontalPadding,
-            vertical = Glass.mapStatusVerticalPadding), style = MaterialTheme.typography.labelMedium)
     }
 }
 

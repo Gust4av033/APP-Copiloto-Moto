@@ -69,7 +69,13 @@ internal fun CockpitButton(label: String, icon: Int?, modifier: Modifier = Modif
 internal fun HoldToStopButton(modifier: Modifier = Modifier, testTagName: String = "ride_stop_hold", onStop: () -> Unit) {
     val progress = remember { Animatable(0f) }
     val stop by rememberUpdatedState(onStop)
+    val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+    val complete: () -> Unit = {
+        haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress)
+        stop()
+    }
     var confirm by remember { mutableStateOf(false) }
+    val finish by rememberUpdatedState(complete)
     val label = stringResource(R.string.ride_stop_hold)
     val shape = RoundedCornerShape(Glass.controlRadius)
     Row(modifier.testTag(testTagName).heightIn(min = Glass.cockpitButtonHeight)
@@ -78,7 +84,7 @@ internal fun HoldToStopButton(modifier: Modifier = Modifier, testTagName: String
         .semantics(mergeDescendants = true) {
             role = Role.Button; contentDescription = label
             onClick { confirm = true; true }
-            onLongClick(label) { stop(); true }
+            onLongClick(label) { finish(); true }
         }
         .onKeyEvent {
             if (it.key in listOf(Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter)) {
@@ -93,7 +99,7 @@ internal fun HoldToStopButton(modifier: Modifier = Modifier, testTagName: String
                         launch { progress.animateTo(1f, tween(Glass.rideStopHoldMs, easing = LinearEasing)) }
                         // Animation duration scale must never shorten the required hold.
                         delay(Glass.rideStopHoldMs.toLong())
-                        stop()
+                        finish()
                     }
                     try { tryAwaitRelease() } finally { hold.cancel(); progress.snapTo(0f) }
                 }
@@ -109,6 +115,47 @@ internal fun HoldToStopButton(modifier: Modifier = Modifier, testTagName: String
     }
     if (confirm) AlertDialog(onDismissRequest = { confirm = false },
         title = { Text(stringResource(R.string.ride_stop_confirm)) },
-        confirmButton = { TextButton(onClick = { confirm = false; stop() }) { Text(stringResource(R.string.map_stop_short)) } },
+        confirmButton = { TextButton(onClick = { confirm = false; finish() }) { Text(stringResource(R.string.map_stop_short)) } },
         dismissButton = { TextButton(onClick = { confirm = false }) { Text(stringResource(R.string.ride_stop_cancel)) } })
+}
+
+
+/** Shared 48 dp map control, with an explicit shape change for 2D/3D. */
+@Composable
+internal fun MapRoundControl(icon: Int, description: String, modifier: Modifier = Modifier,
+    perspective: Boolean? = null, onClick: () -> Unit) {
+    com.gust4av033.appcopilotomoto.presentation.theme.GlassPanel(
+        modifier = modifier.size(Glass.iconButtonSize).clickable(role = Role.Button, onClick = onClick)
+            .semantics { contentDescription = description; if (perspective != null) selected = perspective },
+        shape = androidx.compose.foundation.shape.CircleShape,
+        mode = com.gust4av033.appcopilotomoto.presentation.theme.GlassMode.LITE
+    ) {
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            if (perspective == null) Icon(painterResource(icon), null, Modifier.size(Glass.iconSize))
+            else {
+                val ink = MaterialTheme.colorScheme.onSurface
+                androidx.compose.foundation.Canvas(Modifier.size(Glass.iconSize)) {
+                    val unit = size.width / 24f
+                    val path = androidx.compose.ui.graphics.Path().apply {
+                        moveTo(12f*unit, 3f*unit); lineTo(22f*unit, 8f*unit)
+                        lineTo(12f*unit, 13f*unit); lineTo(2f*unit, 8f*unit); close()
+                        if (perspective) {
+                            moveTo(2f*unit, 8f*unit); lineTo(2f*unit, 16f*unit)
+                            lineTo(12f*unit, 21f*unit); lineTo(22f*unit, 16f*unit); lineTo(22f*unit, 8f*unit)
+                            moveTo(12f*unit, 13f*unit); lineTo(12f*unit, 21f*unit)
+                        }
+                    }
+                    drawPath(path, ink, style = androidx.compose.ui.graphics.drawscope.Stroke(Glass.mapGlyphStroke.toPx()))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun BoxScope.MapEdgeScrims() {
+    Box(Modifier.fillMaxWidth().height(Glass.mapScrimTop).align(Alignment.TopCenter)
+        .background(Brush.verticalGradient(listOf(Glass.mapScrimInk.copy(alpha = Glass.mapScrimAlpha), androidx.compose.ui.graphics.Color.Transparent))))
+    Box(Modifier.fillMaxWidth().height(Glass.mapScrimBottom).align(Alignment.BottomCenter)
+        .background(Brush.verticalGradient(listOf(androidx.compose.ui.graphics.Color.Transparent, Glass.mapScrimInk.copy(alpha = Glass.mapScrimAlpha)))))
 }

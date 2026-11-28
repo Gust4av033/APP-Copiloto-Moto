@@ -63,64 +63,52 @@ internal fun RideMapScreen(
             R.string.map_audio_headset
         else -> R.string.map_audio_none
     }
-    val compactPositionLabel = when (positionLabel) {
-        R.string.map_fix_short -> R.string.map_gps_short_live
-        R.string.map_last_short -> R.string.map_gps_short_last
-        R.string.map_gps_disabled -> R.string.map_gps_short_disabled
-        R.string.trip_map_gps_unavailable -> R.string.map_gps_short_unavailable
-        R.string.trip_map_projection_unavailable -> R.string.map_gps_short_projection
-        R.string.map_gps_pending -> R.string.map_gps_short_waiting
-        else -> R.string.map_gps_short_world
+    val speed = mappedSession.speedKmh(now)
+    val sample = mappedSession.currentFix(now)
+    var phaseMemory by remember { mutableStateOf(RideUiPhaseMemory()) }
+    LaunchedEffect(state.tripActive, sample, speed) {
+        phaseMemory = rideUiPhase(phaseMemory, state.tripActive, speed, mappedSession.lastFix?.capturedAtElapsedRealtimeMs.takeIf { sample != null })
     }
-    val compactAudioLabel = when (audioLabel) {
-        R.string.map_audio_unknown -> R.string.map_audio_short_unknown
-        R.string.map_audio_headset -> R.string.map_audio_short_headset
-        else -> R.string.map_audio_short_none
-    }
+    // Unknown/stale speed never unlocks controls during a session.
+    val stopped = !state.tripActive || phaseMemory.phase == RideUiPhase.STOPPED_ON_ROUTE && speed != null && speed < 3f
     val density = LocalDensity.current
     var dockHeight by remember { mutableStateOf(0.dp) }
-    var statusHeight by remember { mutableStateOf(0.dp) }
     var detailsOpen by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(stopped) { if (!stopped) detailsOpen = false }
 
     BoxWithConstraints(modifier) {
         val landscape = maxWidth > maxHeight && maxWidth >= 520.dp
         val bottomMax = maxHeight * .44f
-        val topMax = if (landscape) maxHeight - Glass.iconButtonSize - Glass.mapScreenInset * 3 else maxHeight * .45f
-        val largeFont = density.fontScale >= 1.5f
-        val statusMaxWidth = maxWidth - Glass.mapScreenInset * 2 -
-            if (largeFont) 0.dp else Glass.mapCameraControlsWidth + Glass.mapControlGap
+        val statusMaxWidth = maxWidth - (if (landscape) Glass.mapLandscapeDockWidth else 0.dp) -
+            Glass.mapScreenInset * 2 - Glass.mapCameraControlsWidth - Glass.mapControlGap
         val mapArea: @Composable (Modifier, Boolean) -> Unit = { area, withDockInset ->
             Box(area.testTag("ride_map_viewport")) {
                 CompositionLocalProvider(
                     LocalTripMapBottomInset provides if (withDockInset) dockHeight + Glass.mapDockOuterInset else 0.dp,
-                    LocalTripMapTopInset provides if (largeFont && !state.tripActive)
-                        statusHeight + Glass.mapControlGap else 0.dp,
+                    LocalTripMapTopInset provides Glass.mapStatusIconGap,
+                    LocalTripMapStopped provides (state.tripActive && stopped),
+                    LocalTripMapNavigator provides if (state.navigationAvailable) actions.onOpenTripNavigator else null,
+                    LocalTripMapNavigatorLabel provides stringResource(R.string.trip_map_open_navigator, state.navigationProvider.label),
+                    LocalTripMapCameraInsets provides PaddingValues(start = Glass.mapScreenInset,
+                        top = Glass.iconButtonSize + Glass.mapScreenInset * 2,
+                        end = Glass.iconButtonSize + Glass.mapScreenInset * 2,
+                        bottom = (if (withDockInset) dockHeight + Glass.mapDockOuterInset else 0.dp) + Glass.iconButtonSize + Glass.mapScreenInset),
                     LocalTripMapActive provides state.tripActive
                 ) {
                     key(gps) {
                         LocalTripMapRenderer.current.Render(mappedSession, now, state.mapOnlineEnabled)
                     }
                 }
-                if (!state.tripActive) {
-                    Column(Modifier.align(Alignment.TopStart).widthIn(max = statusMaxWidth)
-                        .padding(Glass.mapScreenInset).heightIn(max = topMax).verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(Glass.mapControlGap)) {
-                    MapStatusPill(
-                        state = state,
-                        positionLabel = positionLabel,
-                        audioLabel = audioLabel,
-                        compactPositionLabel = compactPositionLabel,
-                        compactAudioLabel = compactAudioLabel,
-                        onClick = { detailsOpen = true },
-                        modifier = Modifier.onSizeChanged { statusHeight = with(density) { it.height.toDp() } + Glass.mapScreenInset }
-                    )
-                    MapWeather(state, actions, Modifier.widthIn(max = Glass.mapWeatherWidth))
-                    }
-                }
+                MapStatusPill(state, positionLabel, audioLabel, compact = state.tripActive && !stopped,
+                    showCondition = statusMaxWidth >= Glass.mapCapsuleConditionWidth,
+                    enabled = stopped, onClick = { detailsOpen = true },
+                    modifier = Modifier.align(Alignment.TopStart).padding(Glass.mapScreenInset)
+                        .widthIn(max = statusMaxWidth))
             }
         }
         val dock: @Composable (Modifier) -> Unit = { area ->
-            RideDock(state, actions, mappedSession, now, navigate, { detailsOpen = true }, area)
+            RideDock(state, actions, mappedSession, now, navigate, stopped, area)
         }
         if (landscape) {
             Row(Modifier.fillMaxSize()) {
@@ -141,7 +129,7 @@ internal fun RideMapScreen(
         }
     }
 
-    if (detailsOpen) {
+    if (detailsOpen && stopped) {
         MapDetailsDialog(
             state = state,
             positionLabel = positionLabel,
@@ -154,52 +142,32 @@ internal fun RideMapScreen(
 }
 
 @Composable
-private fun MapStatusPill(
-    state: CopilotUiState,
-    positionLabel: Int,
-    audioLabel: Int,
-    compactPositionLabel: Int,
-    compactAudioLabel: Int,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val fullDescription = stringResource(
-        R.string.map_status_description,
-        stringResource(positionLabel),
-        stringResource(audioLabel),
-        stringResource(if (state.tripActive) R.string.map_session_on else R.string.map_session_idle)
-    )
-    GlassPanel(
-        modifier = modifier
-            .clickable(role = Role.Button, onClick = onClick)
-            .semantics(mergeDescendants = true) {
-                role = Role.Button
-                contentDescription = fullDescription
+private fun MapStatusPill(state: CopilotUiState, positionLabel: Int, audioLabel: Int, compact: Boolean, showCondition: Boolean,
+    enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val largeFont = LocalDensity.current.fontScale >= 1.5f
+    val gpsProblem = positionLabel != R.string.map_fix_short
+    val audioProblem = audioLabel != R.string.map_audio_headset
+    val weather = state.weather.usable
+    val rain = weather?.hourly?.firstOrNull { it.epochMs in state.weather.nowEpochMs..(state.weather.nowEpochMs + 3_600_000) }
+        ?.rainProbability?.let { it >= Glass.mapRainWarningPercent } == true
+    val description = stringResource(R.string.map_capsule_description, stringResource(positionLabel), stringResource(audioLabel)) +
+        if (rain) " · " + stringResource(R.string.map_rain_warning) else ""
+    GlassPanel(modifier = modifier.height(Glass.iconButtonSize)
+        .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
+        .semantics { contentDescription = description }.testTag("map_status_pill"),
+        shape = CircleShape, mode = GlassMode.LITE) {
+        Row(Modifier.height(Glass.iconButtonSize).padding(horizontal = Glass.mapStatusHorizontalPadding),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Glass.mapStatusIconGap)) {
+            if (!compact && !largeFont) {
+                Image(painterResource(R.drawable.ic_ignitor_vector), null, Modifier.size(Glass.mapStatusAvatarSize))
+                Icon(painterResource(R.drawable.ic_center_fix), stringResource(positionLabel), Modifier.size(Glass.mapStatusIconSize))
+                Icon(painterResource(R.drawable.ic_audio), stringResource(audioLabel), Modifier.size(Glass.mapStatusIconSize))
             }
-            .testTag("map_status_pill"),
-        shape = CircleShape,
-        mode = GlassMode.LITE
-    ) {
-        Row(
-            Modifier.heightIn(min = Glass.mapStatusHeight)
-                .padding(horizontal = Glass.mapStatusHorizontalPadding, vertical = Glass.mapStatusVerticalPadding),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(Glass.mapStatusGap)
-        ) {
-            Image(painterResource(R.drawable.ic_ignitor_vector), null, Modifier.size(Glass.mapStatusAvatarSize))
-            MapStatusPart(R.drawable.ic_center_fix, stringResource(compactPositionLabel))
-            MapStatusPart(R.drawable.ic_audio, stringResource(compactAudioLabel))
-
+            MapWeather(state, showCondition = showCondition && !largeFont && !compact)
+            if (gpsProblem || audioProblem || rain) Text(stringResource(R.string.map_problem_badge),
+                Modifier.semantics { contentDescription = description },
+                style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.error)
         }
-    }
-}
-
-@Composable
-private fun MapStatusPart(icon: Int, label: String) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Glass.mapStatusIconGap)) {
-        Icon(painterResource(icon), null, Modifier.size(Glass.mapStatusIconSize),
-            tint = MaterialTheme.colorScheme.onSurface)
-        Text(label, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -214,7 +182,7 @@ private fun MapDetailsDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.map_details_title)) },
+        title = { Text(stringResource(R.string.map_details_title), maxLines = 2) },
         text = {
             Column(
                 Modifier.verticalScroll(rememberScrollState()).testTag("map_details_content"),
@@ -225,11 +193,13 @@ private fun MapDetailsDialog(
                     stringResource(R.string.map_session_label),
                     stringResource(if (state.tripActive) R.string.map_session_on else R.string.map_session_idle)
                 )
-                if (state.tripActive || state.sessionProblem) SupportingText(stringResource(sessionProgress(state)))
+                if (state.tripActive || state.sessionProblem) MapHint(stringResource(sessionProgress(state)))
                 MapDetailLine(stringResource(R.string.map_audio_label), stringResource(audioLabel))
-                SupportingText(stringResource(R.string.weather_title))
+                HorizontalDivider()
+                MapHint(stringResource(R.string.weather_title))
                 MapWeatherDetails(state, actions)
 
+                HorizontalDivider()
                 Row(
                     Modifier.fillMaxWidth().padding(top = Glass.mapDetailsGap),
                     verticalAlignment = Alignment.CenterVertically,
@@ -260,18 +230,18 @@ private fun MapDetailsDialog(
                     enabled = state.mapOnlineEnabled || !state.busy,
                     onCheckedChange = actions.onMapOnlineChange
                 )
-                SupportingText(stringResource(if (state.mapOnlineEnabled)
+                MapHint(stringResource(if (state.mapOnlineEnabled)
                     R.string.trip_map_online_hint else R.string.trip_map_offline_hint))
-                SupportingText(stringResource(R.string.map_road_coverage))
-                SupportingText(stringResource(R.string.map_buildings_hint))
-                SupportingText(stringResource(R.string.map_forest_hint))
+                MapHint(stringResource(R.string.map_road_coverage))
+                MapHint(stringResource(R.string.map_buildings_hint))
+                MapHint(stringResource(R.string.map_forest_hint))
                 ActionButton(
                     stringResource(R.string.trip_map_open_navigator, state.navigationProvider.label),
                     enabled = state.navigationAvailable,
                     iconRes = R.drawable.ic_trip,
                     onClick = { onDismiss(); actions.onOpenTripNavigator() }
                 )
-                if (!state.navigationAvailable) SupportingText(stringResource(R.string.trip_map_navigator_unavailable))
+                if (!state.navigationAvailable) MapHint(stringResource(R.string.trip_map_navigator_unavailable))
                 ActionButton(
                     stringResource(R.string.map_trip_details),
                     iconRes = R.drawable.ic_arrow_forward,
@@ -310,23 +280,27 @@ private fun RideDock(
     mapped: TripMapSession,
     now: Long,
     navigate: (CopilotScreen) -> Unit,
-    openDetails: () -> Unit,
+    stopped: Boolean,
     modifier: Modifier
 ) {
     val largeFont = LocalDensity.current.fontScale >= 1.5f
+    if (state.tripActive && !stopped) {
+        Box(modifier.testTag("map_dock").clip(RoundedCornerShape(Glass.mapDockRadius))
+            .background(Brush.verticalGradient(listOf(Glass.rideSurface.copy(alpha = Glass.rideSurfaceAlpha), Glass.rideSurface)))) { ActiveDockContent(actions, mapped, now, largeFont) }
+        return
+    }
     GlassPanel(
         modifier = modifier.testTag("map_dock"),
         shape = RoundedCornerShape(Glass.mapDockRadius),
         mode = GlassMode.LITE
     ) {
-        if (state.tripActive) {
-            ActiveDockContent(actions, mapped, now, openDetails, largeFont)
-        } else if (largeFont) {
+        if (largeFont) {
             Column(
                 Modifier.fillMaxWidth().padding(horizontal = Glass.mapDockPadding, vertical = Glass.mapDockVerticalPadding),
                 verticalArrangement = Arrangement.spacedBy(Glass.mapDockGap)
             ) {
-                RideMapDockButton(
+                if (state.tripActive) HoldToStopButton(Modifier.fillMaxWidth(), "map_stop", actions.onToggleTrip)
+                else RideMapDockButton(
                     label = stringResource(R.string.map_start_short),
                     icon = R.drawable.ic_play,
                     enabled = state.canStartTrip,
@@ -369,7 +343,8 @@ private fun RideDock(
                     onClick = { navigate(CopilotScreen.MOTORCYCLE) },
                     modifier = Modifier.weight(1f).testTag("map_motorcycle")
                 )
-                RideMapDockButton(
+                if (state.tripActive) HoldToStopButton(Modifier.weight(2f), "map_stop", actions.onToggleTrip)
+                else RideMapDockButton(
                     label = stringResource(R.string.map_start_short),
                     icon = R.drawable.ic_play,
                     enabled = state.canStartTrip,
@@ -394,11 +369,9 @@ private fun ActiveDockContent(
     actions: CopilotActions,
     mapped: TripMapSession,
     now: Long,
-    openDetails: () -> Unit,
     largeFont: Boolean
 ) {
     val speed = mapped.speedKmh(now)
-    val detailDescription = stringResource(R.string.map_trip_details)
     val speedText = speed?.let { String.format(Locale.getDefault(), "%.0f", it) }
         ?: stringResource(R.string.trip_map_no_value)
     if (largeFont) {
@@ -406,7 +379,7 @@ private fun ActiveDockContent(
             Modifier.fillMaxWidth().padding(horizontal = Glass.mapDockPadding, vertical = Glass.mapDockVerticalPadding),
             verticalArrangement = Arrangement.spacedBy(Glass.mapDockGap)
         ) {
-            TripSpeedAction(speedText, detailDescription, openDetails, Modifier.fillMaxWidth())
+            TripSpeedAction(speedText, Modifier.fillMaxWidth())
             HoldToStopButton(modifier = Modifier.fillMaxWidth().testTag("map_stop"), testTagName = "map_stop", onStop = actions.onToggleTrip)
         }
     } else {
@@ -416,7 +389,7 @@ private fun ActiveDockContent(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(Glass.mapDockGap)
         ) {
-            TripSpeedAction(speedText, detailDescription, openDetails, Modifier.weight(1f))
+            TripSpeedAction(speedText, Modifier.weight(1f))
             HoldToStopButton(modifier = Modifier.weight(1f).testTag("map_stop"), testTagName = "map_stop", onStop = actions.onToggleTrip)
         }
     }
@@ -425,32 +398,24 @@ private fun ActiveDockContent(
 @Composable
 private fun TripSpeedAction(
     speed: String,
-    description: String,
-    onClick: () -> Unit,
     modifier: Modifier
 ) {
     Row(
         modifier.heightIn(min = Glass.mapDockButtonHeight)
-            .clickable(role = Role.Button, onClick = onClick)
-            .semantics(mergeDescendants = true) {
-                role = Role.Button
-                contentDescription = description
-            }
             .testTag("map_speed"),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(Glass.mapDockGap)
     ) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Glass.mapStatusIconGap)) {
-            Text(stringResource(R.string.map_speed_label), style = MaterialTheme.typography.labelMedium, maxLines = 1)
+            Text(stringResource(R.string.map_speed_label), style = MaterialTheme.typography.labelMedium, color = Glass.rideMuted, maxLines = 1)
             Text(
                 speed,
-                style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "tnum"),
-                color = MaterialTheme.colorScheme.primary,
+                style = MaterialTheme.typography.displaySmall.copy(fontFeatureSettings = "tnum", fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                color = Glass.rideInk,
                 maxLines = 1
             )
         }
-        Icon(painterResource(R.drawable.ic_arrow_forward), null, Modifier.size(Glass.mapStatusIconSize),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text(stringResource(R.string.map_speed_short), style = MaterialTheme.typography.labelSmall, color = Glass.rideMuted)
     }
 }
 

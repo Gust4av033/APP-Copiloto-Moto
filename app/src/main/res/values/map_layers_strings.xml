@@ -1,5 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <string name="map_capsule_description">GPS: %1$s. Audio: %2$s.</string>
+    <string name="map_problem_badge">!</string>
+    <string name="map_rain_warning">Probabilidad de lluvia alta en la próxima hora disponible</string>
+    <string name="map_weather_age_hours">hace %1$d h</string>
+    <string name="map_weather_age_minutes">hace %1$d min</string>
     <string name="map_mode_2d">2D</string>
     <string name="map_mode_3d">3D</string>
     <string name="map_layers_title">Capas y cámara</string>

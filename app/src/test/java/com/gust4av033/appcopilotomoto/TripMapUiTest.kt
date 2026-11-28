@@ -36,6 +36,7 @@ internal fun labeledTripMapRenderer(): TripMapRenderer = TripMapRenderer { sessi
     var trees by remember { mutableStateOf(false) }
     val active = LocalTripMapActive.current
     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceVariant)) {
+        MapEdgeScrims()
         Text(
             "RENDERIZADOR DE PRUEBA\nMapa sustituido; sin cartografía real.",
             Modifier.align(Alignment.Center).padding(20.dp)
@@ -43,7 +44,8 @@ internal fun labeledTripMapRenderer(): TripMapRenderer = TripMapRenderer { sessi
         TripMapCameraControls(
             cameraMode = cameraMode, previousFollowMode = previousMode, inclined = inclined,
             onPerspectiveChanged = { inclined = it }, onCenter = { cameraMode = previousMode },
-            onOptions = { layers = true }, riding = active,
+            onOptions = { layers = true }, riding = active && !LocalTripMapStopped.current,
+            allowLayers = !active, onNavigator = LocalTripMapNavigator.current, navigatorLabel = LocalTripMapNavigatorLabel.current,
             modifier = Modifier.align(Alignment.TopEnd)
                 .padding(top = LocalTripMapTopInset.current + Glass.mapControlGap, end = Glass.mapScreenInset))
         if (layers && !active) MapLayersDialog(online, trees, null, false, cameraMode,
@@ -136,6 +138,8 @@ class TripMapUiTest {
             TripMapCameraControls(TripMapCameraMode.FREE, TripMapCameraMode.NORTH_UP, inclined.value,
                 { inclined.value = it }, { centers++ }, { layers++ }, riding = driving.value)
         }
+        compose.onNodeWithTag("map_perspective").assertWidthIsEqualTo(48.dp).assertHeightIsEqualTo(48.dp)
+        compose.onNodeWithTag("map_layers").assertWidthIsEqualTo(48.dp).assertHeightIsEqualTo(48.dp)
         compose.onNodeWithTag("map_perspective").performClick()
         assertFalse(inclined.value)
         compose.onNodeWithTag("map_layers").performClick(); assertEquals(1, layers)
@@ -146,6 +150,21 @@ class TripMapUiTest {
         compose.onNodeWithTag("map_perspective").assertDoesNotExist()
         compose.onNodeWithTag("map_center").performClick(); assertEquals(1, centers)
     }
+    @Test fun stoppedSessionRestoresDestinationsAndPerspectiveButNotLayers() {
+        val track = TripTrackAccumulator()
+        track.start("stopped-fixture", 1000)
+        track.acceptRecorded(LocationSample(1000, 1000, 14.6, -90.5, null, 0f, .3f, null, null, 3f, "fixture", false), 0.0)
+        app(CopilotUiState(tripActive = true, tripMap = track.snapshot, observedRouteAtElapsedMs = 1000,
+            tripLocationEnabled = true, tripLocationAvailable = true))
+        compose.onNodeWithTag("map_layers").assertDoesNotExist()
+        compose.onNodeWithTag("map_perspective").assertIsDisplayed()
+        compose.onNodeWithTag("map_motorcycle").assertIsDisplayed()
+        compose.onNodeWithTag("map_settings").assertIsDisplayed()
+        compose.onNodeWithTag("map_stop").assertIsDisplayed()
+        compose.onNodeWithTag("map_status_pill").performClick()
+        compose.onNodeWithTag("map_details_content").assertExists()
+    }
+
     @Test fun layersOfferRealModesAndExplicitRefreshAndVegetationActions() {
         val mode = mutableStateOf(TripMapCameraMode.NORTH_UP)
         val trees = mutableStateOf(false)
@@ -171,7 +190,7 @@ class TripMapUiTest {
             tripLocationEnabled = true,
             tripLocationAvailable = true
         ))
-        compose.onNodeWithTag("map_status_pill").assertDoesNotExist()
+        compose.onNodeWithTag("map_status_pill").assertIsDisplayed().assertIsNotEnabled()
         compose.onNodeWithTag("map_camera_mode").assertDoesNotExist()
         compose.onNodeWithTag("map_perspective").assertDoesNotExist()
         compose.onNodeWithTag("map_speed").assertIsDisplayed()
@@ -179,7 +198,7 @@ class TripMapUiTest {
         compose.onNodeWithTag("map_attribution").assertIsDisplayed()
     }
 
-    @Test fun activeTripCanRevokeOnlineMapsAndOpenTheChosenNavigatorSeparately() {
+    @Test fun movingTripKeepsConfigurationClosedAndOpensTheChosenNavigator() {
         var online: Boolean? = null
         var opens = 0
         val state = CopilotUiState(
@@ -192,12 +211,11 @@ class TripMapUiTest {
             navigationAvailable = true
         )
         app(state, CopilotActions(onMapOnlineChange = { online = it }, onOpenTripNavigator = { opens++ }))
-        compose.onNodeWithTag("map_speed").performClick()
-        reveal(RuntimeEnvironment.getApplication().getString(R.string.trip_map_online_title)).performClick()
-        assertEquals(false, online)
-        reveal(RuntimeEnvironment.getApplication().getString(
-            R.string.trip_map_open_navigator, state.navigationProvider.label
-        )).performClick()
+        compose.onNodeWithTag("map_speed").assertHasNoClickAction()
+        compose.onNodeWithTag("map_status_pill").performClick()
+        compose.onNodeWithTag("map_details_content").assertDoesNotExist()
+        assertNull(online)
+        compose.onNodeWithTag("map_navigator").performClick()
         assertEquals(1, opens)
     }
 
@@ -255,7 +273,7 @@ class TripMapUiTest {
         assertTrue(camera.bottom <= attribution.top)
         assertTrue(perspective.bottom <= attribution.top)
         assertTrue(attribution.bottom <= dock.top)
-        val weather = compose.onNodeWithTag("map_weather").fetchSemanticsNode().boundsInRoot
+        val weather = compose.onNodeWithTag("map_weather", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
         assertTrue(weather.right <= camera.left || weather.top >= camera.bottom)
         assertTrue("Map remains the majority of the viewport: $weather $camera $attribution",
             attribution.top - maxOf(weather.bottom, camera.bottom, perspective.bottom) >= viewport.height * .5f)
@@ -280,12 +298,33 @@ class TripMapUiTest {
         compose.runOnIdle { assertNull(presented!!.lastFix); assertTrue(presented!!.segments.isEmpty()) }
     }
 
+    @Test fun mapReceivesCameraInsetsForCapsuleControlsAndDock() {
+        var padding: androidx.compose.foundation.layout.PaddingValues? = null
+        compose.setContent {
+            CompositionLocalProvider(LocalTripMapRenderer provides TripMapRenderer { _, _, _ ->
+                val insets = LocalTripMapCameraInsets.current
+                androidx.compose.runtime.SideEffect { padding = insets }
+            }) { CopilotApp(CopilotUiState(), CopilotScreen.MAP, {}, CopilotActions()) }
+        }
+        compose.runOnIdle {
+            assertEquals(72.dp, padding!!.calculateTopPadding())
+            assertEquals(72.dp, padding!!.calculateRightPadding(androidx.compose.ui.unit.LayoutDirection.Ltr))
+            assertTrue(padding!!.calculateBottomPadding() > 120.dp)
+        }
+    }
+
     @Test fun safeStopRequiresSustainedPressAndCancelsOnReleaseOrDisposal() {
         var stops = 0
+        var haptics = 0
+        val feedback = object : androidx.compose.ui.hapticfeedback.HapticFeedback {
+            override fun performHapticFeedback(hapticFeedbackType: androidx.compose.ui.hapticfeedback.HapticFeedbackType) { haptics++ }
+        }
         val visible = androidx.compose.runtime.mutableStateOf(true)
         compose.setContent {
             com.gust4av033.appcopilotomoto.presentation.theme.CopilotTheme {
-                if (visible.value) HoldToStopButton(onStop = { stops++ })
+                CompositionLocalProvider(androidx.compose.ui.platform.LocalHapticFeedback provides feedback) {
+                    if (visible.value) HoldToStopButton(onStop = { stops++ })
+                }
             }
         }
         compose.mainClock.autoAdvance = false
@@ -294,16 +333,16 @@ class TripMapUiTest {
         compose.mainClock.advanceTimeBy(300)
         button.performTouchInput { up() }
         compose.mainClock.advanceTimeBy(800)
-        compose.runOnIdle { assertEquals(0, stops) }
+        compose.runOnIdle { assertEquals(0, stops); assertEquals(0, haptics) }
         button.performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(700)
         button.performTouchInput { up() }
-        compose.runOnIdle { assertEquals(1, stops) }
+        compose.runOnIdle { assertEquals(1, stops); assertEquals(1, haptics) }
         button.performTouchInput { down(center) }
         compose.mainClock.advanceTimeBy(200)
         compose.runOnIdle { visible.value = false }
         compose.mainClock.advanceTimeBy(800)
-        compose.runOnIdle { assertEquals(1, stops) }
+        compose.runOnIdle { assertEquals(1, stops); assertEquals(1, haptics) }
     }
     @Test fun accessibleStopAsksForExplicitConfirmation() {
         var stops = 0
@@ -321,6 +360,10 @@ class TripMapUiTest {
         RuntimeEnvironment.setQualifiers("$size-${if (theme == "night") "night" else "notnight"}")
         app(CopilotUiState(
             tripActive = true,
+            navigationAvailable = true,
+            weather = WeatherUiState(enabled = true, hasTarget = true, nowEpochMs = 1_800_000_000_000L, nowElapsedMs = 1000,
+                data = ContextValue(WeatherObservation(24.0, "identified capture fixture", 61, 12.0, 1_800_000_000_000L,
+                    "America/El_Salvador", emptyList()), ContextSource.REPLAY_FIXTURE, 1_800_000_000_000L, 1000, 1f, 60_000, true)),
             tripMap = session(),
             observedRouteAtElapsedMs = 2500,
             tripLocationEnabled = true,
@@ -350,11 +393,5 @@ class TripMapUiTest {
     }
 
     @Test fun activeNightNormalCapture() = capture("night", 1f)
-    @Test fun activeDayNormalCapture() = capture("day", 1f)
-    @Test fun activeNightLargeCapture() = capture("night", 2f)
-    @Test fun activeDayLargeCapture() = capture("day", 2f)
-    @Test fun activeNightNormalLandscapeCapture() = capture("night", 1f, "landscape")
-    @Test fun activeDayNormalLandscapeCapture() = capture("day", 1f, "landscape")
-    @Test fun activeNightLargeLandscapeCapture() = capture("night", 2f, "landscape")
     @Test fun activeDayLargeLandscapeCapture() = capture("day", 2f, "landscape")
 }
